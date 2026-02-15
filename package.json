@@ -2,7 +2,7 @@
   "name": "carryint-crm",
   "version": "1.2.0",
   "private": true,
-  "homepage": "https://carryint.github.io/carryint-crm",
+  "homepage": "https://carryint.github.io/carryintcrm/",
   "dependencies": {
     "clsx": "^2.1.1",
     "jszip": "3.10.1",
