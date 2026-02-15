@@ -1,0 +1,8 @@
+{
+  "name": "Carryint CRM & Invoicing System",
+  "description": "A comprehensive cloud-based CRM for shipping services featuring tax invoicing, credit customer management, vendor tracking, and profit analysis.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
