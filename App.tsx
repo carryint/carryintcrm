@@ -54,9 +54,18 @@ const App: React.FC = () => {
       localStorage.setItem('carryint_company_info', JSON.stringify(initial));
     }
 
-    if (savedUsers) {
-      setUsers(JSON.parse(savedUsers));
-    } else {
+    try {
+      if (savedUsers) {
+        const parsed = JSON.parse(savedUsers);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setUsers(parsed);
+        } else {
+          throw new Error('Invalid users data');
+        }
+      } else {
+        throw new Error('No users found');
+      }
+    } catch (e) {
       const defaultAdmin: User = {
         id: 'admin-1',
         name: 'Super Admin',
@@ -102,7 +111,31 @@ const App: React.FC = () => {
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedPass = pass.trim();
 
-    const user = users.find(u => u.email.toLowerCase() === trimmedEmail && u.password === trimmedPass);
+    // Primary check: Search in the loaded users list
+    let user = users.find(u =>
+      (u.email?.toLowerCase().trim() === trimmedEmail) &&
+      (u.password?.trim() === trimmedPass)
+    );
+
+    // Bulletproof Fallback: Hardcoded check for default admin
+    // This repairs the login if localStorage was corrupted or empty on a specific browser
+    if (!user && trimmedEmail === 'info@carryint.com' && trimmedPass === 'intCC3#0') {
+      user = {
+        id: 'admin-1',
+        name: 'Super Admin',
+        email: 'info@carryint.com',
+        password: 'intCC3#0',
+        role: 'ADMIN'
+      };
+      // Auto-repair the users list
+      const updated = users.some(u => u.id === 'admin-1')
+        ? users.map(u => u.id === 'admin-1' ? user! : u)
+        : [...users, user];
+
+      setUsers(updated);
+      localStorage.setItem('carryint_users', JSON.stringify(updated));
+    }
+
     if (user) {
       setCurrentUser(user);
       localStorage.setItem('carryint_current_user', JSON.stringify(user));

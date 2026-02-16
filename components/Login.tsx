@@ -50,6 +50,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, error, companyName }) => {
                                         autoCapitalize="none"
                                         autoCorrect="off"
                                         spellCheck="false"
+                                        autoComplete="username"
                                     />
                                 </div>
                             </div>
@@ -68,6 +69,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, error, companyName }) => {
                                         autoCapitalize="none"
                                         autoCorrect="off"
                                         spellCheck="false"
+                                        autoComplete="current-password"
                                     />
                                 </div>
                             </div>
