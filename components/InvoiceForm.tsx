@@ -1,16 +1,19 @@
 
 import React, { useState } from 'react';
 import { Plus, Trash2, Save, Send } from 'lucide-react';
-import { 
-  Invoice, 
-  InvoiceItem, 
-  Customer, 
-  Vendor, 
-  CompanyInfo
+import {
+  Invoice,
+  InvoiceItem,
+  Customer,
+  Vendor,
+  CompanyInfo,
+  User,
+  AuditLog,
+  PaymentStatus
 } from '../types';
-import { 
-  DESTINATION_COUNTRIES, 
-  COMMODITY_TYPES 
+import {
+  DESTINATION_COUNTRIES,
+  COMMODITY_TYPES
 } from '../constants';
 import { generateId } from '../utils';
 
@@ -19,14 +22,18 @@ interface InvoiceFormProps {
   customers: Customer[];
   vendors: Vendor[];
   companyInfo: CompanyInfo;
+  editingInvoice: Invoice | null;
+  currentUser: User | null;
 }
 
-const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, customers, vendors, companyInfo }) => {
-  const [selectedCustomerId, setSelectedCustomerId] = useState('');
-  const [selectedVendorId, setSelectedVendorId] = useState('');
-  const [vendorCost, setVendorCost] = useState(0);
-  const [destinationCountry, setDestinationCountry] = useState(DESTINATION_COUNTRIES[0]);
-  const [items, setItems] = useState<InvoiceItem[]>([{
+const InvoiceForm: React.FC<InvoiceFormProps> = ({
+  onSave, customers, vendors, companyInfo, editingInvoice, currentUser
+}) => {
+  const [selectedCustomerId, setSelectedCustomerId] = useState(editingInvoice?.customerId || '');
+  const [selectedVendorId, setSelectedVendorId] = useState(editingInvoice?.vendorId || '');
+  const [vendorCost, setVendorCost] = useState(editingInvoice?.vendorCost || 0);
+  const [destinationCountry, setDestinationCountry] = useState(editingInvoice?.destinationCountry || DESTINATION_COUNTRIES[0]);
+  const [items, setItems] = useState<InvoiceItem[]>(editingInvoice?.items || [{
     commodityType: COMMODITY_TYPES[0],
     description: '',
     weight: 0,
@@ -35,6 +42,8 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, customers, vendors, c
     price: 0,
     vatPercent: 5
   }]);
+  const [status, setStatus] = useState<PaymentStatus>(editingInvoice?.status || 'UNPAID');
+  const [vendorStatus, setVendorStatus] = useState<PaymentStatus>(editingInvoice?.vendorStatus || 'UNPAID');
 
   const calculateTotals = () => {
     let totalAmount = 0;
@@ -83,10 +92,18 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, customers, vendors, c
     const { totalAmount, totalVat, netAmount } = calculateTotals();
     const profit = totalAmount - vendorCost;
 
-    const newInvoice: Invoice = {
-      id: generateId(),
-      invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
-      date: new Date().toISOString(),
+    const auditLog: AuditLog = {
+      action: editingInvoice ? 'EDIT' : 'CREATE',
+      userId: currentUser?.id || 'system',
+      userName: currentUser?.name || 'System',
+      timestamp: new Date().toISOString(),
+      details: editingInvoice ? `Edited invoice ${editingInvoice.invoiceNumber}` : `Created invoice`
+    };
+
+    const invoiceData: Invoice = {
+      id: editingInvoice?.id || generateId(),
+      invoiceNumber: editingInvoice?.invoiceNumber || `INV-${Date.now().toString().slice(-6)}`,
+      date: editingInvoice?.date || new Date().toISOString(),
       customerId: customer.id,
       customerName: customer.name,
       customerAddress: customer.address,
@@ -98,16 +115,19 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, customers, vendors, c
       vendorId: vendor?.id,
       vendorName: vendor?.name,
       vendorCost,
-      status: customer.type === 'ONE_TIME' ? 'PAID' : 'UNPAID',
-      vendorStatus: 'UNPAID',
+      status: editingInvoice ? status : (customer.type === 'ONE_TIME' ? 'PAID' : 'UNPAID'),
+      vendorStatus: editingInvoice ? vendorStatus : 'UNPAID',
       totalAmount,
       totalVat,
       netAmount,
       profit,
-      companyTrn: companyInfo.trn 
+      companyTrn: companyInfo.trn,
+      createdBy: editingInvoice?.createdBy || currentUser?.id || 'system',
+      createdByName: editingInvoice?.createdByName || currentUser?.name || 'System',
+      auditLogs: [...(editingInvoice?.auditLogs || []), auditLog]
     };
 
-    onSave(newInvoice);
+    onSave(invoiceData);
   };
 
   // Enhanced contrast with bg-amber-100
@@ -119,13 +139,13 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, customers, vendors, c
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
         <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
           <Send className="text-orange-500" size={24} />
-          Invoice Details
+          {editingInvoice ? `Editing Invoice ${editingInvoice.invoiceNumber}` : 'Create New Invoice'}
         </h3>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
             <label className="block text-sm font-black text-gray-600 uppercase tracking-widest">Customer Selection</label>
-            <select 
+            <select
               value={selectedCustomerId}
               onChange={(e) => setSelectedCustomerId(e.target.value)}
               className={selectClass}
@@ -140,7 +160,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, customers, vendors, c
 
           <div className="space-y-4">
             <label className="block text-sm font-black text-gray-600 uppercase tracking-widest">Destination Country</label>
-            <select 
+            <select
               value={destinationCountry}
               onChange={(e) => setDestinationCountry(e.target.value)}
               className={selectClass}
@@ -161,7 +181,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, customers, vendors, c
             <div key={idx} className="grid grid-cols-1 md:grid-cols-7 gap-4 items-end p-4 border border-amber-200 bg-amber-100/50 rounded-lg">
               <div className="md:col-span-1">
                 <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">Type</label>
-                <select 
+                <select
                   value={item.commodityType}
                   onChange={(e) => updateItem(idx, 'commodityType', e.target.value)}
                   className="w-full px-2 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold"
@@ -171,7 +191,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, customers, vendors, c
               </div>
               <div className="md:col-span-2">
                 <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">Description</label>
-                <input 
+                <input
                   value={item.description}
                   onChange={(e) => updateItem(idx, 'description', e.target.value)}
                   placeholder="Details..."
@@ -180,7 +200,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, customers, vendors, c
               </div>
               <div>
                 <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">Weight</label>
-                <input 
+                <input
                   type="number"
                   value={item.weight}
                   onChange={(e) => updateItem(idx, 'weight', Number(e.target.value))}
@@ -189,7 +209,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, customers, vendors, c
               </div>
               <div>
                 <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">Qty</label>
-                <input 
+                <input
                   type="number"
                   value={item.quantity}
                   onChange={(e) => updateItem(idx, 'quantity', Number(e.target.value))}
@@ -198,7 +218,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, customers, vendors, c
               </div>
               <div>
                 <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">Price</label>
-                <input 
+                <input
                   type="number"
                   value={item.price}
                   onChange={(e) => updateItem(idx, 'price', Number(e.target.value))}
@@ -206,7 +226,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, customers, vendors, c
                 />
               </div>
               <div className="flex items-center gap-2">
-                <button 
+                <button
                   type="button"
                   onClick={() => removeItem(idx)}
                   className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
@@ -216,7 +236,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, customers, vendors, c
               </div>
             </div>
           ))}
-          <button 
+          <button
             type="button"
             onClick={addItem}
             className="flex items-center gap-2 text-orange-600 font-black hover:text-orange-700 mt-4 transition-colors uppercase text-sm"
@@ -232,7 +252,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, customers, vendors, c
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-black text-gray-600 uppercase tracking-widest mb-1">Shipment Vendor</label>
-              <select 
+              <select
                 value={selectedVendorId}
                 onChange={(e) => setSelectedVendorId(e.target.value)}
                 className={selectClass}
@@ -245,7 +265,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, customers, vendors, c
             </div>
             <div>
               <label className="block text-sm font-black text-gray-600 uppercase tracking-widest mb-1">Vendor Cost (AED)</label>
-              <input 
+              <input
                 type="number"
                 value={vendorCost}
                 onChange={(e) => setVendorCost(Number(e.target.value))}
@@ -253,6 +273,33 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, customers, vendors, c
               />
               <p className="text-xs text-amber-900 mt-1 italic font-bold">Base cost for internal profit tracking.</p>
             </div>
+
+            {editingInvoice && (
+              <div className="pt-4 border-t border-amber-200 space-y-4 animate-in fade-in slide-in-from-top-2">
+                <div>
+                  <label className="block text-sm font-black text-orange-800 uppercase tracking-widest mb-1 italic">Customer Payment Status</label>
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as any)}
+                    className={selectClass}
+                  >
+                    <option value="UNPAID">UNPAID (Awaiting Customer Payment)</option>
+                    <option value="PAID">PAID (Amount Received)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-black text-orange-800 uppercase tracking-widest mb-1 italic">Vendor Payment Status</label>
+                  <select
+                    value={vendorStatus}
+                    onChange={(e) => setVendorStatus(e.target.value as any)}
+                    className={selectClass}
+                  >
+                    <option value="UNPAID">UNPAID (Pending Vendor Settlement)</option>
+                    <option value="PAID">PAID (Closed Vendor Bill)</option>
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -278,7 +325,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ onSave, customers, vendors, c
               </div>
             </div>
           </div>
-          <button 
+          <button
             type="submit"
             className="mt-6 w-full bg-orange-600 text-white py-4 rounded-lg font-black uppercase tracking-widest hover:bg-orange-700 transition-all shadow-lg shadow-orange-900/40 flex items-center justify-center gap-2"
           >

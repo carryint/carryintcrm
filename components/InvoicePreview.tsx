@@ -13,7 +13,7 @@ const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, companyInfo })
   const displayTrn = invoice.companyTrn || companyInfo.trn;
 
   return (
-    <div className="bg-white p-10 max-w-4xl mx-auto shadow-2xl border border-gray-200 my-8">
+    <div className="bg-white p-10 max-w-4xl mx-auto shadow-2xl border border-gray-200 my-8 invoice-container">
       {/* Header */}
       <div className="flex justify-between items-start mb-10 border-b-2 border-orange-500 pb-8">
         <div>
@@ -108,7 +108,7 @@ const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, companyInfo })
               AED {numberToWords(Math.round(invoice.totalAmount))} ONLY
             </p>
           </div>
-          
+
           <div className="space-y-4">
             <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest border-b pb-2">Bank Transfer Details</h4>
             <div className="grid grid-cols-2 gap-4 text-xs">

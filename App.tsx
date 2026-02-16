@@ -7,15 +7,33 @@ import InvoicePreview from './components/InvoicePreview';
 import CustomerManagement from './components/CustomerManagement';
 import FinancialReports from './components/FinancialReports';
 import Settings from './components/Settings';
-import { Customer, Vendor, Invoice, CompanyInfo } from './types';
+import Login from './components/Login';
+import { Customer, Vendor, Invoice, CompanyInfo, User } from './types';
 import { COMPANY_INFO as DEFAULT_COMPANY_INFO } from './constants';
-import { Bell, Search, UserCircle } from 'lucide-react';
+import {
+  Bell, Search,
+  UserCircle,
+  Menu,
+  LogOut,
+  Loader2,
+  X,
+  ArrowLeft,
+  Printer,
+  Truck,
+  FileText
+} from 'lucide-react';
+import { generateId } from './utils';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authError, setAuthError] = useState<string>('');
+  const [isAppLoading, setIsAppLoading] = useState(true);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(DEFAULT_COMPANY_INFO as any);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
 
@@ -25,6 +43,8 @@ const App: React.FC = () => {
     const savedVendors = localStorage.getItem('carryint_vendors');
     const savedInvoices = localStorage.getItem('carryint_invoices');
     const savedCompanyInfo = localStorage.getItem('carryint_company_info');
+    const savedUsers = localStorage.getItem('carryint_users');
+    const sessionUser = localStorage.getItem('carryint_current_user');
 
     if (savedCompanyInfo) {
       setCompanyInfo(JSON.parse(savedCompanyInfo));
@@ -32,6 +52,24 @@ const App: React.FC = () => {
       const initial = { ...DEFAULT_COMPANY_INFO, trn: '100456209800003' };
       setCompanyInfo(initial as any);
       localStorage.setItem('carryint_company_info', JSON.stringify(initial));
+    }
+
+    if (savedUsers) {
+      setUsers(JSON.parse(savedUsers));
+    } else {
+      const defaultAdmin: User = {
+        id: 'admin-1',
+        name: 'Super Admin',
+        email: 'info@carryint.com',
+        password: 'intCC3#0',
+        role: 'ADMIN'
+      };
+      setUsers([defaultAdmin]);
+      localStorage.setItem('carryint_users', JSON.stringify([defaultAdmin]));
+    }
+
+    if (sessionUser) {
+      setCurrentUser(JSON.parse(sessionUser));
     }
 
     if (savedCustomers) setCustomers(JSON.parse(savedCustomers));
@@ -56,14 +94,94 @@ const App: React.FC = () => {
     }
 
     if (savedInvoices) setInvoices(JSON.parse(savedInvoices));
+
+    setIsAppLoading(false);
   }, []);
 
+  const handleLogin = (email: string, pass: string) => {
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedPass = pass.trim();
+
+    const user = users.find(u => u.email.toLowerCase() === trimmedEmail && u.password === trimmedPass);
+    if (user) {
+      setCurrentUser(user);
+      localStorage.setItem('carryint_current_user', JSON.stringify(user));
+      setAuthError('');
+    } else {
+      setAuthError('Invalid credentials. Access Denied.');
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('carryint_current_user');
+  };
+
+  const handleAddUser = (user: User) => {
+    if (currentUser?.role !== 'ADMIN') return;
+    const updated = [...users, user];
+    setUsers(updated);
+    localStorage.setItem('carryint_users', JSON.stringify(updated));
+  };
+
+  const handleDeleteUser = (id: string) => {
+    if (currentUser?.role !== 'ADMIN') return;
+    if (users.find(u => u.id === id)?.role === 'ADMIN' && users.filter(u => u.role === 'ADMIN').length === 1) {
+      alert("Cannot delete the last administrator.");
+      return;
+    }
+    if (confirm('Are you sure you want to remove this user?')) {
+      const updated = users.filter(u => u.id !== id);
+      setUsers(updated);
+      localStorage.setItem('carryint_users', JSON.stringify(updated));
+    }
+  };
+
+  const handleUpdateUser = (updatedUser: User) => {
+    if (currentUser?.role !== 'ADMIN') return;
+    const updated = users.map(u => u.id === updatedUser.id ? updatedUser : u);
+    setUsers(updated);
+    localStorage.setItem('carryint_users', JSON.stringify(updated));
+  };
+
+  const handleUpdateInvoiceStatus = (invoiceId: string, status: 'PAID' | 'UNPAID') => {
+    const updated = invoices.map(inv => inv.id === invoiceId ? { ...inv, status } : inv);
+    setInvoices(updated);
+    localStorage.setItem('carryint_invoices', JSON.stringify(updated));
+  };
+
+  const handleUpdateVendorStatus = (invoiceId: string, vendorStatus: 'PAID' | 'UNPAID') => {
+    const updated = invoices.map(inv => inv.id === invoiceId ? { ...inv, vendorStatus } : inv);
+    setInvoices(updated);
+    localStorage.setItem('carryint_invoices', JSON.stringify(updated));
+  };
+
+
   const handleSaveInvoice = (invoice: Invoice) => {
-    const updatedInvoices = [...invoices, invoice];
+    const exists = invoices.find(inv => inv.id === invoice.id);
+    let updatedInvoices;
+    if (exists) {
+      updatedInvoices = invoices.map(inv => inv.id === invoice.id ? invoice : inv);
+    } else {
+      updatedInvoices = [...invoices, invoice];
+    }
     setInvoices(updatedInvoices);
     localStorage.setItem('carryint_invoices', JSON.stringify(updatedInvoices));
     setSelectedInvoice(invoice);
     setActiveTab('view-invoice');
+  };
+
+  const handleDeleteInvoice = (id: string) => {
+    if (confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
+      const updated = invoices.filter(inv => inv.id !== id);
+      setInvoices(updated);
+      localStorage.setItem('carryint_invoices', JSON.stringify(updated));
+    }
+  };
+
+  const handleEditInvoice = (inv: Invoice) => {
+    setSelectedInvoice(inv);
+    setActiveTab('create-invoice');
   };
 
   const handleAddCustomer = (customer: Customer) => {
@@ -77,23 +195,35 @@ const App: React.FC = () => {
     localStorage.setItem('carryint_company_info', JSON.stringify(info));
   };
 
+  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [showUnpaidVendorOnly, setShowUnpaidVendorOnly] = useState(false);
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
         return <Dashboard invoices={invoices} />;
       case 'create-invoice':
-        return <InvoiceForm onSave={handleSaveInvoice} customers={customers} vendors={vendors} companyInfo={companyInfo} />;
+        return (
+          <InvoiceForm
+            onSave={handleSaveInvoice}
+            customers={customers}
+            vendors={vendors}
+            companyInfo={companyInfo}
+            editingInvoice={selectedInvoice}
+            currentUser={currentUser}
+          />
+        );
       case 'view-invoice':
         return selectedInvoice ? (
           <div>
             <div className="flex justify-end gap-2 mb-4 no-print">
-              <button 
+              <button
                 onClick={() => window.print()}
                 className="bg-orange-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg"
               >
                 Print / Save PDF
               </button>
-              <button 
+              <button
                 onClick={() => setActiveTab('invoices')}
                 className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg font-bold"
               >
@@ -108,7 +238,7 @@ const App: React.FC = () => {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-6 border-b border-gray-50 flex justify-between items-center">
               <h3 className="text-xl font-bold text-gray-900">All Tax Invoices</h3>
-              <button 
+              <button
                 onClick={() => setActiveTab('create-invoice')}
                 className="bg-orange-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"
               >
@@ -144,12 +274,26 @@ const App: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 text-right font-black text-gray-900">{inv.totalAmount.toFixed(2)} AED</td>
                       <td className="px-6 py-4 text-right">
-                        <button 
-                          onClick={() => { setSelectedInvoice(inv); setActiveTab('view-invoice'); }}
-                          className="text-orange-600 font-bold hover:underline"
-                        >
-                          View
-                        </button>
+                        <div className="flex justify-end gap-3">
+                          <button
+                            onClick={() => { setSelectedInvoice(inv); setActiveTab('view-invoice'); }}
+                            className="text-orange-600 font-bold hover:underline"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => handleEditInvoice(inv)}
+                            className="text-blue-600 font-bold hover:underline"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteInvoice(inv.id)}
+                            className="text-red-600 font-bold hover:underline"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -159,13 +303,125 @@ const App: React.FC = () => {
           </div>
         );
       case 'customers':
-        return <CustomerManagement customers={customers} invoices={invoices} onAdd={handleAddCustomer} />;
+        return <CustomerManagement customers={customers} invoices={invoices} onAdd={handleAddCustomer} onUpdateInvoiceStatus={handleUpdateInvoiceStatus} />;
       case 'reports':
         return <FinancialReports invoices={invoices} customers={customers} vendors={vendors} />;
       case 'vendors':
+        if (selectedVendor) {
+          const vendorInvoices = invoices.filter(inv => inv.vendorId === selectedVendor.id);
+          const displayedInvoices = showUnpaidVendorOnly
+            ? vendorInvoices.filter(inv => inv.vendorStatus !== 'PAID')
+            : vendorInvoices;
+          const totalPayable = vendorInvoices
+            .filter(inv => inv.vendorStatus !== 'PAID')
+            .reduce((s, i) => s + i.vendorCost, 0);
+
+          return (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center no-print">
+                <button
+                  onClick={() => setSelectedVendor(null)}
+                  className="flex items-center gap-2 text-gray-500 hover:text-slate-900 font-bold"
+                >
+                  <ArrowLeft size={20} /> Back to Vendors
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="bg-slate-900 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"
+                >
+                  <Printer size={18} /> Print Statement
+                </button>
+              </div>
+
+              <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 invoice-container">
+                <div className="flex justify-between items-start mb-10 pb-8 border-b border-gray-100">
+                  <div>
+                    <h2 className="text-3xl font-black text-gray-900 mb-2">Vendor Statement</h2>
+                    <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Accounts Payable</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-black text-red-600">{totalPayable.toFixed(2)} AED</p>
+                    <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Total Outstanding Payable</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-10 mb-10">
+                  <div>
+                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Vendor Details</h4>
+                    <p className="font-bold text-lg text-gray-900">{selectedVendor.name}</p>
+                    <p className="text-sm text-gray-500 max-w-xs">{selectedVendor.address}</p>
+                    <p className="text-sm text-gray-500 mt-1">Contact: {selectedVendor.contact}</p>
+                  </div>
+                  <div className="text-right">
+                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Statement Date</h4>
+                    <p className="font-bold text-gray-900">{new Date().toLocaleDateString()}</p>
+                  </div>
+                </div>
+
+                <div className="mb-6 flex justify-between items-center no-print">
+                  <h3 className="font-black text-gray-900 flex items-center gap-2 uppercase tracking-widest text-sm">
+                    <Truck size={18} className="text-orange-500" />
+                    Transaction History
+                  </h3>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showUnpaidVendorOnly}
+                      onChange={() => setShowUnpaidVendorOnly(!showUnpaidVendorOnly)}
+                      className="w-4 h-4 accent-orange-500"
+                    />
+                    <span className="text-xs font-bold text-gray-600">Show Unpaid Only</span>
+                  </label>
+                </div>
+
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-slate-900 text-white">
+                      <th className="px-6 py-4 text-[10px] font-black uppercase">Invoice No</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase">Date</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase">Status</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase text-right">Vendor Cost</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 border-b border-gray-100">
+                    {displayedInvoices.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="text-center py-20 text-gray-400 font-medium">No records found for this selection.</td>
+                      </tr>
+                    ) : (
+                      displayedInvoices.map(inv => (
+                        <tr key={inv.id}>
+                          <td className="px-6 py-5 font-bold text-gray-900">{inv.invoiceNumber}</td>
+                          <td className="px-6 py-5 text-gray-600 text-sm">{new Date(inv.date).toLocaleDateString()}</td>
+                          <td className="px-6 py-5">
+                            <button
+                              onClick={() => handleUpdateVendorStatus(inv.id, inv.vendorStatus === 'PAID' ? 'UNPAID' : 'PAID')}
+                              className={`text-[10px] font-black px-3 py-1.5 rounded-full transition-all hover:scale-105 active:scale-95 ${inv.vendorStatus === 'PAID' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'
+                                }`}
+                            >
+                              {inv.vendorStatus}
+                            </button>
+                          </td>
+                          <td className="px-6 py-5 text-right font-black text-gray-900">{inv.vendorCost.toFixed(2)} AED</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-gray-50">
+                      <td colSpan={3} className="px-6 py-5 text-right text-xs font-black text-gray-500 uppercase">Total Payable</td>
+                      <td className="px-6 py-5 text-right font-black text-red-600 text-lg">{totalPayable.toFixed(2)} AED</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          );
+        }
+
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-             <div className="p-6 border-b border-gray-50 flex justify-between items-center">
+            <div className="p-6 border-b border-gray-50 flex justify-between items-center">
               <h3 className="text-xl font-bold text-gray-900">Vendor Management</h3>
               <button className="bg-orange-600 text-white px-4 py-2 rounded-lg font-bold">Add Vendor</button>
             </div>
@@ -176,17 +432,26 @@ const App: React.FC = () => {
                   <th className="px-6 py-4">Contact</th>
                   <th className="px-6 py-4">Address</th>
                   <th className="px-6 py-4 text-right">Total Payable</th>
+                  <th className="px-6 py-4"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {vendors.map(v => {
                   const payable = invoices.filter(inv => inv.vendorId === v.id && inv.vendorStatus !== 'PAID').reduce((s, i) => s + i.vendorCost, 0);
                   return (
-                    <tr key={v.id}>
+                    <tr key={v.id} className="group">
                       <td className="px-6 py-4 font-bold">{v.name}</td>
                       <td className="px-6 py-4 text-gray-600">{v.contact}</td>
                       <td className="px-6 py-4 text-xs text-gray-500">{v.address}</td>
                       <td className="px-6 py-4 text-right font-black text-red-600">{payable.toFixed(2)} AED</td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => setSelectedVendor(v)}
+                          className="bg-slate-100 p-2 rounded-lg text-slate-600 hover:bg-orange-600 hover:text-white transition-all shadow-sm"
+                        >
+                          <FileText size={18} />
+                        </button>
+                      </td>
                     </tr>
                   )
                 })}
@@ -196,12 +461,17 @@ const App: React.FC = () => {
         );
       case 'settings':
         return (
-          <Settings 
-            companyInfo={companyInfo} 
+          <Settings
+            companyInfo={companyInfo}
             onUpdate={handleUpdateCompanyInfo}
             invoices={invoices}
             customers={customers}
             vendors={vendors}
+            users={users}
+            onAddUser={handleAddUser}
+            onDeleteUser={handleDeleteUser}
+            onUpdateUser={handleUpdateUser}
+            currentUser={currentUser}
           />
         );
       default:
@@ -209,35 +479,67 @@ const App: React.FC = () => {
     }
   };
 
+  if (isAppLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 className="animate-spin text-orange-600" size={48} />
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return <Login onLogin={handleLogin} error={authError} companyName={companyInfo.name} />;
+  }
+
   return (
     <div className="min-h-screen">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-      
-      <main className={`pl-64 min-h-screen bg-gray-50 ${activeTab === 'view-invoice' ? 'bg-white' : ''}`}>
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 sticky top-0 z-10 no-print">
-          <div className="relative w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input 
-              placeholder="Search anything..." 
-              className="w-full bg-gray-50 border border-gray-100 rounded-lg pl-10 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-500 transition-all"
-            />
-          </div>
-          <div className="flex items-center gap-6">
-            <div className="relative cursor-pointer text-gray-500 hover:text-orange-600">
-              <Bell size={20} />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-orange-500 rounded-full border-2 border-white"></span>
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      />
+
+      <main className={`lg:pl-64 min-h-screen bg-gray-50 ${activeTab === 'view-invoice' ? 'bg-white' : ''}`}>
+        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-8 sticky top-0 z-10 no-print">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
+            >
+              <Menu size={24} />
+            </button>
+            <div className="relative w-48 lg:w-96">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                placeholder="Search..."
+                className="w-full bg-gray-50 border border-gray-100 rounded-lg pl-10 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-500 transition-all font-medium"
+              />
             </div>
-            <div className="flex items-center gap-3 pl-6 border-l border-gray-200">
-              <div className="text-right">
-                <p className="text-sm font-bold text-gray-900 leading-none">Admin Staff</p>
+          </div>
+          <div className="flex items-center gap-2 lg:gap-6">
+            <div className="relative cursor-pointer text-gray-500 hover:text-orange-600 p-2">
+              <Bell size={20} />
+              <span className="absolute top-2 right-2 w-2 h-2 bg-orange-500 rounded-full border-2 border-white"></span>
+            </div>
+            <div className="flex items-center gap-3 lg:pl-6 lg:border-l border-gray-200">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-bold text-gray-900 leading-none">{currentUser.name}</p>
                 <p className="text-[10px] text-orange-600 font-bold mt-1 uppercase">{companyInfo.name}</p>
               </div>
+              <button
+                onClick={handleLogout}
+                className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                title="Logout"
+              >
+                <LogOut size={20} />
+              </button>
               <UserCircle size={32} className="text-gray-300" />
             </div>
           </div>
         </header>
 
-        <div className="p-8">
+        <div className="p-4 lg:p-8">
           {renderContent()}
         </div>
       </main>

@@ -1,20 +1,26 @@
 
 import React, { useState, useRef } from 'react';
-import { 
-  Save, 
-  Building2, 
-  CreditCard, 
-  Upload, 
-  Image as ImageIcon, 
-  X, 
-  Download, 
-  FileSpreadsheet, 
+import {
+  Save,
+  Building2,
+  CreditCard,
+  Upload,
+  Image as ImageIcon,
+  X,
+  Download,
+  FileSpreadsheet,
   Archive,
-  RefreshCw
+  RefreshCw,
+  UserPlus,
+  ShieldCheck,
+  Clock,
+  UserCheck,
+  Edit2,
+  Trash2
 } from 'lucide-react';
-import { CompanyInfo, Invoice, Customer, Vendor } from '../types';
+import { CompanyInfo, Invoice, Customer, Vendor, User } from '../types';
 import Logo from './Logo';
-import { downloadSystemZip, downloadExcelOnly } from '../utils';
+import { downloadSystemZip, downloadExcelOnly, generateId } from '../utils';
 
 interface SettingsProps {
   companyInfo: CompanyInfo;
@@ -22,13 +28,49 @@ interface SettingsProps {
   invoices: Invoice[];
   customers: Customer[];
   vendors: Vendor[];
+  users: User[];
+  onAddUser: (user: User) => void;
+  onDeleteUser: (id: string) => void;
+  onUpdateUser: (user: User) => void;
+  currentUser: User | null;
 }
 
-const Settings: React.FC<SettingsProps> = ({ companyInfo, onUpdate, invoices, customers, vendors }) => {
+const Settings: React.FC<SettingsProps> = ({
+  companyInfo, onUpdate, invoices, customers, vendors, users, onAddUser, onDeleteUser, onUpdateUser, currentUser
+}) => {
   const [formData, setFormData] = useState<CompanyInfo>(companyInfo);
   const [isSaved, setIsSaved] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isAddingUser, setIsAddingUser] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [newUser, setNewUser] = useState<Partial<User>>({ role: 'STAFF' });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUserSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newUser.name && newUser.email && newUser.password) {
+      if (editingUserId) {
+        onUpdateUser({
+          ...newUser as User,
+          id: editingUserId,
+        });
+        setEditingUserId(null);
+      } else {
+        onAddUser({
+          ...newUser as User,
+          id: generateId(),
+        });
+      }
+      setIsAddingUser(false);
+      setNewUser({ role: 'STAFF' });
+    }
+  };
+
+  const startEditUser = (user: User) => {
+    setNewUser(user);
+    setEditingUserId(user.id);
+    setIsAddingUser(true);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,14 +145,14 @@ const Settings: React.FC<SettingsProps> = ({ companyInfo, onUpdate, invoices, cu
             All system data is securely stored in your browser. Download copies regularly to ensure you have offline backups of your invoices, client lists, and financial logs.
           </p>
           <div className="flex flex-wrap gap-4">
-            <button 
+            <button
               onClick={handleExcelExport}
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-black transition-all shadow-lg"
             >
               <FileSpreadsheet size={20} />
               Excel Export (Multi-sheet)
             </button>
-            <button 
+            <button
               onClick={handleFullBackup}
               disabled={isExporting}
               className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-xl font-black transition-all shadow-lg disabled:opacity-50"
@@ -121,6 +163,136 @@ const Settings: React.FC<SettingsProps> = ({ companyInfo, onUpdate, invoices, cu
           </div>
         </div>
       </div>
+
+      {/* User Management Section */}
+      {currentUser?.role === 'ADMIN' && (
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h3 className="text-xl font-black text-gray-900 flex items-center gap-2">
+                <ShieldCheck className="text-orange-500" />
+                User Access Control
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">Manage who can access the application and their roles</p>
+            </div>
+            <button
+              onClick={() => { setIsAddingUser(!isAddingUser); setEditingUserId(null); setNewUser({ role: 'STAFF' }); }}
+              className="bg-orange-600 text-white px-6 py-2.5 rounded-xl font-black hover:bg-orange-700 transition-all flex items-center gap-2"
+            >
+              <UserPlus size={20} />
+              Add System User
+            </button>
+          </div>
+
+          {isAddingUser && (
+            <div className="mb-8 p-6 bg-orange-50 rounded-2xl border-2 border-orange-200 animate-in fade-in slide-in-from-top-4">
+              <h4 className="text-sm font-black text-orange-800 uppercase tracking-widest mb-4">
+                {editingUserId ? 'Modify User Credentials' : 'New User Credentials'}
+              </h4>
+              <form onSubmit={handleUserSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input
+                  placeholder="Employee Name"
+                  required
+                  className={inputClass}
+                  value={newUser.name || ''}
+                  onChange={e => setNewUser({ ...newUser, name: e.target.value })}
+                />
+                <input
+                  placeholder="Email Address"
+                  type="email"
+                  required
+                  className={inputClass}
+                  value={newUser.email || ''}
+                  onChange={e => setNewUser({ ...newUser, email: e.target.value })}
+                />
+                <input
+                  placeholder="Access Password"
+                  type="password"
+                  required
+                  className={inputClass}
+                  value={newUser.password || ''}
+                  onChange={e => setNewUser({ ...newUser, password: e.target.value })}
+                />
+                <select
+                  className={inputClass}
+                  value={newUser.role}
+                  onChange={e => setNewUser({ ...newUser, role: e.target.value as any })}
+                >
+                  <option value="STAFF">Standard Staff Access</option>
+                  <option value="ADMIN">System Administrator</option>
+                </select>
+                <div className="md:col-span-2 flex gap-2 pt-2">
+                  <button type="submit" className="flex-1 bg-slate-900 text-white font-black py-3 rounded-xl hover:bg-slate-800 transition-colors">
+                    {editingUserId ? 'Update User Access' : 'Confirm User Access'}
+                  </button>
+                  <button type="button" onClick={() => { setIsAddingUser(false); setEditingUserId(null); setNewUser({ role: 'STAFF' }); }} className="flex-1 bg-white text-gray-500 font-bold py-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">Cancel</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          <div className="overflow-hidden border border-gray-50 rounded-xl">
+            <table className="w-full text-left">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">User Details</th>
+                  <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">Access Role</th>
+                  <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {users.map(u => (
+                  <tr key={u.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-orange-100 text-orange-600 rounded-lg flex items-center justify-center font-bold">
+                          {u.name.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900">{u.name}</p>
+                          <p className="text-xs text-gray-500">{u.email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`text-[10px] font-black px-2 py-1 rounded-full uppercase ${u.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                        }`}>
+                        {u.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1.5 text-xs text-green-600 font-bold uppercase">
+                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                        <span>Active</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => startEditUser(u)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100"
+                          title="Edit User"
+                        >
+                          <Edit2 size={18} />
+                        </button>
+                        <button
+                          onClick={() => onDeleteUser(u.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
+                          title="Delete User"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Brand Identity / Logo Section */}
@@ -141,8 +313,8 @@ const Settings: React.FC<SettingsProps> = ({ companyInfo, onUpdate, invoices, cu
                   <Upload className="group-hover:-translate-y-1 transition-transform" />
                   <span>Upload New Image</span>
                 </button>
-                <input 
-                  type="file" 
+                <input
+                  type="file"
                   ref={fileInputRef}
                   onChange={handleLogoUpload}
                   accept="image/*"
@@ -176,8 +348,8 @@ const Settings: React.FC<SettingsProps> = ({ companyInfo, onUpdate, invoices, cu
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className={labelClass}>Company TRN Number</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={formData.trn}
                 onChange={(e) => setFormData({ ...formData, trn: e.target.value })}
                 className={`${inputClass} font-mono text-xl text-orange-700`}
@@ -201,8 +373,8 @@ const Settings: React.FC<SettingsProps> = ({ companyInfo, onUpdate, invoices, cu
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className={labelClass}>Entity Name</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className={inputClass}
@@ -210,8 +382,8 @@ const Settings: React.FC<SettingsProps> = ({ companyInfo, onUpdate, invoices, cu
             </div>
             <div className="space-y-2">
               <label className={labelClass}>Official Website</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={formData.website}
                 onChange={(e) => setFormData({ ...formData, website: e.target.value })}
                 className={inputClass}
@@ -219,7 +391,7 @@ const Settings: React.FC<SettingsProps> = ({ companyInfo, onUpdate, invoices, cu
             </div>
             <div className="md:col-span-2 space-y-2">
               <label className={labelClass}>Registered Address</label>
-              <textarea 
+              <textarea
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 className={`${inputClass} h-24`}
@@ -236,8 +408,8 @@ const Settings: React.FC<SettingsProps> = ({ companyInfo, onUpdate, invoices, cu
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className={labelClass}>Beneficiary Name</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={formData.bank.name}
                 onChange={(e) => setFormData({ ...formData, bank: { ...formData.bank, name: e.target.value } })}
                 className={inputClass}
@@ -245,8 +417,8 @@ const Settings: React.FC<SettingsProps> = ({ companyInfo, onUpdate, invoices, cu
             </div>
             <div className="space-y-2">
               <label className={labelClass}>IBAN</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={formData.bank.iban}
                 onChange={(e) => setFormData({ ...formData, bank: { ...formData.bank, iban: e.target.value } })}
                 className={`${inputClass} font-mono uppercase`}
@@ -254,8 +426,8 @@ const Settings: React.FC<SettingsProps> = ({ companyInfo, onUpdate, invoices, cu
             </div>
             <div className="space-y-2">
               <label className={labelClass}>Account Number</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={formData.bank.accNo}
                 onChange={(e) => setFormData({ ...formData, bank: { ...formData.bank, accNo: e.target.value } })}
                 className={`${inputClass} font-mono`}
@@ -263,8 +435,8 @@ const Settings: React.FC<SettingsProps> = ({ companyInfo, onUpdate, invoices, cu
             </div>
             <div className="space-y-2">
               <label className={labelClass}>CIF / Swift</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={formData.bank.cif}
                 onChange={(e) => setFormData({ ...formData, bank: { ...formData.bank, cif: e.target.value } })}
                 className={inputClass}
@@ -274,7 +446,7 @@ const Settings: React.FC<SettingsProps> = ({ companyInfo, onUpdate, invoices, cu
         </div>
 
         <div className="flex justify-end pt-4">
-          <button 
+          <button
             type="submit"
             className="bg-orange-600 text-white px-16 py-5 rounded-xl font-black uppercase tracking-widest hover:bg-orange-700 transition-all shadow-2xl shadow-orange-200 flex items-center gap-3"
           >

@@ -1,6 +1,23 @@
 
 export type PaymentStatus = 'PAID' | 'UNPAID' | 'PARTIAL';
 export type CustomerType = 'ONE_TIME' | 'CREDIT';
+export type UserRole = 'ADMIN' | 'STAFF';
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  password?: string;
+  role: UserRole;
+}
+
+export interface AuditLog {
+  action: 'CREATE' | 'EDIT' | 'DELETE';
+  userId: string;
+  userName: string;
+  timestamp: string;
+  details?: string;
+}
 
 export interface CompanyInfo {
   name: string;
@@ -67,6 +84,9 @@ export interface Invoice {
   netAmount: number;
   profit: number;
   companyTrn?: string; // Capture TRN at time of generation
+  createdBy: string;
+  createdByName: string;
+  auditLogs: AuditLog[];
 }
 
 export interface DashboardStats {

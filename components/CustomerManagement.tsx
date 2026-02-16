@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Users, Plus, Search, PieChart } from 'lucide-react';
+import { ArrowLeft, Users, Plus, Search, PieChart, FileText, Download, Printer } from 'lucide-react';
 import { Customer, Invoice } from '../types';
 import { formatCurrency, generateId } from '../utils';
 
@@ -8,14 +8,17 @@ interface CustomerManagementProps {
   customers: Customer[];
   invoices: Invoice[];
   onAdd: (customer: Customer) => void;
+  onUpdateInvoiceStatus: (invoiceId: string, status: 'PAID' | 'UNPAID') => void;
 }
 
-const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invoices, onAdd }) => {
+const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invoices, onAdd, onUpdateInvoiceStatus }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
   const [newCustomer, setNewCustomer] = useState<Partial<Customer>>({ type: 'ONE_TIME' });
 
-  const filteredCustomers = customers.filter(c => 
+  const filteredCustomers = customers.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -41,6 +44,120 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
 
   const inputClass = "w-full px-4 py-2 border border-amber-200 bg-amber-50 text-slate-900 rounded-lg outline-none focus:ring-2 focus:ring-orange-500 transition-all";
 
+  if (selectedCustomer) {
+    const customerInvoices = invoices.filter(inv => inv.customerId === selectedCustomer.id);
+    const displayedInvoices = showUnpaidOnly
+      ? customerInvoices.filter(inv => inv.status !== 'PAID')
+      : customerInvoices;
+    const totalOutstanding = customerInvoices
+      .filter(inv => inv.status !== 'PAID')
+      .reduce((s, i) => s + i.totalAmount, 0);
+
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center no-print">
+          <button
+            onClick={() => setSelectedCustomer(null)}
+            className="flex items-center gap-2 text-gray-500 hover:text-slate-900 font-bold"
+          >
+            <ArrowLeft size={20} /> Back to CRM
+          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => window.print()}
+              className="bg-slate-900 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"
+            >
+              <Printer size={18} /> Print Statement
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 invoice-container">
+          <div className="flex justify-between items-start mb-10 pb-8 border-b border-gray-100">
+            <div>
+              <h2 className="text-3xl font-black text-gray-900 mb-2">Statement of Account</h2>
+              <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Customer Record</p>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-black text-orange-600">{formatCurrency(totalOutstanding)}</p>
+              <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Total Outstanding Balance</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-10 mb-10">
+            <div>
+              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Client Details</h4>
+              <p className="font-bold text-lg text-gray-900">{selectedCustomer.name}</p>
+              <p className="text-sm text-gray-500 max-w-xs">{selectedCustomer.address}</p>
+              <p className="text-sm text-gray-500 mt-1">VAT: {selectedCustomer.vatNumber || 'N/A'}</p>
+            </div>
+            <div className="text-right">
+              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Statement Date</h4>
+              <p className="font-bold text-gray-900">{new Date().toLocaleDateString()}</p>
+            </div>
+          </div>
+
+          <div className="mb-6 flex justify-between items-center no-print">
+            <h3 className="font-black text-gray-900 flex items-center gap-2 uppercase tracking-widest text-sm">
+              <FileText size={18} className="text-orange-500" />
+              Invoice History
+            </h3>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showUnpaidOnly}
+                onChange={() => setShowUnpaidOnly(!showUnpaidOnly)}
+                className="w-4 h-4 accent-orange-500"
+              />
+              <span className="text-xs font-bold text-gray-600">Show Unpaid Only</span>
+            </label>
+          </div>
+
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-slate-900 text-white">
+                <th className="px-6 py-4 text-[10px] font-black uppercase">Invoice No</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase">Date</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase">Status</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 border-b border-gray-100">
+              {displayedInvoices.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="text-center py-20 text-gray-400 font-medium">No records found for this selection.</td>
+                </tr>
+              ) : (
+                displayedInvoices.map(inv => (
+                  <tr key={inv.id}>
+                    <td className="px-6 py-5 font-bold text-gray-900">{inv.invoiceNumber}</td>
+                    <td className="px-6 py-5 text-gray-600 text-sm">{new Date(inv.date).toLocaleDateString()}</td>
+                    <td className="px-6 py-5">
+                      <button
+                        onClick={() => onUpdateInvoiceStatus(inv.id, inv.status === 'PAID' ? 'UNPAID' : 'PAID')}
+                        className={`text-[10px] font-black px-3 py-1.5 rounded-full transition-all hover:scale-105 active:scale-95 ${inv.status === 'PAID' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'
+                          }`}
+                      >
+                        {inv.status}
+                      </button>
+                    </td>
+                    <td className="px-6 py-5 text-right font-black text-gray-900">{formatCurrency(inv.totalAmount)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            <tfoot>
+              <tr className="bg-gray-50">
+                <td colSpan={3} className="px-6 py-5 text-right text-xs font-black text-gray-500 uppercase">Subtotal Balance</td>
+                <td className="px-6 py-5 text-right font-black text-orange-600 text-lg">{formatCurrency(totalOutstanding)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -48,7 +165,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
           <Users className="text-orange-500" />
           Customer CRM
         </h2>
-        <button 
+        <button
           onClick={() => setIsAdding(true)}
           className="bg-orange-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-orange-700 transition-all shadow-md flex items-center gap-2"
         >
@@ -60,9 +177,9 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
         <div className="md:col-span-2 space-y-4">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-500" size={20} />
-            <input 
-              type="text" 
-              placeholder="Search customers..." 
+            <input
+              type="text"
+              placeholder="Search customers..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-12 pr-4 py-4 rounded-xl border border-amber-200 bg-amber-50 text-slate-900 font-medium focus:ring-2 focus:ring-orange-500 outline-none transition-all shadow-sm"
@@ -96,14 +213,24 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
                         </div>
                       </td>
                       <td className="px-6 py-5">
-                        <span className={`text-[10px] font-black px-2 py-1 rounded-full uppercase ${
-                          c.type === 'CREDIT' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                        }`}>
+                        <span className={`text-[10px] font-black px-2 py-1 rounded-full uppercase ${c.type === 'CREDIT' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                          }`}>
                           {c.type === 'CREDIT' ? 'Commercial' : 'One-Time'}
                         </span>
                       </td>
                       <td className="px-6 py-5 text-right font-bold text-gray-600">{stats.count}</td>
-                      <td className="px-6 py-5 text-right font-black text-orange-600">{formatCurrency(stats.outstanding)}</td>
+                      <td className="px-6 py-5 text-right font-black text-orange-600">
+                        <div className="flex items-center justify-end gap-3">
+                          <span>{formatCurrency(stats.outstanding)}</span>
+                          <button
+                            onClick={() => setSelectedCustomer(c)}
+                            className="bg-slate-100 p-2 rounded-lg text-slate-600 hover:bg-orange-500 hover:text-white transition-all shadow-sm group-hover:scale-110"
+                            title="View Statement"
+                          >
+                            <FileText size={18} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -117,35 +244,35 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
             <div className="bg-white p-6 rounded-xl shadow-xl border-2 border-orange-500 animate-in fade-in slide-in-from-right-4">
               <h3 className="text-lg font-black mb-4">Add Customer Profile</h3>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <input 
-                  placeholder="Full Legal Name" 
+                <input
+                  placeholder="Full Legal Name"
                   required
                   className={inputClass}
-                  onChange={e => setNewCustomer({...newCustomer, name: e.target.value})}
+                  onChange={e => setNewCustomer({ ...newCustomer, name: e.target.value })}
                 />
-                <select 
+                <select
                   className={inputClass}
-                  onChange={e => setNewCustomer({...newCustomer, type: e.target.value as any})}
+                  onChange={e => setNewCustomer({ ...newCustomer, type: e.target.value as any })}
                 >
                   <option value="ONE_TIME" className="bg-white">One-Time Customer</option>
                   <option value="CREDIT" className="bg-white">Commercial / Credit Client</option>
                 </select>
-                <textarea 
-                  placeholder="Complete Address" 
+                <textarea
+                  placeholder="Complete Address"
                   required
                   className={`${inputClass} h-24`}
-                  onChange={e => setNewCustomer({...newCustomer, address: e.target.value})}
+                  onChange={e => setNewCustomer({ ...newCustomer, address: e.target.value })}
                 />
-                <input 
-                  placeholder="Contact Number" 
+                <input
+                  placeholder="Contact Number"
                   required
                   className={inputClass}
-                  onChange={e => setNewCustomer({...newCustomer, contact: e.target.value})}
+                  onChange={e => setNewCustomer({ ...newCustomer, contact: e.target.value })}
                 />
-                <input 
-                  placeholder="VAT/TRN Number (Optional)" 
+                <input
+                  placeholder="VAT/TRN Number (Optional)"
                   className={inputClass}
-                  onChange={e => setNewCustomer({...newCustomer, vatNumber: e.target.value})}
+                  onChange={e => setNewCustomer({ ...newCustomer, vatNumber: e.target.value })}
                 />
                 <div className="flex gap-2 pt-2">
                   <button type="submit" className="flex-1 bg-orange-600 text-white font-black py-3 rounded-lg hover:bg-orange-700 transition-colors">Save Profile</button>
