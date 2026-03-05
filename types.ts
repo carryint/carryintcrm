@@ -50,6 +50,7 @@ export interface Vendor {
   name: string;
   contact: string;
   address: string;
+  vatNumber?: string;
 }
 
 export interface InvoiceItem {

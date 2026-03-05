@@ -435,6 +435,7 @@ const App: React.FC = () => {
                     <p className="font-bold text-lg text-gray-900">{selectedVendor.name}</p>
                     <p className="text-sm text-gray-500 max-w-xs">{selectedVendor.address}</p>
                     <p className="text-sm text-gray-500 mt-1">Contact: {selectedVendor.contact}</p>
+                    {selectedVendor.vatNumber && <p className="text-sm text-orange-600 font-bold mt-1">VAT/TRN: {selectedVendor.vatNumber}</p>}
                   </div>
                   <div className="text-right">
                     <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Statement Date</h4>
@@ -542,6 +543,15 @@ const App: React.FC = () => {
                       onChange={e => setNewVendor({ ...newVendor, contact: e.target.value })}
                     />
                   </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 block">VAT or TRN Number</label>
+                    <input
+                      placeholder="e.g. 100456209800003"
+                      className="w-full px-4 py-3 border border-orange-200 bg-orange-50 text-slate-900 rounded-lg outline-none focus:ring-2 focus:ring-orange-500 transition-all font-medium"
+                      value={newVendor.vatNumber || ''}
+                      onChange={e => setNewVendor({ ...newVendor, vatNumber: e.target.value })}
+                    />
+                  </div>
                   <div className="md:col-span-2">
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 block">Business Address</label>
                     <textarea
@@ -575,6 +585,7 @@ const App: React.FC = () => {
                     <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Vendor Name</th>
                     <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Contact</th>
                     <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Address</th>
+                    <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">VAT/TRN</th>
                     <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest text-right">Total Payable</th>
                     <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest text-right">Actions</th>
                   </tr>
@@ -587,6 +598,7 @@ const App: React.FC = () => {
                         <td className="px-6 py-4 font-bold">{v.name}</td>
                         <td className="px-6 py-4 text-gray-600">{v.contact}</td>
                         <td className="px-6 py-4 text-xs text-gray-500">{v.address}</td>
+                        <td className="px-6 py-4 text-xs font-bold text-gray-700">{v.vatNumber || '-'}</td>
                         <td className="px-6 py-4 text-right font-black text-red-600">{payable.toFixed(2)} AED</td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-2">
