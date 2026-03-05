@@ -15,6 +15,11 @@
     }
 
     @media print {
+      @page {
+        margin: 0mm;
+        size: auto;
+      }
+
       .no-print {
         display: none !important;
       }
@@ -27,6 +32,8 @@
         padding: 0;
         margin: 0;
         background: white !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
 
       /* Reset layout for print */
@@ -41,11 +48,13 @@
 
       .invoice-container {
         margin: 0 !important;
-        padding: 0 !important;
+        padding: 1.5cm !important;
         box-shadow: none !important;
         border: none !important;
         max-width: none !important;
         width: 100% !important;
+        min-height: 100vh;
+        page-break-after: avoid;
       }
     }
 
@@ -54,7 +63,7 @@
     }
   </style>
 
-  <script type="module" crossorigin src="./assets/index-0cN7UJ6g.js"></script>
+  <script type="module" crossorigin src="./assets/index-BmOZCvQU.js"></script>
 </head>
 
 <body class="bg-gray-50 text-gray-900">
