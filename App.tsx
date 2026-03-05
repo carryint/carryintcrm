@@ -16,11 +16,13 @@ import {
   Menu,
   LogOut,
   Loader2,
+  PlusCircle,
   X,
   ArrowLeft,
   Printer,
   Truck,
-  FileText
+  FileText,
+  Edit
 } from 'lucide-react';
 import { generateId } from './utils';
 
@@ -230,6 +232,47 @@ const App: React.FC = () => {
 
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [showUnpaidVendorOnly, setShowUnpaidVendorOnly] = useState(false);
+  const [isAddingVendor, setIsAddingVendor] = useState(false);
+  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
+  const [newVendor, setNewVendor] = useState<Partial<Vendor>>({});
+
+  const handleAddVendorSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newVendor.name && newVendor.contact && newVendor.address) {
+      if (editingVendor) {
+        const updatedVendors = vendors.map(v => v.id === editingVendor.id ? { ...editingVendor, ...newVendor } as Vendor : v);
+        setVendors(updatedVendors);
+        localStorage.setItem('carryint_vendors', JSON.stringify(updatedVendors));
+        setEditingVendor(null);
+      } else {
+        const vendorToAdd: Vendor = {
+          ...(newVendor as Vendor),
+          id: generateId(),
+        };
+        const updated = [...vendors, vendorToAdd];
+        setVendors(updated);
+        localStorage.setItem('carryint_vendors', JSON.stringify(updated));
+      }
+      setIsAddingVendor(false);
+      setNewVendor({});
+    }
+  };
+
+  const handleDeleteVendor = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm('Are you sure you want to remove this vendor?')) {
+      const updated = vendors.filter(v => v.id !== id);
+      setVendors(updated);
+      localStorage.setItem('carryint_vendors', JSON.stringify(updated));
+    }
+  };
+
+  const handleEditVendor = (v: Vendor, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingVendor(v);
+    setNewVendor(v);
+    setIsAddingVendor(true);
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -453,43 +496,121 @@ const App: React.FC = () => {
         }
 
         return (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="p-6 border-b border-gray-50 flex justify-between items-center">
-              <h3 className="text-xl font-bold text-gray-900">Vendor Management</h3>
-              <button className="bg-orange-600 text-white px-4 py-2 rounded-lg font-bold">Add Vendor</button>
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-black text-gray-900 flex items-center gap-2">
+                <Truck className="text-orange-500" />
+                Vendor Management
+              </h2>
+              <button
+                onClick={() => { setIsAddingVendor(true); setEditingVendor(null); setNewVendor({}); }}
+                className="bg-orange-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-orange-700 transition-all shadow-md flex items-center gap-2"
+              >
+                <PlusCircle size={20} /> Add New Vendor
+              </button>
             </div>
-            <table className="w-full text-left">
-              <thead className="bg-gray-50 text-xs font-black text-gray-500 uppercase tracking-widest">
-                <tr>
-                  <th className="px-6 py-4">Vendor Name</th>
-                  <th className="px-6 py-4">Contact</th>
-                  <th className="px-6 py-4">Address</th>
-                  <th className="px-6 py-4 text-right">Total Payable</th>
-                  <th className="px-6 py-4"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {vendors.map(v => {
-                  const payable = invoices.filter(inv => inv.vendorId === v.id && inv.vendorStatus !== 'PAID').reduce((s, i) => s + i.vendorCost, 0);
-                  return (
-                    <tr key={v.id} className="group">
-                      <td className="px-6 py-4 font-bold">{v.name}</td>
-                      <td className="px-6 py-4 text-gray-600">{v.contact}</td>
-                      <td className="px-6 py-4 text-xs text-gray-500">{v.address}</td>
-                      <td className="px-6 py-4 text-right font-black text-red-600">{payable.toFixed(2)} AED</td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => setSelectedVendor(v)}
-                          className="bg-slate-100 p-2 rounded-lg text-slate-600 hover:bg-orange-600 hover:text-white transition-all shadow-sm"
-                        >
-                          <FileText size={18} />
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+
+            {isAddingVendor && (
+              <div className="bg-white p-6 rounded-xl shadow-xl border-2 border-orange-500 animate-in fade-in slide-in-from-top-4">
+                <h3 className="text-lg font-black mb-4">{editingVendor ? 'Edit Vendor Profile' : 'Add Vendor Profile'}</h3>
+                <form onSubmit={handleAddVendorSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 block">Vendor Company Name</label>
+                    <input
+                      placeholder="e.g. DP World"
+                      required
+                      className="w-full px-4 py-3 border border-orange-200 bg-orange-50 text-slate-900 rounded-lg outline-none focus:ring-2 focus:ring-orange-500 transition-all font-medium"
+                      value={newVendor.name || ''}
+                      onChange={e => setNewVendor({ ...newVendor, name: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 block">Contact Information</label>
+                    <input
+                      placeholder="e.g. +971 4 881 5555"
+                      required
+                      className="w-full px-4 py-3 border border-orange-200 bg-orange-50 text-slate-900 rounded-lg outline-none focus:ring-2 focus:ring-orange-500 transition-all font-medium"
+                      value={newVendor.contact || ''}
+                      onChange={e => setNewVendor({ ...newVendor, contact: e.target.value })}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 block">Business Address</label>
+                    <textarea
+                      placeholder="e.g. Jebel Ali Port, Dubai, UAE"
+                      required
+                      className="w-full px-4 py-3 border border-orange-200 bg-orange-50 text-slate-900 rounded-lg outline-none focus:ring-2 focus:ring-orange-500 transition-all font-medium h-24"
+                      value={newVendor.address || ''}
+                      onChange={e => setNewVendor({ ...newVendor, address: e.target.value })}
+                    />
+                  </div>
+                  <div className="md:col-span-2 flex gap-3 pt-2">
+                    <button type="submit" className="flex-1 bg-orange-600 text-white font-black py-3 rounded-lg hover:bg-orange-700 transition-colors shadow-lg">
+                      {editingVendor ? 'Update Vendor' : 'Save Vendor Profile'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setIsAddingVendor(false); setEditingVendor(null); setNewVendor({}); }}
+                      className="flex-1 bg-gray-100 text-gray-800 font-bold py-3 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <table className="w-full text-left">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr>
+                    <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Vendor Name</th>
+                    <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Contact</th>
+                    <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Address</th>
+                    <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest text-right">Total Payable</th>
+                    <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {vendors.map(v => {
+                    const payable = invoices.filter(inv => inv.vendorId === v.id && inv.vendorStatus !== 'PAID').reduce((s, i) => s + i.vendorCost, 0);
+                    return (
+                      <tr key={v.id} className="group">
+                        <td className="px-6 py-4 font-bold">{v.name}</td>
+                        <td className="px-6 py-4 text-gray-600">{v.contact}</td>
+                        <td className="px-6 py-4 text-xs text-gray-500">{v.address}</td>
+                        <td className="px-6 py-4 text-right font-black text-red-600">{payable.toFixed(2)} AED</td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => setSelectedVendor(v)}
+                              className="bg-slate-100 p-2 rounded-lg text-slate-600 hover:bg-orange-600 hover:text-white transition-all shadow-sm"
+                              title="View Statement"
+                            >
+                              <FileText size={18} />
+                            </button>
+                            <button
+                              onClick={(e) => handleEditVendor(v, e)}
+                              className="bg-blue-50 p-2 rounded-lg text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                              title="Edit Vendor"
+                            >
+                              <Edit size={18} />
+                            </button>
+                            <button
+                              onClick={(e) => handleDeleteVendor(v.id, e)}
+                              className="bg-red-50 p-2 rounded-lg text-red-600 hover:bg-red-600 hover:text-white transition-all shadow-sm"
+                              title="Delete Vendor"
+                            >
+                              <X size={18} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         );
       case 'settings':
