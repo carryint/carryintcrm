@@ -225,6 +225,14 @@ const App: React.FC = () => {
     localStorage.setItem('carryint_customers', JSON.stringify(updated));
   };
 
+  const handleDeleteCustomer = (id: string) => {
+    if (confirm('Are you sure you want to remove this client? This will affect existing invoices linked to this client.')) {
+      const updated = customers.filter(c => c.id !== id);
+      setCustomers(updated);
+      localStorage.setItem('carryint_customers', JSON.stringify(updated));
+    }
+  };
+
   const handleUpdateCompanyInfo = (info: CompanyInfo) => {
     setCompanyInfo(info);
     localStorage.setItem('carryint_company_info', JSON.stringify(info));
@@ -379,7 +387,7 @@ const App: React.FC = () => {
           </div>
         );
       case 'customers':
-        return <CustomerManagement customers={customers} invoices={invoices} onAdd={handleAddCustomer} onUpdateInvoiceStatus={handleUpdateInvoiceStatus} />;
+        return <CustomerManagement customers={customers} invoices={invoices} onAdd={handleAddCustomer} onDelete={handleDeleteCustomer} onUpdateInvoiceStatus={handleUpdateInvoiceStatus} />;
       case 'reports':
         return <FinancialReports invoices={invoices} customers={customers} vendors={vendors} />;
       case 'vendors':

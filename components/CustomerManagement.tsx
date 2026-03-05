@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { ArrowLeft, Users, Plus, Search, PieChart, FileText, Download, Printer } from 'lucide-react';
+import { ArrowLeft, Users, Plus, Search, PieChart, FileText, Download, Printer, Trash2 } from 'lucide-react';
 import { Customer, Invoice } from '../types';
 import { formatCurrency, generateId } from '../utils';
 
@@ -8,10 +8,11 @@ interface CustomerManagementProps {
   customers: Customer[];
   invoices: Invoice[];
   onAdd: (customer: Customer) => void;
+  onDelete: (id: string) => void;
   onUpdateInvoiceStatus: (invoiceId: string, status: 'PAID' | 'UNPAID') => void;
 }
 
-const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invoices, onAdd, onUpdateInvoiceStatus }) => {
+const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invoices, onAdd, onDelete, onUpdateInvoiceStatus }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -228,6 +229,16 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
                             title="View Statement"
                           >
                             <FileText size={18} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDelete(c.id);
+                            }}
+                            className="bg-red-50 p-2 rounded-lg text-red-600 hover:bg-red-600 hover:text-white transition-all shadow-sm group-hover:scale-110"
+                            title="Delete Client"
+                          >
+                            <Trash2 size={18} />
                           </button>
                         </div>
                       </td>
