@@ -52,6 +52,8 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const [status, setStatus] = useState<PaymentStatus>(editingInvoice?.status || 'UNPAID');
   const [vendorStatus, setVendorStatus] = useState<PaymentStatus>(editingInvoice?.vendorStatus || 'UNPAID');
   const [manualTotal, setManualTotal] = useState<number>(editingInvoice?.totalAmount || 0);
+  const [paymentDate, setPaymentDate] = useState<string>(editingInvoice?.paymentDate || new Date().toISOString().split('T')[0]);
+  const [paymentMethod, setPaymentMethod] = useState<string>(editingInvoice?.paymentMethod || 'Bank Transfer');
 
   // Totals are based on the manually entered total — qty/weight/price are independent descriptive fields.
   const calculateTotals = () => {
@@ -128,6 +130,8 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       totalVat,
       netAmount,
       profit,
+      paymentDate: status === 'PAID' ? paymentDate : undefined,
+      paymentMethod: status === 'PAID' ? paymentMethod : undefined,
       companyTrn: companyInfo.trn,
       createdBy: editingInvoice?.createdBy || currentUser?.id || 'system',
       createdByName: editingInvoice?.createdByName || currentUser?.name || 'System',
@@ -321,6 +325,32 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                     <option value="PAID">PAID (Amount Received)</option>
                   </select>
                 </div>
+                {status === 'PAID' && (
+                  <div className="grid grid-cols-2 gap-4 pt-2 animate-in fade-in slide-in-from-top-2">
+                    <div>
+                      <label className="block text-xs font-black text-green-700 uppercase tracking-widest mb-1">Payment Date</label>
+                      <input
+                        type="date"
+                        value={paymentDate}
+                        onChange={(e) => setPaymentDate(e.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-black text-green-700 uppercase tracking-widest mb-1">Payment Method</label>
+                      <select
+                        value={paymentMethod}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                        className={selectClass}
+                      >
+                        <option value="Bank Transfer">Bank Transfer</option>
+                        <option value="Cash">Cash</option>
+                        <option value="Cheque">Cheque</option>
+                        <option value="Online Payment">Online Payment</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-black text-orange-800 uppercase tracking-widest mb-1 italic">Vendor Payment Status</label>
                   <select

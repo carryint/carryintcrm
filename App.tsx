@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import InvoiceForm from './components/InvoiceForm';
 import InvoicePreview from './components/InvoicePreview';
+import PaymentReceipt from './components/PaymentReceipt';
 import CustomerManagement from './components/CustomerManagement';
 import FinancialReports from './components/FinancialReports';
 import Settings from './components/Settings';
@@ -180,7 +181,17 @@ const App: React.FC = () => {
   };
 
   const handleUpdateInvoiceStatus = (invoiceId: string, status: 'PAID' | 'UNPAID') => {
-    const updated = invoices.map(inv => inv.id === invoiceId ? { ...inv, status } : inv);
+    const updated = invoices.map(inv => {
+      if (inv.id === invoiceId) {
+        return {
+          ...inv,
+          status,
+          paymentDate: status === 'PAID' ? (inv.paymentDate || new Date().toISOString().split('T')[0]) : undefined,
+          paymentMethod: status === 'PAID' ? (inv.paymentMethod || 'Bank Transfer') : undefined
+        };
+      }
+      return inv;
+    });
     setInvoices(updated);
     localStorage.setItem('carryint_invoices', JSON.stringify(updated));
   };
@@ -307,6 +318,14 @@ const App: React.FC = () => {
               >
                 Print / Save PDF
               </button>
+              {selectedInvoice.status === 'PAID' && (
+                <button
+                  onClick={() => setActiveTab('view-receipt')}
+                  className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg"
+                >
+                  View Receipt
+                </button>
+              )}
               <button
                 onClick={() => setActiveTab('invoices')}
                 className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg font-bold"
@@ -317,6 +336,26 @@ const App: React.FC = () => {
             <InvoicePreview invoice={selectedInvoice} companyInfo={companyInfo} />
           </div>
         ) : <p>No invoice selected</p>;
+      case 'view-receipt':
+        return selectedInvoice ? (
+          <div>
+            <div className="flex justify-end gap-2 mb-4 no-print">
+              <button
+                onClick={() => window.print()}
+                className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg"
+              >
+                Print Receipt
+              </button>
+              <button
+                onClick={() => setActiveTab('invoices')}
+                className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg font-bold"
+              >
+                Back to List
+              </button>
+            </div>
+            <PaymentReceipt invoice={selectedInvoice} companyInfo={companyInfo} />
+          </div>
+        ) : <p>No receipt available</p>;
       case 'invoices':
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -365,6 +404,14 @@ const App: React.FC = () => {
                           >
                             View
                           </button>
+                          {inv.status === 'PAID' && (
+                            <button
+                              onClick={() => { setSelectedInvoice(inv); setActiveTab('view-receipt'); }}
+                              className="text-green-600 font-bold hover:underline"
+                            >
+                              Receipt
+                            </button>
+                          )}
                           <button
                             onClick={() => handleEditInvoice(inv)}
                             className="text-blue-600 font-bold hover:underline"

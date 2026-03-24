@@ -85,6 +85,8 @@ export interface Invoice {
   totalVat: number;
   netAmount: number;
   profit: number;
+  paymentDate?: string;    // Date when customer paid
+  paymentMethod?: string;  // e.g. Cash, Bank Transfer, Cheque
   companyTrn?: string; // Capture TRN at time of generation
   createdBy: string;
   createdByName: string;
