@@ -57,6 +57,7 @@ export interface InvoiceItem {
   commodityType: string;
   description: string;
   weight: number;
+  cbm?: number;       // CBM weight (optional)
   quantity: number;
   coo: string; // Country of Origin
   price: number;

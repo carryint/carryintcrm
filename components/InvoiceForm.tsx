@@ -37,27 +37,27 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     commodityType: COMMODITY_TYPES[0],
     description: '',
     weight: 0,
+    cbm: undefined,
     quantity: 1,
     coo: 'UAE',
     price: 0,
-    vatPercent: 5
+    vatPercent: 0
   }]);
+  const [globalVatPercent, setGlobalVatPercent] = useState<number>(() => {
+    if (editingInvoice && editingInvoice.items.length > 0) {
+      return editingInvoice.items[0].vatPercent;
+    }
+    return 0;
+  });
   const [status, setStatus] = useState<PaymentStatus>(editingInvoice?.status || 'UNPAID');
   const [vendorStatus, setVendorStatus] = useState<PaymentStatus>(editingInvoice?.vendorStatus || 'UNPAID');
+  const [manualTotal, setManualTotal] = useState<number>(editingInvoice?.totalAmount || 0);
 
+  // Totals are based on the manually entered total — qty/weight/price are independent descriptive fields.
   const calculateTotals = () => {
-    let totalAmount = 0;
-    let totalVat = 0;
-    let netAmount = 0;
-
-    items.forEach(item => {
-      const lineTotal = item.price * item.quantity;
-      const lineVat = lineTotal * (item.vatPercent / 100);
-      netAmount += lineTotal;
-      totalVat += lineVat;
-      totalAmount += (lineTotal + lineVat);
-    });
-
+    const netAmount = manualTotal;
+    const totalVat = netAmount * (globalVatPercent / 100);
+    const totalAmount = netAmount + totalVat;
     return { totalAmount, totalVat, netAmount };
   };
 
@@ -66,11 +66,18 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       commodityType: COMMODITY_TYPES[0],
       description: '',
       weight: 0,
+      cbm: undefined,
       quantity: 1,
       coo: 'UAE',
       price: 0,
-      vatPercent: 5
+      vatPercent: globalVatPercent
     }]);
+  };
+
+  const handleGlobalVatChange = (value: number) => {
+    setGlobalVatPercent(value);
+    const updatedItems = items.map(item => ({ ...item, vatPercent: value }));
+    setItems(updatedItems);
   };
 
   const removeItem = (index: number) => {
@@ -90,7 +97,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     if (!customer) return alert("Please select a customer");
 
     const { totalAmount, totalVat, netAmount } = calculateTotals();
-    const profit = totalAmount - vendorCost;
+    const profit = manualTotal - vendorCost;
 
     const auditLog: AuditLog = {
       action: editingInvoice ? 'EDIT' : 'CREATE',
@@ -176,9 +183,10 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
         <h3 className="text-xl font-bold mb-6">Commodity Items</h3>
+        <p className="text-xs text-amber-700 italic mb-4 font-semibold">Enter values freely for each row. Price is the line total — no automatic calculation from Qty/Weight.</p>
         <div className="space-y-4">
           {items.map((item, idx) => (
-            <div key={idx} className="grid grid-cols-1 md:grid-cols-7 gap-4 items-end p-4 border border-amber-200 bg-amber-100/50 rounded-lg">
+            <div key={idx} className="grid grid-cols-1 md:grid-cols-8 gap-3 items-end p-4 border border-amber-200 bg-amber-100/50 rounded-lg">
               <div className="md:col-span-1">
                 <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">Type</label>
                 <select
@@ -199,29 +207,46 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">Weight</label>
+                <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">Weight (kg)</label>
                 <input
-                  type="number"
-                  value={item.weight}
-                  onChange={(e) => updateItem(idx, 'weight', Number(e.target.value))}
+                  type="text"
+                  inputMode="decimal"
+                  value={item.weight === 0 && !editingInvoice ? '' : item.weight}
+                  onChange={(e) => updateItem(idx, 'weight', e.target.value === '' ? 0 : Number(e.target.value))}
+                  placeholder="0"
+                  className="w-full px-2 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">CBM</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={item.cbm !== undefined ? item.cbm : ''}
+                  onChange={(e) => updateItem(idx, 'cbm', e.target.value === '' ? undefined : Number(e.target.value))}
+                  placeholder="Optional"
                   className="w-full px-2 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold"
                 />
               </div>
               <div>
                 <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">Qty</label>
                 <input
-                  type="number"
-                  value={item.quantity}
-                  onChange={(e) => updateItem(idx, 'quantity', Number(e.target.value))}
+                  type="text"
+                  inputMode="decimal"
+                  value={item.quantity === 1 && !editingInvoice ? '' : item.quantity}
+                  onChange={(e) => updateItem(idx, 'quantity', e.target.value === '' ? 1 : Number(e.target.value))}
+                  placeholder="1"
                   className="w-full px-2 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">Price</label>
+                <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">Price (Total)</label>
                 <input
-                  type="number"
-                  value={item.price}
-                  onChange={(e) => updateItem(idx, 'price', Number(e.target.value))}
+                  type="text"
+                  inputMode="decimal"
+                  value={item.price === 0 && !editingInvoice ? '' : item.price}
+                  onChange={(e) => updateItem(idx, 'price', e.target.value === '' ? 0 : Number(e.target.value))}
+                  placeholder="0.00"
                   className="w-full px-2 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold"
                 />
               </div>
@@ -305,13 +330,37 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
         <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 flex flex-col justify-between text-white">
           <h3 className="text-xl font-bold text-orange-500 mb-4">Financial Overview</h3>
-          <div className="space-y-2">
-            <div className="flex justify-between text-slate-400">
-              <span className="font-bold">Subtotal:</span>
-              <span className="font-black text-white">{calculateTotals().netAmount.toFixed(2)} AED</span>
+          <div className="space-y-3">
+            {/* Manual total entry — not linked to qty/weight/price */}
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Total Amount (AED)</label>
+              <div className="flex items-center bg-slate-800 rounded-lg px-3 border border-slate-600 focus-within:border-orange-500 transition-colors">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={manualTotal}
+                  onChange={(e) => setManualTotal(Number(e.target.value))}
+                  className="flex-1 bg-transparent text-white font-black outline-none text-right py-2 text-lg"
+                  placeholder="Enter amount"
+                />
+                <span className="text-slate-400 font-bold ml-2 text-sm">AED</span>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1 italic">Enter the total amount manually — independent of qty / weight / price.</p>
             </div>
-            <div className="flex justify-between text-slate-400 border-b border-slate-700 pb-2">
-              <span className="font-bold">VAT (5%):</span>
+            <div className="flex justify-between items-center text-slate-400 border-b border-slate-700 pb-2">
+              <div className="flex items-center gap-2">
+                <span className="font-bold">VAT:</span>
+                <div className="flex items-center bg-slate-800 rounded px-2 border border-slate-700">
+                  <input
+                    type="number"
+                    value={globalVatPercent}
+                    onChange={(e) => handleGlobalVatChange(Number(e.target.value))}
+                    className="w-12 bg-transparent text-white font-black outline-none text-right py-1"
+                  />
+                  <span className="text-xs font-bold text-slate-500 ml-1">%</span>
+                </div>
+              </div>
               <span className="font-black text-white">{calculateTotals().totalVat.toFixed(2)} AED</span>
             </div>
             <div className="flex justify-between text-2xl font-black text-orange-500 pt-2">
@@ -321,7 +370,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
             <div className="mt-4 pt-4 border-t border-slate-700">
               <div className="flex justify-between text-sm text-green-400 font-black uppercase tracking-widest">
                 <span>Net Margin:</span>
-                <span>{(calculateTotals().totalAmount - vendorCost).toFixed(2)} AED</span>
+                <span>{(manualTotal - vendorCost).toFixed(2)} AED</span>
               </div>
             </div>
           </div>
