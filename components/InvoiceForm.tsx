@@ -222,9 +222,18 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={item.cbm !== undefined ? item.cbm : ''}
-                  onChange={(e) => updateItem(idx, 'cbm', e.target.value === '' ? undefined : Number(e.target.value))}
-                  placeholder="Optional"
+                  value={item.cbm !== undefined ? String(item.cbm) : ''}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '' || raw === '-') {
+                      updateItem(idx, 'cbm', undefined);
+                    } else if (/^-?\d*\.?\d*$/.test(raw)) {
+                      // Allow partial decimals like "1." while typing; only store as number when complete
+                      const parsed = parseFloat(raw);
+                      updateItem(idx, 'cbm', raw.endsWith('.') || isNaN(parsed) ? (raw as any) : parsed);
+                    }
+                  }}
+                  placeholder="e.g. 1.263"
                   className="w-full px-2 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold"
                 />
               </div>
