@@ -9,7 +9,7 @@ interface CustomerManagementProps {
   invoices: Invoice[];
   onAdd: (customer: Customer) => void;
   onDelete: (id: string) => void;
-  onUpdateInvoiceStatus: (invoiceId: string, status: 'PAID' | 'UNPAID') => void;
+  onUpdateInvoiceStatus: (invoiceId: string, status: 'PAID' | 'UNPAID', transactionReference?: string) => void;
 }
 
 const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invoices, onAdd, onDelete, onUpdateInvoiceStatus }) => {
@@ -135,7 +135,16 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
                     <td className="px-6 py-5 text-gray-600 text-sm">{new Date(inv.date).toLocaleDateString()}</td>
                     <td className="px-6 py-5">
                       <button
-                        onClick={() => onUpdateInvoiceStatus(inv.id, inv.status === 'PAID' ? 'UNPAID' : 'PAID')}
+                        onClick={() => {
+                          let reference = undefined;
+                          const newStatus = inv.status === 'PAID' ? 'UNPAID' : 'PAID';
+                          if (newStatus === 'PAID') {
+                            const input = window.prompt("Enter Transaction Reference (Optional for Bank Transfer):", inv.transactionReference || "");
+                            if (input === null) return; // User cancelled
+                            reference = input;
+                          }
+                          onUpdateInvoiceStatus(inv.id, newStatus, reference);
+                        }}
                         className={`text-[10px] font-black px-3 py-1.5 rounded-full transition-all hover:scale-105 active:scale-95 ${inv.status === 'PAID' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'
                           }`}
                       >

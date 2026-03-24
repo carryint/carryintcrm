@@ -87,6 +87,7 @@ export interface Invoice {
   profit: number;
   paymentDate?: string;    // Date when customer paid
   paymentMethod?: string;  // e.g. Cash, Bank Transfer, Cheque
+  transactionReference?: string; // Transaction reference for bank transfers
   companyTrn?: string; // Capture TRN at time of generation
   createdBy: string;
   createdByName: string;

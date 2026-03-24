@@ -180,14 +180,15 @@ const App: React.FC = () => {
     localStorage.setItem('carryint_users', JSON.stringify(updated));
   };
 
-  const handleUpdateInvoiceStatus = (invoiceId: string, status: 'PAID' | 'UNPAID') => {
+  const handleUpdateInvoiceStatus = (invoiceId: string, status: 'PAID' | 'UNPAID', transactionReference?: string) => {
     const updated = invoices.map(inv => {
       if (inv.id === invoiceId) {
         return {
           ...inv,
           status,
           paymentDate: status === 'PAID' ? (inv.paymentDate || new Date().toISOString().split('T')[0]) : undefined,
-          paymentMethod: status === 'PAID' ? (inv.paymentMethod || 'Bank Transfer') : undefined
+          paymentMethod: status === 'PAID' ? (inv.paymentMethod || 'Bank Transfer') : undefined,
+          transactionReference: status === 'PAID' ? (transactionReference || inv.transactionReference) : undefined
         };
       }
       return inv;

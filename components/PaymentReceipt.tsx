@@ -62,6 +62,12 @@ const PaymentReceipt: React.FC<PaymentReceiptProps> = ({ invoice, companyInfo })
                 <h4 className="text-[10px] font-black text-gray-400 uppercase mb-1">Payment Date</h4>
                 <p className="font-bold text-gray-900">{paymentDate}</p>
              </div>
+             {invoice.transactionReference && (
+               <div className="col-span-2">
+                  <h4 className="text-[10px] font-black text-gray-400 uppercase mb-1">Transaction Ref</h4>
+                  <p className="font-bold text-gray-900">{invoice.transactionReference}</p>
+               </div>
+             )}
           </div>
         </div>
 

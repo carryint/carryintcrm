@@ -54,6 +54,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const [manualTotal, setManualTotal] = useState<number>(editingInvoice?.totalAmount || 0);
   const [paymentDate, setPaymentDate] = useState<string>(editingInvoice?.paymentDate || new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState<string>(editingInvoice?.paymentMethod || 'Bank Transfer');
+  const [transactionReference, setTransactionReference] = useState<string>(editingInvoice?.transactionReference || '');
 
   // Totals are based on the manually entered total — qty/weight/price are independent descriptive fields.
   const calculateTotals = () => {
@@ -124,14 +125,15 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       vendorId: vendor?.id,
       vendorName: vendor?.name,
       vendorCost,
-      status: editingInvoice ? status : (customer.type === 'ONE_TIME' ? 'PAID' : 'UNPAID'),
-      vendorStatus: editingInvoice ? vendorStatus : 'UNPAID',
+      status: status,
+      vendorStatus: vendorStatus,
       totalAmount,
       totalVat,
       netAmount,
       profit,
       paymentDate: status === 'PAID' ? paymentDate : undefined,
       paymentMethod: status === 'PAID' ? paymentMethod : undefined,
+      transactionReference: status === 'PAID' ? transactionReference : undefined,
       companyTrn: companyInfo.trn,
       createdBy: editingInvoice?.createdBy || currentUser?.id || 'system',
       createdByName: editingInvoice?.createdByName || currentUser?.name || 'System',
@@ -312,21 +314,33 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
               <p className="text-xs text-amber-900 mt-1 italic font-bold">Base cost for internal profit tracking.</p>
             </div>
 
-            {editingInvoice && (
-              <div className="pt-4 border-t border-amber-200 space-y-4 animate-in fade-in slide-in-from-top-2">
-                <div>
-                  <label className="block text-sm font-black text-orange-800 uppercase tracking-widest mb-1 italic">Customer Payment Status</label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
-                    className={selectClass}
-                  >
-                    <option value="UNPAID">UNPAID (Awaiting Customer Payment)</option>
-                    <option value="PAID">PAID (Amount Received)</option>
-                  </select>
-                </div>
-                {status === 'PAID' && (
-                  <div className="grid grid-cols-2 gap-4 pt-2 animate-in fade-in slide-in-from-top-2">
+            <div className="pt-4 border-t border-amber-200 space-y-4">
+              <div>
+                <label className="block text-sm font-black text-orange-800 uppercase tracking-widest mb-1 italic">Customer Payment Status</label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as any)}
+                  className={selectClass}
+                >
+                  <option value="UNPAID">UNPAID (Awaiting Customer Payment)</option>
+                  <option value="PAID">PAID (Amount Received)</option>
+                  <option value="PARTIAL">PARTIAL (Partially Received)</option>
+                </select>
+              </div>
+              {(status === 'PAID' || status === 'PARTIAL') && (
+                <div className="space-y-4 pt-2">
+                  <div className="bg-green-50 p-4 rounded-xl border-2 border-green-200 animate-pulse-once">
+                    <label className="block text-sm font-black text-green-800 uppercase tracking-widest mb-2">Bank Transaction Reference / Receipts / Number</label>
+                    <input
+                      type="text"
+                      placeholder="Enter Bank Ref, Cheque No, or Transaction Details..."
+                      value={transactionReference}
+                      onChange={(e) => setTransactionReference(e.target.value)}
+                      className="w-full px-4 py-3 rounded-lg border-2 border-green-300 bg-white text-slate-950 font-bold focus:ring-4 focus:ring-green-500 outline-none transition-all placeholder:text-green-200"
+                    />
+                    <p className="text-[10px] text-green-600 mt-2 font-bold uppercase tracking-wider italic">Note: This will be visible on the Payment Receipt</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-black text-green-700 uppercase tracking-widest mb-1">Payment Date</label>
                       <input
@@ -350,20 +364,20 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                       </select>
                     </div>
                   </div>
-                )}
-                <div>
-                  <label className="block text-sm font-black text-orange-800 uppercase tracking-widest mb-1 italic">Vendor Payment Status</label>
-                  <select
-                    value={vendorStatus}
-                    onChange={(e) => setVendorStatus(e.target.value as any)}
-                    className={selectClass}
-                  >
-                    <option value="UNPAID">UNPAID (Pending Vendor Settlement)</option>
-                    <option value="PAID">PAID (Closed Vendor Bill)</option>
-                  </select>
                 </div>
+              )}
+              <div>
+                <label className="block text-sm font-black text-orange-800 uppercase tracking-widest mb-1 italic">Vendor Payment Status</label>
+                <select
+                  value={vendorStatus}
+                  onChange={(e) => setVendorStatus(e.target.value as any)}
+                  className={selectClass}
+                >
+                  <option value="UNPAID">UNPAID (Pending Vendor Settlement)</option>
+                  <option value="PAID">PAID (Closed Vendor Bill)</option>
+                </select>
               </div>
-            )}
+            </div>
           </div>
         </div>
 
