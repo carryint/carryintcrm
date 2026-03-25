@@ -62,6 +62,7 @@ export interface InvoiceItem {
   coo: string; // Country of Origin
   price: number;
   vatPercent: number;
+  isAdditionalCharge?: boolean;
 }
 
 export interface Invoice {

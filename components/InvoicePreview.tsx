@@ -2,6 +2,7 @@
 import React from 'react';
 import { Invoice, CompanyInfo } from '../types';
 import { formatCurrency, numberToWords } from '../utils';
+import { COUNTRY_SHORT_NAMES } from '../constants';
 import Logo from './Logo';
 
 interface InvoicePreviewProps {
@@ -11,6 +12,10 @@ interface InvoicePreviewProps {
 
 const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, companyInfo }) => {
   const displayTrn = invoice.companyTrn || companyInfo.trn;
+
+  const getCountryDisplay = (name: string) => {
+    return COUNTRY_SHORT_NAMES[name] || name;
+  };
 
   return (
     <div className="bg-white p-6 max-w-4xl mx-auto shadow-2xl border border-gray-200 my-4 invoice-container">
@@ -50,8 +55,16 @@ const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, companyInfo })
             <span className="text-[10px] font-bold text-gray-900">{new Date(invoice.date).toLocaleDateString()}</span>
           </div>
           <div className="flex justify-between">
+            <span className="text-[10px] font-bold text-gray-500 uppercase">Origin (COO)</span>
+            <span className="text-[10px] font-bold text-gray-900 uppercase">
+              {invoice.items[0]?.coo ? getCountryDisplay(invoice.items[0].coo) : 'N/A'}
+            </span>
+          </div>
+          <div className="flex justify-between">
             <span className="text-[10px] font-bold text-gray-500 uppercase">Destination</span>
-            <span className="text-[10px] font-bold text-orange-600 uppercase">{invoice.destinationCountry}</span>
+            <span className="text-[10px] font-bold text-orange-600 uppercase">
+              {getCountryDisplay(invoice.destinationCountry)}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-[10px] font-bold text-gray-500 uppercase">Status</span>
@@ -87,12 +100,18 @@ const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, companyInfo })
                     <p className="font-bold text-xs text-gray-900">{item.commodityType}</p>
                     <p className="text-[10px] text-gray-500">{item.description}</p>
                   </td>
-                  <td className="py-2 px-4 text-center text-xs font-medium text-gray-600 uppercase">{item.coo}</td>
-                  <td className="py-2 px-4 text-center text-xs font-medium text-gray-600">{item.weight} kg</td>
-                  <td className="py-2 px-4 text-center text-xs font-medium text-gray-600">
-                    {item.cbm !== undefined && item.cbm !== null ? `${item.cbm} CBM` : '-'}
+                  <td className="py-2 px-4 text-center text-xs font-medium text-gray-600 uppercase">
+                    {item.isAdditionalCharge ? '-' : getCountryDisplay(item.coo)}
                   </td>
-                  <td className="py-2 px-4 text-center text-xs font-medium text-gray-600">{item.quantity}</td>
+                  <td className="py-2 px-4 text-center text-xs font-medium text-gray-600">
+                    {item.isAdditionalCharge ? '-' : `${item.weight} kg`}
+                  </td>
+                  <td className="py-2 px-4 text-center text-xs font-medium text-gray-600">
+                    {item.isAdditionalCharge ? '-' : (item.cbm !== undefined && item.cbm !== null ? `${item.cbm} CBM` : '-')}
+                  </td>
+                  <td className="py-2 px-4 text-center text-xs font-medium text-gray-600">
+                    {item.isAdditionalCharge ? '-' : item.quantity}
+                  </td>
                   <td className="py-2 px-4 text-right text-xs font-medium text-gray-600 text-nowrap">{item.price.toFixed(2)}</td>
                   <td className="py-2 px-4 text-right text-xs font-medium text-gray-600 text-nowrap">{lineVat.toFixed(2)}</td>
                   <td className="py-2 px-4 text-right text-xs font-black text-gray-900 text-nowrap">{(lineTotal + lineVat).toFixed(2)}</td>

@@ -13,6 +13,7 @@ import {
 } from '../types';
 import {
   DESTINATION_COUNTRIES,
+  ALL_COUNTRIES,
   COMMODITY_TYPES
 } from '../constants';
 import { generateId } from '../utils';
@@ -33,13 +34,19 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const [selectedVendorId, setSelectedVendorId] = useState(editingInvoice?.vendorId || '');
   const [vendorCost, setVendorCost] = useState(editingInvoice?.vendorCost || 0);
   const [destinationCountry, setDestinationCountry] = useState(editingInvoice?.destinationCountry || DESTINATION_COUNTRIES[0]);
+  const [globalCoo, setGlobalCoo] = useState<string>(() => {
+    if (editingInvoice && editingInvoice.items.length > 0) {
+      return editingInvoice.items[0].coo;
+    }
+    return 'United Arab Emirates';
+  });
   const [items, setItems] = useState<InvoiceItem[]>(editingInvoice?.items || [{
     commodityType: COMMODITY_TYPES[0],
     description: '',
     weight: 0,
     cbm: undefined,
     quantity: 1,
-    coo: 'UAE',
+    coo: editingInvoice?.items[0]?.coo || 'United Arab Emirates',
     price: 0,
     vatPercent: 0
   }]);
@@ -71,15 +78,35 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       weight: 0,
       cbm: undefined,
       quantity: 1,
-      coo: 'UAE',
+      coo: globalCoo,
       price: 0,
       vatPercent: globalVatPercent
+    }]);
+  };
+
+  const addAdditionalCharge = () => {
+    setItems([...items, {
+      commodityType: 'Additional Charges',
+      description: '',
+      weight: 0,
+      cbm: undefined,
+      quantity: 1,
+      coo: globalCoo,
+      price: 0,
+      vatPercent: globalVatPercent,
+      isAdditionalCharge: true
     }]);
   };
 
   const handleGlobalVatChange = (value: number) => {
     setGlobalVatPercent(value);
     const updatedItems = items.map(item => ({ ...item, vatPercent: value }));
+    setItems(updatedItems);
+  };
+
+  const handleGlobalCooChange = (value: string) => {
+    setGlobalCoo(value);
+    const updatedItems = items.map(item => ({ ...item, coo: value }));
     setItems(updatedItems);
   };
 
@@ -155,7 +182,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
           {editingInvoice ? `Editing Invoice ${editingInvoice.invoiceNumber}` : 'Create New Invoice'}
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-4">
             <label className="block text-sm font-black text-gray-600 uppercase tracking-widest">Customer Selection</label>
             <select
@@ -167,6 +194,20 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
               <option value="" className="bg-amber-100">Select Customer Profile</option>
               {customers.map(c => (
                 <option key={c.id} value={c.id} className="bg-amber-100">{c.name} ({c.type})</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-4">
+            <label className="block text-sm font-black text-gray-600 uppercase tracking-widest">Country of Origin (COO)</label>
+            <select
+              value={globalCoo}
+              onChange={(e) => handleGlobalCooChange(e.target.value)}
+              className={selectClass}
+              required
+            >
+              {ALL_COUNTRIES.map(c => (
+                <option key={c} value={c} className="bg-amber-100">{c}</option>
               ))}
             </select>
           </div>
@@ -200,10 +241,17 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                   onChange={(e) => updateItem(idx, 'commodityType', e.target.value)}
                   className="w-full px-2 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold"
                 >
-                  {COMMODITY_TYPES.map(t => <option key={t} value={t} className="bg-amber-50">{t}</option>)}
+                  {item.isAdditionalCharge ? (
+                    <>
+                      <option value="Additional Charges" className="bg-amber-50">Additional Charges</option>
+                      <option value="Documentation Charges" className="bg-amber-50">Documentation Charges</option>
+                    </>
+                  ) : (
+                    COMMODITY_TYPES.map(t => <option key={t} value={t} className="bg-amber-50">{t}</option>)
+                  )}
                 </select>
               </div>
-              <div className="md:col-span-2">
+              <div className={item.isAdditionalCharge ? "md:col-span-5" : "md:col-span-2"}>
                 <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">Description</label>
                 <input
                   value={item.description}
@@ -212,48 +260,51 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                   className="w-full px-2 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-semibold"
                 />
               </div>
-              <div>
-                <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">Weight (kg)</label>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={item.weight === 0 && !editingInvoice ? '' : item.weight}
-                  onChange={(e) => updateItem(idx, 'weight', e.target.value === '' ? 0 : Number(e.target.value))}
-                  placeholder="0"
-                  className="w-full px-2 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">CBM</label>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={item.cbm !== undefined ? String(item.cbm) : ''}
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    if (raw === '' || raw === '-') {
-                      updateItem(idx, 'cbm', undefined);
-                    } else if (/^-?\d*\.?\d*$/.test(raw)) {
-                      // Allow partial decimals like "1." while typing; only store as number when complete
-                      const parsed = parseFloat(raw);
-                      updateItem(idx, 'cbm', raw.endsWith('.') || isNaN(parsed) ? (raw as any) : parsed);
-                    }
-                  }}
-                  placeholder="e.g. 1.263"
-                  className="w-full px-2 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">Qty</label>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={item.quantity === 1 && !editingInvoice ? '' : item.quantity}
-                  onChange={(e) => updateItem(idx, 'quantity', e.target.value === '' ? 1 : Number(e.target.value))}
-                  placeholder="1"
-                  className="w-full px-2 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold"
-                />
-              </div>
+              {!item.isAdditionalCharge && (
+                <>
+                  <div>
+                    <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">Weight (kg)</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={item.weight === 0 && !editingInvoice ? '' : item.weight}
+                      onChange={(e) => updateItem(idx, 'weight', e.target.value === '' ? 0 : Number(e.target.value))}
+                      placeholder="0"
+                      className="w-full px-2 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">CBM</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={item.cbm !== undefined ? String(item.cbm) : ''}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === '' || raw === '-') {
+                          updateItem(idx, 'cbm', undefined);
+                        } else if (/^-?\d*\.?\d*$/.test(raw)) {
+                          const parsed = parseFloat(raw);
+                          updateItem(idx, 'cbm', raw.endsWith('.') || isNaN(parsed) ? (raw as any) : parsed);
+                        }
+                      }}
+                      placeholder="e.g. 1.263"
+                      className="w-full px-2 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">Qty</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={item.quantity === 1 && !editingInvoice ? '' : item.quantity}
+                      onChange={(e) => updateItem(idx, 'quantity', e.target.value === '' ? 1 : Number(e.target.value))}
+                      placeholder="1"
+                      className="w-full px-2 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold"
+                    />
+                  </div>
+                </>
+              )}
               <div>
                 <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">Price (Total)</label>
                 <input
@@ -276,13 +327,22 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
               </div>
             </div>
           ))}
-          <button
-            type="button"
-            onClick={addItem}
-            className="flex items-center gap-2 text-orange-600 font-black hover:text-orange-700 mt-4 transition-colors uppercase text-sm"
-          >
-            <Plus size={18} /> Add Row
-          </button>
+          <div className="flex flex-wrap gap-4 mt-4">
+            <button
+              type="button"
+              onClick={addItem}
+              className="flex items-center gap-2 text-orange-600 font-black hover:text-orange-700 transition-colors uppercase text-sm"
+            >
+              <Plus size={18} /> Add Row
+            </button>
+            <button
+              type="button"
+              onClick={addAdditionalCharge}
+              className="flex items-center gap-2 text-blue-600 font-black hover:text-blue-700 transition-colors uppercase text-sm"
+            >
+              <Plus size={18} /> Add Additional Charges
+            </button>
+          </div>
         </div>
       </div>
 
