@@ -27,12 +27,13 @@ interface FinancialReportsProps {
   companyInfo: CompanyInfo;
 }
 
-type TimeRangeType = 'ALL' | 'DAILY' | 'MONTHLY' | 'YEARLY';
+type TimeRangeType = 'ALL' | 'DAILY' | 'MONTHLY' | 'YEARLY' | 'CUSTOM';
 
 const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers, vendors, companyInfo }) => {
   const [selectedEntity, setSelectedEntity] = useState<string>('all');
   const [timeRange, setTimeRange] = useState<TimeRangeType>('ALL');
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   const filteredItems = invoices.filter(item => {
     // Entity filter (Check both customer and vendor IDs since we're unified)
@@ -55,6 +56,12 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
              itemDate.getFullYear() === filterDate.getFullYear();
     } else if (timeRange === 'YEARLY') {
       return itemDate.getFullYear() === filterDate.getFullYear();
+    } else if (timeRange === 'CUSTOM') {
+      const start = new Date(selectedDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      return itemDate >= start && itemDate <= end;
     }
 
     return true;
@@ -102,7 +109,7 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
     ];
     worksheet['!cols'] = wscols;
 
-    XLSX.writeFile(workbook, `CarryInt_Unified_Report_${timeRange}_${selectedDate}.xlsx`);
+    XLSX.writeFile(workbook, `CarryInt_Unified_Report_${timeRange}.xlsx`);
   };
 
   const handleExportPDF = () => {
@@ -113,10 +120,12 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
     doc.setTextColor(249, 115, 22); 
     doc.text(`Unified Financial Ledger`, 14, 22);
     
+    const rangeText = timeRange === 'CUSTOM' ? `${selectedDate} to ${endDate}` : selectedDate;
+    
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
-    doc.text(`Filter: ${timeRange} (${selectedDate})`, 14, 35);
+    doc.text(`Filter: ${timeRange} (${rangeText})`, 14, 35);
     
     // Summary Grid in PDF
     doc.setFontSize(12);
@@ -206,7 +215,7 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
 
             <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mt-8 mb-4">Time Range</h3>
             <div className="grid grid-cols-2 gap-2">
-              {(['ALL', 'DAILY', 'MONTHLY', 'YEARLY'] as TimeRangeType[]).map((range) => (
+              {(['ALL', 'DAILY', 'MONTHLY', 'YEARLY', 'CUSTOM'] as TimeRangeType[]).map((range) => (
                 <button
                   key={range}
                   onClick={() => setTimeRange(range)}
@@ -224,7 +233,7 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
             {timeRange !== 'ALL' && (
               <div className="mt-4 animate-in fade-in slide-in-from-top-2">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 block">
-                  {timeRange === 'DAILY' ? 'Select Date' : timeRange === 'MONTHLY' ? 'Select Month' : 'Select Year'}
+                  {timeRange === 'DAILY' ? 'Select Date' : timeRange === 'MONTHLY' ? 'Select Month' : timeRange === 'YEARLY' ? 'Select Year' : 'Select Range'}
                 </label>
                 {timeRange === 'YEARLY' ? (
                   <select
@@ -236,6 +245,22 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
                       <option key={year} value={year}>{year}</option>
                     ))}
                   </select>
+                ) : timeRange === 'CUSTOM' ? (
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      className="flex-1 px-2 py-2 rounded-lg border border-gray-200 text-xs font-bold"
+                    />
+                    <span className="text-gray-400 text-xs font-bold">TO</span>
+                    <input 
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="flex-1 px-2 py-2 rounded-lg border border-gray-200 text-xs font-bold"
+                    />
+                  </div>
                 ) : (
                   <input 
                     type={timeRange === 'DAILY' ? 'date' : 'month'}
