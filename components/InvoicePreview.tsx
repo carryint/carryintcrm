@@ -57,13 +57,13 @@ const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, companyInfo })
           <div className="flex justify-between">
             <span className="text-[10px] font-bold text-gray-500 uppercase">Origin (COO)</span>
             <span className="text-[10px] font-bold text-gray-900 uppercase">
-              {invoice.items[0]?.coo || 'N/A'}
+              {invoice.items[0]?.coo ? getCountryDisplay(invoice.items[0].coo) : 'N/A'}
             </span>
           </div>
           <div className="flex justify-between">
             <span className="text-[10px] font-bold text-gray-500 uppercase">Destination</span>
             <span className="text-[10px] font-bold text-orange-600 uppercase">
-              {invoice.destinationCountry}
+              {getCountryDisplay(invoice.destinationCountry)}
             </span>
           </div>
           <div className="flex justify-between">
