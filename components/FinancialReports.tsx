@@ -93,10 +93,11 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
       'Date': new Date(item.date).toLocaleDateString(),
       'Customer': item.customerName,
       'Vendor': item.vendorName || '-',
-      'Received': item.status === 'PAID' ? item.totalAmount : 0,
+      'Rec. (Bank)': item.status === 'PAID' && item.paymentMethod !== 'Cash' ? item.totalAmount : 0,
+      'Rec. (Cash)': item.status === 'PAID' && item.paymentMethod === 'Cash' ? item.totalAmount : 0,
       'Not Received': item.status !== 'PAID' ? item.totalAmount : 0,
-      'Paid (Exp)': item.vendorStatus === 'PAID' ? item.vendorCost : 0,
-      'Not Paid (Exp)': item.vendorStatus !== 'PAID' ? item.vendorCost : 0,
+      'Paid (Cash/Bank)': item.vendorStatus === 'PAID' ? item.vendorCost : 0,
+      'Not Paid': item.vendorStatus !== 'PAID' ? item.vendorCost : 0,
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(data);
@@ -105,7 +106,7 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
     
     const wscols = [
       { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 20 },
-      { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }
+      { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }
     ];
     worksheet['!cols'] = wscols;
 
@@ -139,8 +140,10 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
       item.invoiceNumber,
       new Date(item.date).toLocaleDateString(),
       item.customerName,
+      // eslint-disable-next-line
       item.vendorName || '-',
-      item.status === 'PAID' ? item.totalAmount.toFixed(2) : '0.00',
+      item.status === 'PAID' && item.paymentMethod !== 'Cash' ? item.totalAmount.toFixed(2) : '0.00',
+      item.status === 'PAID' && item.paymentMethod === 'Cash' ? item.totalAmount.toFixed(2) : '0.00',
       item.status !== 'PAID' ? item.totalAmount.toFixed(2) : '0.00',
       item.vendorStatus === 'PAID' ? item.vendorCost.toFixed(2) : '0.00',
       item.vendorStatus !== 'PAID' ? item.vendorCost.toFixed(2) : '0.00',
@@ -148,15 +151,17 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
 
     autoTable(doc, {
       startY: 55,
-      head: [['Inv No', 'Date', 'Customer', 'Vendor', 'Received', 'Not Rec', 'Paid', 'Not Paid']],
+      head: [['Inv No', 'Date', 'Customer', 'Vendor', 'Rec. Bank', 'Rec. Cash', 'Not Rec.', 'Paid', 'Not Paid']],
       body: tableData,
       theme: 'grid',
-      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255] },
+      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontSize: 8 },
+      bodyStyles: { fontSize: 8 },
       columnStyles: {
-        4: { fontStyle: 'bold', textColor: [22, 163, 74] }, // Green Received
-        5: { fontStyle: 'bold', textColor: [220, 38, 38] }, // Red Not Received
-        6: { fontStyle: 'bold', textColor: [22, 163, 74] }, 
-        7: { fontStyle: 'bold', textColor: [220, 38, 38] },
+        4: { fontStyle: 'bold', textColor: [22, 163, 74] },
+        5: { fontStyle: 'bold', textColor: [5, 150, 105] },
+        6: { fontStyle: 'bold', textColor: [220, 38, 38] }, 
+        7: { fontStyle: 'bold', textColor: [37, 99, 235] },
+        8: { fontStyle: 'bold', textColor: [217, 119, 6] },
       }
     });
 
@@ -334,9 +339,10 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
                       <th className="px-6 py-4 border-b">Date</th>
                       <th className="px-6 py-4 border-b">Customer</th>
                       <th className="px-6 py-4 border-b">Vendor</th>
-                      <th className="px-6 py-4 border-b text-right bg-green-50/30 text-green-700">Received</th>
+                      <th className="px-6 py-4 border-b text-right bg-green-50/30 text-green-700">Rec. Bank</th>
+                      <th className="px-6 py-4 border-b text-right bg-emerald-50/30 text-emerald-700">Rec. Cash</th>
                       <th className="px-6 py-4 border-b text-right bg-red-50/30 text-red-700">Not Rec.</th>
-                      <th className="px-6 py-4 border-b text-right bg-blue-50/30 text-blue-700">Paid</th>
+                      <th className="px-6 py-4 border-b text-right bg-blue-50/30 text-blue-700">Paid (Cash/Bank)</th>
                       <th className="px-6 py-4 border-b text-right bg-amber-50/30 text-amber-700">Not Paid</th>
                     </tr>
                   </thead>
@@ -349,10 +355,17 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
                           <td className="px-6 py-4 font-bold text-gray-700 text-xs">{item.customerName}</td>
                           <td className="px-6 py-4 text-xs text-gray-500 italic">{item.vendorName || '-'}</td>
                           
-                          {/* Received */}
+                          {/* Rec. Bank */}
                           <td className="px-6 py-4 text-right">
-                            {item.status === 'PAID' ? (
+                            {item.status === 'PAID' && item.paymentMethod !== 'Cash' ? (
                               <span className="font-black text-green-600">{formatCurrency(item.totalAmount)}</span>
+                            ) : '-'}
+                          </td>
+
+                          {/* Rec. Cash */}
+                          <td className="px-6 py-4 text-right">
+                            {item.status === 'PAID' && item.paymentMethod === 'Cash' ? (
+                              <span className="font-black text-emerald-600">{formatCurrency(item.totalAmount)}</span>
                             ) : '-'}
                           </td>
                           
