@@ -246,19 +246,19 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
                     ))}
                   </select>
                 ) : timeRange === 'CUSTOM' ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-2">
                     <input 
                       type="date"
                       value={selectedDate}
                       onChange={(e) => setSelectedDate(e.target.value)}
-                      className="flex-1 px-2 py-2 rounded-lg border border-gray-200 text-xs font-bold"
+                      className="w-full px-4 py-2 rounded-lg border border-gray-200 text-sm font-bold"
                     />
-                    <span className="text-gray-400 text-xs font-bold">TO</span>
+                    <span className="text-gray-400 text-xs font-bold text-center">TO</span>
                     <input 
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="flex-1 px-2 py-2 rounded-lg border border-gray-200 text-xs font-bold"
+                      className="w-full px-4 py-2 rounded-lg border border-gray-200 text-sm font-bold"
                     />
                   </div>
                 ) : (
