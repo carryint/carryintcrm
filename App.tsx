@@ -437,7 +437,7 @@ const App: React.FC = () => {
       case 'customers':
         return <CustomerManagement customers={customers} invoices={invoices} onAdd={handleAddCustomer} onDelete={handleDeleteCustomer} onUpdateInvoiceStatus={handleUpdateInvoiceStatus} />;
       case 'reports':
-        return <FinancialReports invoices={invoices} customers={customers} vendors={vendors} />;
+        return <FinancialReports invoices={invoices} customers={customers} vendors={vendors} companyInfo={companyInfo} />;
       case 'vendors':
         if (selectedVendor) {
           const vendorInvoices = invoices.filter(inv => inv.vendorId === selectedVendor.id);
