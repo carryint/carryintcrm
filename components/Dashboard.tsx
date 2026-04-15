@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, AreaChart, Area
 } from 'recharts';
-import { TrendingUp, DollarSign, Clock, AlertCircle } from 'lucide-react';
+import { TrendingUp, DollarSign, Clock, AlertCircle, CheckCircle, CreditCard } from 'lucide-react';
 import { formatCurrency } from '../utils';
 import { Invoice } from '../types';
 
@@ -15,12 +15,22 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ invoices }) => {
   const totalRevenue = invoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
   const totalProfit = invoices.reduce((sum, inv) => sum + inv.profit, 0);
+  
+  const receivedAmount = invoices
+    .filter(inv => inv.status === 'PAID')
+    .reduce((sum, inv) => sum + inv.totalAmount, 0);
+    
   const outstandingReceivables = invoices
     .filter(inv => inv.status !== 'PAID')
     .reduce((sum, inv) => sum + inv.totalAmount, 0);
+
+  const paidAmount = invoices
+    .filter(inv => inv.vendorStatus === 'PAID')
+    .reduce((sum, inv) => sum + (inv.vendorCost || 0), 0);
+
   const outstandingPayables = invoices
     .filter(inv => inv.vendorStatus !== 'PAID')
-    .reduce((sum, inv) => sum + inv.vendorCost, 0);
+    .reduce((sum, inv) => sum + (inv.vendorCost || 0), 0);
 
   // Sample data for charts
   const chartData = [
@@ -36,13 +46,27 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices }) => {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <StatCard 
           title="Total Revenue" 
           value={formatCurrency(totalRevenue)} 
           icon={<DollarSign className="text-blue-600" />} 
           trend="+12.5%" 
           bgColor="bg-blue-50"
+        />
+        <StatCard 
+          title="Received Amount" 
+          value={formatCurrency(receivedAmount)} 
+          icon={<CheckCircle className="text-emerald-600" />} 
+          trend="Secured" 
+          bgColor="bg-emerald-50"
+        />
+        <StatCard 
+          title="Outstanding Receivables" 
+          value={formatCurrency(outstandingReceivables)} 
+          icon={<Clock className="text-orange-600" />} 
+          trend="High Alert" 
+          bgColor="bg-orange-50"
         />
         <StatCard 
           title="Total Profit" 
@@ -52,11 +76,11 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices }) => {
           bgColor="bg-green-50"
         />
         <StatCard 
-          title="Outstanding Receivables" 
-          value={formatCurrency(outstandingReceivables)} 
-          icon={<Clock className="text-orange-600" />} 
-          trend="High Alert" 
-          bgColor="bg-orange-50"
+          title="Paid Amount (Vendors)" 
+          value={formatCurrency(paidAmount)} 
+          icon={<CreditCard className="text-purple-600" />} 
+          trend="Settled" 
+          bgColor="bg-purple-50"
         />
         <StatCard 
           title="Outstanding Payables" 

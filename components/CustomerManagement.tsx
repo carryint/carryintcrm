@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { ArrowLeft, Users, Plus, Search, PieChart, FileText, Download, Printer, Trash2 } from 'lucide-react';
+import { ArrowLeft, Users, Plus, Search, PieChart, FileText, Download, Printer, Trash2, Edit } from 'lucide-react';
 import { Customer, Invoice } from '../types';
 import { formatCurrency, generateId } from '../utils';
 
@@ -8,14 +8,16 @@ interface CustomerManagementProps {
   customers: Customer[];
   invoices: Invoice[];
   onAdd: (customer: Customer) => void;
+  onEdit: (customer: Customer) => void;
   onDelete: (id: string) => void;
   onUpdateInvoiceStatus: (invoiceId: string, status: 'PAID' | 'UNPAID', transactionReference?: string) => void;
 }
 
-const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invoices, onAdd, onDelete, onUpdateInvoiceStatus }) => {
+const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invoices, onAdd, onEdit, onDelete, onUpdateInvoiceStatus }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
   const [newCustomer, setNewCustomer] = useState<Partial<Customer>>({ type: 'ONE_TIME' });
 
@@ -34,13 +36,25 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (newCustomer.name && newCustomer.address && newCustomer.contact) {
-      onAdd({
-        ...newCustomer as Customer,
-        id: generateId(),
-      });
+      if (editingCustomer) {
+        onEdit({ ...editingCustomer, ...newCustomer } as Customer);
+        setEditingCustomer(null);
+      } else {
+        onAdd({
+          ...newCustomer as Customer,
+          id: generateId(),
+        });
+      }
       setIsAdding(false);
       setNewCustomer({ type: 'ONE_TIME' });
     }
+  };
+
+  const handleEditClick = (c: Customer, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingCustomer(c);
+    setNewCustomer({ ...c });
+    setIsAdding(true);
   };
 
   const inputClass = "w-full px-4 py-2 border border-amber-200 bg-amber-50 text-slate-900 rounded-lg outline-none focus:ring-2 focus:ring-orange-500 transition-all";
@@ -176,7 +190,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
           Customer CRM
         </h2>
         <button
-          onClick={() => setIsAdding(true)}
+          onClick={() => { setIsAdding(true); setEditingCustomer(null); setNewCustomer({ type: 'ONE_TIME' }); }}
           className="bg-orange-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-orange-700 transition-all shadow-md flex items-center gap-2"
         >
           <Plus size={20} /> Add New Client
@@ -240,6 +254,13 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
                             <FileText size={18} />
                           </button>
                           <button
+                            onClick={(e) => handleEditClick(c, e)}
+                            className="bg-blue-50 p-2 rounded-lg text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm group-hover:scale-110"
+                            title="Edit Client"
+                          >
+                            <Edit size={18} />
+                          </button>
+                          <button
                             onClick={(e) => {
                               e.stopPropagation();
                               onDelete(c.id);
@@ -262,16 +283,18 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
         <div className="space-y-6">
           {isAdding && (
             <div className="bg-white p-6 rounded-xl shadow-xl border-2 border-orange-500 animate-in fade-in slide-in-from-right-4">
-              <h3 className="text-lg font-black mb-4">Add Customer Profile</h3>
+              <h3 className="text-lg font-black mb-4">{editingCustomer ? 'Edit Customer Profile' : 'Add Customer Profile'}</h3>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <input
                   placeholder="Full Legal Name"
                   required
                   className={inputClass}
+                  value={newCustomer.name || ''}
                   onChange={e => setNewCustomer({ ...newCustomer, name: e.target.value })}
                 />
                 <select
                   className={inputClass}
+                  value={newCustomer.type || 'ONE_TIME'}
                   onChange={e => setNewCustomer({ ...newCustomer, type: e.target.value as any })}
                 >
                   <option value="ONE_TIME" className="bg-white">One-Time Customer</option>
@@ -281,22 +304,25 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
                   placeholder="Complete Address"
                   required
                   className={`${inputClass} h-24`}
+                  value={newCustomer.address || ''}
                   onChange={e => setNewCustomer({ ...newCustomer, address: e.target.value })}
                 />
                 <input
                   placeholder="Contact Number"
                   required
                   className={inputClass}
+                  value={newCustomer.contact || ''}
                   onChange={e => setNewCustomer({ ...newCustomer, contact: e.target.value })}
                 />
                 <input
                   placeholder="VAT/TRN Number (Optional)"
                   className={inputClass}
+                  value={newCustomer.vatNumber || ''}
                   onChange={e => setNewCustomer({ ...newCustomer, vatNumber: e.target.value })}
                 />
                 <div className="flex gap-2 pt-2">
-                  <button type="submit" className="flex-1 bg-orange-600 text-white font-black py-3 rounded-lg hover:bg-orange-700 transition-colors">Save Profile</button>
-                  <button type="button" onClick={() => setIsAdding(false)} className="flex-1 bg-amber-100 text-amber-800 font-bold py-3 rounded-lg hover:bg-amber-200 transition-colors">Cancel</button>
+                  <button type="submit" className="flex-1 bg-orange-600 text-white font-black py-3 rounded-lg hover:bg-orange-700 transition-colors">{editingCustomer ? 'Update Profile' : 'Save Profile'}</button>
+                  <button type="button" onClick={() => { setIsAdding(false); setEditingCustomer(null); setNewCustomer({ type: 'ONE_TIME' }); }} className="flex-1 bg-amber-100 text-amber-800 font-bold py-3 rounded-lg hover:bg-amber-200 transition-colors">Cancel</button>
                 </div>
               </form>
             </div>
