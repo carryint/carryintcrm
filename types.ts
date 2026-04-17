@@ -80,6 +80,8 @@ export interface Invoice {
   vendorId?: string;
   vendorName?: string;
   vendorCost: number;
+  agentCommission?: number;
+  agentStatus?: PaymentStatus;
   status: PaymentStatus;
   vendorStatus: PaymentStatus;
   totalAmount: number;

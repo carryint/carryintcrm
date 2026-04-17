@@ -32,6 +32,14 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices }) => {
     .filter(inv => inv.vendorStatus !== 'PAID')
     .reduce((sum, inv) => sum + (inv.vendorCost || 0), 0);
 
+  const paidAgentCommission = invoices
+    .filter(inv => inv.agentStatus === 'PAID')
+    .reduce((sum, inv) => sum + (inv.agentCommission || 0), 0);
+
+  const unpaidAgentCommission = invoices
+    .filter(inv => inv.agentStatus !== 'PAID')
+    .reduce((sum, inv) => sum + (inv.agentCommission || 0), 0);
+
   // Sample data for charts
   const chartData = [
     { name: 'Jan', revenue: 45000, profit: 12000 },
@@ -46,7 +54,7 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices }) => {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
           title="Total Revenue" 
           value={formatCurrency(totalRevenue)} 
@@ -88,6 +96,20 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices }) => {
           icon={<AlertCircle className="text-red-600" />} 
           trend="Due Soon" 
           bgColor="bg-red-50"
+        />
+        <StatCard 
+          title="Paid Broker Comm." 
+          value={formatCurrency(paidAgentCommission)} 
+          icon={<CreditCard className="text-teal-600" />} 
+          trend="Settled" 
+          bgColor="bg-teal-50"
+        />
+        <StatCard 
+          title="Unpaid Broker Comm." 
+          value={formatCurrency(unpaidAgentCommission)} 
+          icon={<Clock className="text-pink-600" />} 
+          trend="Pending" 
+          bgColor="bg-pink-50"
         />
       </div>
 

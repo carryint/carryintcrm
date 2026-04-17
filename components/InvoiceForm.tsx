@@ -33,6 +33,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const [selectedCustomerId, setSelectedCustomerId] = useState(editingInvoice?.customerId || '');
   const [selectedVendorId, setSelectedVendorId] = useState(editingInvoice?.vendorId || '');
   const [vendorCost, setVendorCost] = useState(editingInvoice?.vendorCost || 0);
+  const [agentCommission, setAgentCommission] = useState(editingInvoice?.agentCommission || 0);
   const [destinationCountry, setDestinationCountry] = useState(editingInvoice?.destinationCountry || DESTINATION_COUNTRIES[0]);
   const [globalCoo, setGlobalCoo] = useState<string>(() => {
     if (editingInvoice && editingInvoice.items.length > 0) {
@@ -58,6 +59,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   });
   const [status, setStatus] = useState<PaymentStatus>(editingInvoice?.status || 'UNPAID');
   const [vendorStatus, setVendorStatus] = useState<PaymentStatus>(editingInvoice?.vendorStatus || 'UNPAID');
+  const [agentStatus, setAgentStatus] = useState<PaymentStatus>(editingInvoice?.agentStatus || 'UNPAID');
   const [manualTotal, setManualTotal] = useState<number>(editingInvoice?.totalAmount || 0);
   const [paymentDate, setPaymentDate] = useState<string>(editingInvoice?.paymentDate || new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState<string>(editingInvoice?.paymentMethod || 'Bank Transfer');
@@ -127,7 +129,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     if (!customer) return alert("Please select a customer");
 
     const { totalAmount, totalVat, netAmount } = calculateTotals();
-    const profit = manualTotal - vendorCost;
+    const profit = manualTotal - vendorCost - agentCommission;
 
     const auditLog: AuditLog = {
       action: editingInvoice ? 'EDIT' : 'CREATE',
@@ -152,8 +154,10 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       vendorId: vendor?.id,
       vendorName: vendor?.name,
       vendorCost,
+      agentCommission,
       status: status,
       vendorStatus: vendorStatus,
+      agentStatus: agentStatus,
       totalAmount,
       totalVat,
       netAmount,
@@ -373,6 +377,16 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
               />
               <p className="text-xs text-amber-900 mt-1 italic font-bold">Base cost for internal profit tracking.</p>
             </div>
+            <div>
+              <label className="block text-sm font-black text-gray-600 uppercase tracking-widest mb-1">Broker Commission (AED)</label>
+              <input
+                type="number"
+                value={agentCommission}
+                onChange={(e) => setAgentCommission(Number(e.target.value))}
+                className={inputClass}
+              />
+              <p className="text-xs text-amber-900 mt-1 italic font-bold">Commission paid to the broker.</p>
+            </div>
 
             <div className="pt-4 border-t border-amber-200 space-y-4">
               <div>
@@ -437,6 +451,17 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                   <option value="PAID">PAID (Closed Vendor Bill)</option>
                 </select>
               </div>
+              <div>
+                <label className="block text-sm font-black text-orange-800 uppercase tracking-widest mb-1 italic">Broker Payment Status</label>
+                <select
+                  value={agentStatus}
+                  onChange={(e) => setAgentStatus(e.target.value as any)}
+                  className={selectClass}
+                >
+                  <option value="UNPAID">UNPAID (Pending Broker Payment)</option>
+                  <option value="PAID">PAID (Closed Broker Commission)</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
@@ -483,7 +508,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
             <div className="mt-4 pt-4 border-t border-slate-700">
               <div className="flex justify-between text-sm text-green-400 font-black uppercase tracking-widest">
                 <span>Net Margin:</span>
-                <span>{(manualTotal - vendorCost).toFixed(2)} AED</span>
+                <span>{(manualTotal - vendorCost - agentCommission).toFixed(2)} AED</span>
               </div>
             </div>
           </div>
