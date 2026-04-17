@@ -84,8 +84,16 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
       }
     }
 
+    if (item.agentCommission) {
+      if (item.agentStatus === 'PAID') {
+        acc.paidToBroker += item.agentCommission;
+      } else {
+        acc.notPaidToBroker += item.agentCommission;
+      }
+    }
+
     return acc;
-  }, { received: 0, notReceived: 0, paidToVendor: 0, notPaidToVendor: 0 });
+  }, { received: 0, notReceived: 0, paidToVendor: 0, notPaidToVendor: 0, paidToBroker: 0, notPaidToBroker: 0 });
 
   const handleExportExcel = () => {
     const data = filteredItems.map(item => ({
@@ -96,8 +104,10 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
       'Rec. (Bank)': item.status === 'PAID' && item.paymentMethod !== 'Cash' ? item.totalAmount : 0,
       'Rec. (Cash)': item.status === 'PAID' && item.paymentMethod === 'Cash' ? item.totalAmount : 0,
       'Not Received': item.status !== 'PAID' ? item.totalAmount : 0,
-      'Paid (Cash/Bank)': item.vendorStatus === 'PAID' ? item.vendorCost : 0,
-      'Not Paid': item.vendorStatus !== 'PAID' ? item.vendorCost : 0,
+      'Paid Vendor': item.vendorStatus === 'PAID' ? item.vendorCost : 0,
+      'Not Paid Vendor': item.vendorStatus !== 'PAID' ? item.vendorCost : 0,
+      'Paid Broker': item.agentStatus === 'PAID' ? (item.agentCommission || 0) : 0,
+      'Not Paid Broker': item.agentStatus !== 'PAID' ? (item.agentCommission || 0) : 0,
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(data);
@@ -106,7 +116,8 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
     
     const wscols = [
       { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 20 },
-      { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }
+      { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
+      { wch: 15 }, { wch: 15 }
     ];
     worksheet['!cols'] = wscols;
 
@@ -135,6 +146,8 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
     doc.text(`Not Received: ${formatCurrency(totals.notReceived)}`, 80, 45);
     doc.text(`Paid: ${formatCurrency(totals.paidToVendor)}`, 146, 45);
     doc.text(`Not Paid: ${formatCurrency(totals.notPaidToVendor)}`, 212, 45);
+    doc.text(`Broker Paid: ${formatCurrency(totals.paidToBroker)}`, 14, 52);
+    doc.text(`Broker Not Paid: ${formatCurrency(totals.notPaidToBroker)}`, 80, 52);
 
     const tableData = filteredItems.map(item => [
       item.invoiceNumber,
@@ -147,11 +160,13 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
       item.status !== 'PAID' ? item.totalAmount.toFixed(2) : '0.00',
       item.vendorStatus === 'PAID' ? item.vendorCost.toFixed(2) : '0.00',
       item.vendorStatus !== 'PAID' ? item.vendorCost.toFixed(2) : '0.00',
+      item.agentStatus === 'PAID' ? (item.agentCommission || 0).toFixed(2) : '0.00',
+      item.agentStatus !== 'PAID' ? (item.agentCommission || 0).toFixed(2) : '0.00',
     ]);
 
     autoTable(doc, {
-      startY: 55,
-      head: [['Inv No', 'Date', 'Customer', 'Vendor', 'Rec. Bank', 'Rec. Cash', 'Not Rec.', 'Paid', 'Not Paid']],
+      startY: 60,
+      head: [['Inv No', 'Date', 'Customer', 'Vendor', 'Rec. Bank', 'Rec. Cash', 'Not Rec.', 'Paid Ven.', 'Not Paid Ven.', 'Paid Brok.', 'Not Paid Brok.']],
       body: tableData,
       theme: 'grid',
       headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontSize: 8 },
@@ -302,10 +317,24 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
             </div>
             <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl">
               <div className="flex justify-between items-start">
-                <p className="text-[10px] font-black text-amber-600 uppercase">Not Paid</p>
+                <p className="text-[10px] font-black text-amber-600 uppercase">Not Paid (Vendor)</p>
                 <TrendingDown size={14} className="text-amber-500" />
               </div>
               <p className="text-lg font-black text-slate-900">{formatCurrency(totals.notPaidToVendor)}</p>
+            </div>
+            <div className="bg-teal-50 border border-teal-100 p-4 rounded-xl">
+              <div className="flex justify-between items-start">
+                <p className="text-[10px] font-black text-teal-600 uppercase">Paid (Broker)</p>
+                <Wallet size={14} className="text-teal-500" />
+              </div>
+              <p className="text-lg font-black text-slate-900">{formatCurrency(totals.paidToBroker)}</p>
+            </div>
+            <div className="bg-pink-50 border border-pink-100 p-4 rounded-xl">
+              <div className="flex justify-between items-start">
+                <p className="text-[10px] font-black text-pink-600 uppercase">Not Paid (Broker)</p>
+                <TrendingDown size={14} className="text-pink-500" />
+              </div>
+              <p className="text-lg font-black text-slate-900">{formatCurrency(totals.notPaidToBroker)}</p>
             </div>
           </div>
         </div>
@@ -342,8 +371,10 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
                       <th className="px-6 py-4 border-b text-right bg-green-50/30 text-green-700">Rec. Bank</th>
                       <th className="px-6 py-4 border-b text-right bg-emerald-50/30 text-emerald-700">Rec. Cash</th>
                       <th className="px-6 py-4 border-b text-right bg-red-50/30 text-red-700">Not Rec.</th>
-                      <th className="px-6 py-4 border-b text-right bg-blue-50/30 text-blue-700">Paid (Cash/Bank)</th>
-                      <th className="px-6 py-4 border-b text-right bg-amber-50/30 text-amber-700">Not Paid</th>
+                      <th className="px-6 py-4 border-b text-right bg-blue-50/30 text-blue-700">Paid (Vendor)</th>
+                      <th className="px-6 py-4 border-b text-right bg-amber-50/30 text-amber-700">Not Paid (Vendor)</th>
+                      <th className="px-6 py-4 border-b text-right bg-teal-50/30 text-teal-700">Paid (Broker)</th>
+                      <th className="px-6 py-4 border-b text-right bg-pink-50/30 text-pink-700">Not Paid (Broker)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -387,6 +418,20 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
                           <td className="px-6 py-4 text-right">
                             {item.vendorId && item.vendorStatus !== 'PAID' ? (
                               <span className="font-black text-amber-600">{formatCurrency(item.vendorCost)}</span>
+                            ) : '-'}
+                          </td>
+
+                          {/* Paid (to broker) */}
+                          <td className="px-6 py-4 text-right">
+                            {item.agentCommission && item.agentStatus === 'PAID' ? (
+                              <span className="font-black text-teal-600">{formatCurrency(item.agentCommission)}</span>
+                            ) : '-'}
+                          </td>
+
+                          {/* Not Paid (to broker) */}
+                          <td className="px-6 py-4 text-right">
+                            {item.agentCommission && item.agentStatus !== 'PAID' ? (
+                              <span className="font-black text-pink-600">{formatCurrency(item.agentCommission)}</span>
                             ) : '-'}
                           </td>
                         </tr>
