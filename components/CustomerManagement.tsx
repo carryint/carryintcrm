@@ -17,6 +17,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
   const [searchTerm, setSearchTerm] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
   const [newCustomer, setNewCustomer] = useState<Partial<Customer>>({ type: 'ONE_TIME' });
@@ -64,15 +65,29 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
     const displayedInvoices = showUnpaidOnly
       ? customerInvoices.filter(inv => inv.status !== 'PAID')
       : customerInvoices;
-    const totalOutstanding = customerInvoices
-      .filter(inv => inv.status !== 'PAID')
-      .reduce((s, i) => s + i.totalAmount, 0);
+    const totalOutstanding = selectedInvoiceIds.length > 0
+      ? displayedInvoices.filter(inv => selectedInvoiceIds.includes(inv.id)).reduce((s, i) => s + i.totalAmount, 0)
+      : customerInvoices.filter(inv => inv.status !== 'PAID').reduce((s, i) => s + i.totalAmount, 0);
+
+    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.checked) {
+        setSelectedInvoiceIds(displayedInvoices.map(inv => inv.id));
+      } else {
+        setSelectedInvoiceIds([]);
+      }
+    };
+
+    const toggleInvoiceSelection = (id: string) => {
+      setSelectedInvoiceIds(prev =>
+        prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+      );
+    };
 
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center no-print">
           <button
-            onClick={() => setSelectedCustomer(null)}
+            onClick={() => { setSelectedCustomer(null); setSelectedInvoiceIds([]); }}
             className="flex items-center gap-2 text-gray-500 hover:text-slate-900 font-bold"
           >
             <ArrowLeft size={20} /> Back to CRM
@@ -131,6 +146,14 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
           <table className="w-full text-left">
             <thead>
               <tr className="bg-slate-900 text-white">
+                <th className="px-6 py-4 no-print w-10">
+                  <input
+                    type="checkbox"
+                    checked={displayedInvoices.length > 0 && selectedInvoiceIds.length === displayedInvoices.length}
+                    onChange={handleSelectAll}
+                    className="w-4 h-4 accent-orange-500 cursor-pointer"
+                  />
+                </th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase">Invoice No</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase">Date</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase">Status</th>
@@ -140,11 +163,22 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
             <tbody className="divide-y divide-gray-100 border-b border-gray-100">
               {displayedInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="text-center py-20 text-gray-400 font-medium">No records found for this selection.</td>
+                  <td colSpan={5} className="text-center py-20 text-gray-400 font-medium">No records found for this selection.</td>
                 </tr>
               ) : (
                 displayedInvoices.map(inv => (
-                  <tr key={inv.id}>
+                  <tr 
+                    key={inv.id} 
+                    className={`${selectedInvoiceIds.length > 0 && !selectedInvoiceIds.includes(inv.id) ? 'no-print opacity-40' : ''} hover:bg-gray-50 transition-colors`}
+                  >
+                    <td className="px-6 py-5 no-print">
+                      <input
+                        type="checkbox"
+                        checked={selectedInvoiceIds.includes(inv.id)}
+                        onChange={() => toggleInvoiceSelection(inv.id)}
+                        className="w-4 h-4 accent-orange-500 cursor-pointer"
+                      />
+                    </td>
                     <td className="px-6 py-5 font-bold text-gray-900">{inv.invoiceNumber}</td>
                     <td className="px-6 py-5 text-gray-600 text-sm">{new Date(inv.date).toLocaleDateString()}</td>
                     <td className="px-6 py-5">
@@ -159,11 +193,14 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
                           }
                           onUpdateInvoiceStatus(inv.id, newStatus, reference);
                         }}
-                        className={`text-[10px] font-black px-3 py-1.5 rounded-full transition-all hover:scale-105 active:scale-95 ${inv.status === 'PAID' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'
+                        className={`text-[10px] font-black px-3 py-1.5 rounded-full transition-all hover:scale-105 active:scale-95 no-print ${inv.status === 'PAID' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'
                           }`}
                       >
                         {inv.status}
                       </button>
+                      <span className={`print-only text-[10px] font-black px-3 py-1.5 rounded-full ${inv.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {inv.status}
+                      </span>
                     </td>
                     <td className="px-6 py-5 text-right font-black text-gray-900">{formatCurrency(inv.totalAmount)}</td>
                   </tr>

@@ -34,6 +34,7 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
   const [timeRange, setTimeRange] = useState<TimeRangeType>('ALL');
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
 
   const filteredItems = invoices.filter(item => {
     // Entity filter (Check both customer and vendor IDs since we're unified)
@@ -42,6 +43,10 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
       item.vendorId === selectedEntity;
     
     if (!entityMatch) return false;
+    
+    // We don't filter out unselected items here because we want them visible but greyed/hidden during print
+    return true;
+  }).filter(item => {
 
     // Time filter
     if (timeRange === 'ALL') return true;
@@ -95,8 +100,28 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
     return acc;
   }, { received: 0, notReceived: 0, paidToVendor: 0, notPaidToVendor: 0, paidToBroker: 0, notPaidToBroker: 0 });
 
+  const activeInvoices = selectedInvoiceIds.length > 0 
+    ? filteredItems.filter(i => selectedInvoiceIds.includes(i.id))
+    : filteredItems;
+
+  const currentTotals = selectedInvoiceIds.length > 0
+    ? activeInvoices.reduce((acc, item) => {
+        if (item.status === 'PAID') acc.received += item.totalAmount;
+        else acc.notReceived += item.totalAmount;
+        if (item.vendorId) {
+          if (item.vendorStatus === 'PAID') acc.paidToVendor += item.vendorCost;
+          else acc.notPaidToVendor += item.vendorCost;
+        }
+        if (item.agentCommission) {
+          if (item.agentStatus === 'PAID') acc.paidToBroker += item.agentCommission;
+          else acc.notPaidToBroker += item.agentCommission;
+        }
+        return acc;
+      }, { received: 0, notReceived: 0, paidToVendor: 0, notPaidToVendor: 0, paidToBroker: 0, notPaidToBroker: 0 })
+    : totals;
+
   const handleExportExcel = () => {
-    const data = filteredItems.map(item => ({
+    const data = activeInvoices.map(item => ({
       'Invoice No': item.invoiceNumber,
       'Date': new Date(item.date).toLocaleDateString(),
       'Customer': item.customerName,
@@ -142,14 +167,14 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
     // Summary Grid in PDF
     doc.setFontSize(12);
     doc.setTextColor(0);
-    doc.text(`Received: ${formatCurrency(totals.received)}`, 14, 45);
-    doc.text(`Not Received: ${formatCurrency(totals.notReceived)}`, 80, 45);
-    doc.text(`Paid: ${formatCurrency(totals.paidToVendor)}`, 146, 45);
-    doc.text(`Not Paid: ${formatCurrency(totals.notPaidToVendor)}`, 212, 45);
-    doc.text(`Broker Paid: ${formatCurrency(totals.paidToBroker)}`, 14, 52);
-    doc.text(`Broker Not Paid: ${formatCurrency(totals.notPaidToBroker)}`, 80, 52);
+    doc.text(`Received: ${formatCurrency(currentTotals.received)}`, 14, 45);
+    doc.text(`Not Received: ${formatCurrency(currentTotals.notReceived)}`, 80, 45);
+    doc.text(`Paid: ${formatCurrency(currentTotals.paidToVendor)}`, 146, 45);
+    doc.text(`Not Paid: ${formatCurrency(currentTotals.notPaidToVendor)}`, 212, 45);
+    doc.text(`Broker Paid: ${formatCurrency(currentTotals.paidToBroker)}`, 14, 52);
+    doc.text(`Broker Not Paid: ${formatCurrency(currentTotals.notPaidToBroker)}`, 80, 52);
 
-    const tableData = filteredItems.map(item => [
+    const tableData = activeInvoices.map(item => [
       item.invoiceNumber,
       new Date(item.date).toLocaleDateString(),
       item.customerName,
@@ -221,7 +246,7 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
             <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Account Selection</h3>
             <select 
               value={selectedEntity}
-              onChange={(e) => setSelectedEntity(e.target.value)}
+              onChange={(e) => { setSelectedEntity(e.target.value); setSelectedInvoiceIds([]); }}
               className="w-full px-4 py-3 rounded-lg border border-amber-200 bg-amber-50 text-slate-900 font-bold focus:ring-2 focus:ring-orange-500 outline-none transition-all cursor-pointer shadow-sm"
             >
               <option value="all" className="bg-white">All Accounts</option>
@@ -238,7 +263,7 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
               {(['ALL', 'DAILY', 'MONTHLY', 'YEARLY', 'CUSTOM'] as TimeRangeType[]).map((range) => (
                 <button
                   key={range}
-                  onClick={() => setTimeRange(range)}
+                  onClick={() => { setTimeRange(range); setSelectedInvoiceIds([]); }}
                   className={`text-[10px] font-black py-2 rounded-lg border transition-all ${
                     timeRange === range 
                       ? 'bg-orange-600 text-white border-orange-600 shadow-md shadow-orange-100' 
@@ -299,42 +324,42 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
                 <p className="text-[10px] font-black text-green-600 uppercase">Received</p>
                 <TrendingUp size={14} className="text-green-500" />
               </div>
-              <p className="text-lg font-black text-slate-900">{formatCurrency(totals.received)}</p>
+              <p className="text-lg font-black text-slate-900">{formatCurrency(currentTotals.received)}</p>
             </div>
             <div className="bg-red-50 border border-red-100 p-4 rounded-xl">
               <div className="flex justify-between items-start">
                 <p className="text-[10px] font-black text-red-600 uppercase">Not Received</p>
                 <Clock size={14} className="text-red-500" />
               </div>
-              <p className="text-lg font-black text-slate-900">{formatCurrency(totals.notReceived)}</p>
+              <p className="text-lg font-black text-slate-900">{formatCurrency(currentTotals.notReceived)}</p>
             </div>
             <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl">
               <div className="flex justify-between items-start">
                 <p className="text-[10px] font-black text-blue-600 uppercase">Paid (Vendor)</p>
                 <Wallet size={14} className="text-blue-500" />
               </div>
-              <p className="text-lg font-black text-slate-900">{formatCurrency(totals.paidToVendor)}</p>
+              <p className="text-lg font-black text-slate-900">{formatCurrency(currentTotals.paidToVendor)}</p>
             </div>
             <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl">
               <div className="flex justify-between items-start">
                 <p className="text-[10px] font-black text-amber-600 uppercase">Not Paid (Vendor)</p>
                 <TrendingDown size={14} className="text-amber-500" />
               </div>
-              <p className="text-lg font-black text-slate-900">{formatCurrency(totals.notPaidToVendor)}</p>
+              <p className="text-lg font-black text-slate-900">{formatCurrency(currentTotals.notPaidToVendor)}</p>
             </div>
             <div className="bg-teal-50 border border-teal-100 p-4 rounded-xl">
               <div className="flex justify-between items-start">
                 <p className="text-[10px] font-black text-teal-600 uppercase">Paid (Broker)</p>
                 <Wallet size={14} className="text-teal-500" />
               </div>
-              <p className="text-lg font-black text-slate-900">{formatCurrency(totals.paidToBroker)}</p>
+              <p className="text-lg font-black text-slate-900">{formatCurrency(currentTotals.paidToBroker)}</p>
             </div>
             <div className="bg-pink-50 border border-pink-100 p-4 rounded-xl">
               <div className="flex justify-between items-start">
                 <p className="text-[10px] font-black text-pink-600 uppercase">Not Paid (Broker)</p>
                 <TrendingDown size={14} className="text-pink-500" />
               </div>
-              <p className="text-lg font-black text-slate-900">{formatCurrency(totals.notPaidToBroker)}</p>
+              <p className="text-lg font-black text-slate-900">{formatCurrency(currentTotals.notPaidToBroker)}</p>
             </div>
           </div>
         </div>
@@ -364,6 +389,17 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
                 <table className="w-full text-left">
                   <thead className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest">
                     <tr>
+                      <th className="px-6 py-4 border-b no-print w-10">
+                        <input
+                          type="checkbox"
+                          checked={filteredItems.length > 0 && selectedInvoiceIds.length === filteredItems.length}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedInvoiceIds(filteredItems.map(i => i.id));
+                            else setSelectedInvoiceIds([]);
+                          }}
+                          className="w-4 h-4 accent-orange-500 cursor-pointer"
+                        />
+                      </th>
                       <th className="px-6 py-4 border-b">Transaction</th>
                       <th className="px-6 py-4 border-b">Date</th>
                       <th className="px-6 py-4 border-b">Customer</th>
@@ -380,7 +416,19 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
                   <tbody className="divide-y divide-gray-100">
                     {filteredItems.map(item => {
                       return (
-                        <tr key={item.id} className="hover:bg-gray-50 transition-colors group">
+                        <tr key={item.id} className={`hover:bg-gray-50 transition-colors group ${selectedInvoiceIds.length > 0 && !selectedInvoiceIds.includes(item.id) ? 'no-print opacity-40' : ''}`}>
+                          <td className="px-6 py-4 no-print">
+                            <input
+                              type="checkbox"
+                              checked={selectedInvoiceIds.includes(item.id)}
+                              onChange={() => {
+                                setSelectedInvoiceIds(prev =>
+                                  prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id]
+                                );
+                              }}
+                              className="w-4 h-4 accent-orange-500 cursor-pointer"
+                            />
+                          </td>
                           <td className="px-6 py-4 font-bold text-gray-900 tracking-tight">{item.invoiceNumber}</td>
                           <td className="px-6 py-4 text-xs text-gray-500">{new Date(item.date).toLocaleDateString()}</td>
                           <td className="px-6 py-4 font-bold text-gray-700 text-xs">{item.customerName}</td>

@@ -261,6 +261,7 @@ const App: React.FC = () => {
   const [isAddingVendor, setIsAddingVendor] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [newVendor, setNewVendor] = useState<Partial<Vendor>>({});
+  const [selectedVendorInvoiceIds, setSelectedVendorInvoiceIds] = useState<string[]>([]);
 
   const handleAddVendorSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -450,15 +451,30 @@ const App: React.FC = () => {
           const displayedInvoices = showUnpaidVendorOnly
             ? vendorInvoices.filter(inv => inv.vendorStatus !== 'PAID')
             : vendorInvoices;
-          const totalPayable = vendorInvoices
-            .filter(inv => inv.vendorStatus !== 'PAID')
-            .reduce((s, i) => s + i.vendorCost, 0);
+          
+          const totalPayable = selectedVendorInvoiceIds.length > 0
+            ? displayedInvoices.filter(inv => selectedVendorInvoiceIds.includes(inv.id)).reduce((s, i) => s + i.vendorCost, 0)
+            : displayedInvoices.filter(inv => inv.vendorStatus !== 'PAID').reduce((s, i) => s + i.vendorCost, 0);
+
+          const handleSelectAllVendors = (e: React.ChangeEvent<HTMLInputElement>) => {
+            if (e.target.checked) {
+              setSelectedVendorInvoiceIds(displayedInvoices.map(inv => inv.id));
+            } else {
+              setSelectedVendorInvoiceIds([]);
+            }
+          };
+
+          const toggleVendorInvoiceSelection = (id: string) => {
+            setSelectedVendorInvoiceIds(prev =>
+              prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+            );
+          };
 
           return (
             <div className="space-y-6">
               <div className="flex justify-between items-center no-print">
                 <button
-                  onClick={() => setSelectedVendor(null)}
+                  onClick={() => { setSelectedVendor(null); setSelectedVendorInvoiceIds([]); }}
                   className="flex items-center gap-2 text-gray-500 hover:text-slate-900 font-bold"
                 >
                   <ArrowLeft size={20} /> Back to Vendors
@@ -516,6 +532,14 @@ const App: React.FC = () => {
                 <table className="w-full text-left">
                   <thead>
                     <tr className="bg-slate-900 text-white">
+                      <th className="px-6 py-4 no-print w-10">
+                        <input
+                          type="checkbox"
+                          checked={displayedInvoices.length > 0 && selectedVendorInvoiceIds.length === displayedInvoices.length}
+                          onChange={handleSelectAllVendors}
+                          className="w-4 h-4 accent-orange-500 cursor-pointer"
+                        />
+                      </th>
                       <th className="px-6 py-4 text-[10px] font-black uppercase">Invoice No</th>
                       <th className="px-6 py-4 text-[10px] font-black uppercase">Date</th>
                       <th className="px-6 py-4 text-[10px] font-black uppercase">Status</th>
@@ -525,21 +549,35 @@ const App: React.FC = () => {
                   <tbody className="divide-y divide-gray-100 border-b border-gray-100">
                     {displayedInvoices.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="text-center py-20 text-gray-400 font-medium">No records found for this selection.</td>
+                        <td colSpan={5} className="text-center py-20 text-gray-400 font-medium">No records found for this selection.</td>
                       </tr>
                     ) : (
                       displayedInvoices.map(inv => (
-                        <tr key={inv.id}>
+                        <tr 
+                          key={inv.id}
+                          className={`${selectedVendorInvoiceIds.length > 0 && !selectedVendorInvoiceIds.includes(inv.id) ? 'no-print opacity-40' : ''} hover:bg-gray-50 transition-colors`}
+                        >
+                          <td className="px-6 py-5 no-print">
+                            <input
+                              type="checkbox"
+                              checked={selectedVendorInvoiceIds.includes(inv.id)}
+                              onChange={() => toggleVendorInvoiceSelection(inv.id)}
+                              className="w-4 h-4 accent-orange-500 cursor-pointer"
+                            />
+                          </td>
                           <td className="px-6 py-5 font-bold text-gray-900">{inv.invoiceNumber}</td>
                           <td className="px-6 py-5 text-gray-600 text-sm">{new Date(inv.date).toLocaleDateString()}</td>
                           <td className="px-6 py-5">
                             <button
                               onClick={() => handleUpdateVendorStatus(inv.id, inv.vendorStatus === 'PAID' ? 'UNPAID' : 'PAID')}
-                              className={`text-[10px] font-black px-3 py-1.5 rounded-full transition-all hover:scale-105 active:scale-95 ${inv.vendorStatus === 'PAID' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'
+                              className={`text-[10px] font-black px-3 py-1.5 rounded-full transition-all hover:scale-105 active:scale-95 no-print ${inv.vendorStatus === 'PAID' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'
                                 }`}
                             >
                               {inv.vendorStatus}
                             </button>
+                            <span className={`print-only text-[10px] font-black px-3 py-1.5 rounded-full ${inv.vendorStatus === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {inv.vendorStatus}
+                            </span>
                           </td>
                           <td className="px-6 py-5 text-right font-black text-gray-900">{inv.vendorCost.toFixed(2)} AED</td>
                         </tr>
