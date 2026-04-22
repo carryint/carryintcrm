@@ -8,8 +8,9 @@ import PaymentReceipt from './components/PaymentReceipt';
 import CustomerManagement from './components/CustomerManagement';
 import FinancialReports from './components/FinancialReports';
 import Settings from './components/Settings';
+import CompanyExpenses from './components/CompanyExpenses';
 import Login from './components/Login';
-import { Customer, Vendor, Invoice, CompanyInfo, User } from './types';
+import { Customer, Vendor, Invoice, CompanyInfo, User, Expense } from './types';
 import { COMPANY_INFO as DEFAULT_COMPANY_INFO } from './constants';
 import {
   Bell, Search,
@@ -23,7 +24,8 @@ import {
   Printer,
   Truck,
   FileText,
-  Edit
+  Edit,
+  Wallet
 } from 'lucide-react';
 import { generateId } from './utils';
 
@@ -33,6 +35,7 @@ const App: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authError, setAuthError] = useState<string>('');
@@ -45,6 +48,7 @@ const App: React.FC = () => {
     const savedCustomers = localStorage.getItem('carryint_customers');
     const savedVendors = localStorage.getItem('carryint_vendors');
     const savedInvoices = localStorage.getItem('carryint_invoices');
+    const savedExpenses = localStorage.getItem('carryint_expenses');
     const savedCompanyInfo = localStorage.getItem('carryint_company_info');
     const savedUsers = localStorage.getItem('carryint_users');
     const sessionUser = localStorage.getItem('carryint_current_user');
@@ -106,6 +110,7 @@ const App: React.FC = () => {
     }
 
     if (savedInvoices) setInvoices(JSON.parse(savedInvoices));
+    if (savedExpenses) setExpenses(JSON.parse(savedExpenses));
 
     setIsAppLoading(false);
   }, []);
@@ -201,6 +206,18 @@ const App: React.FC = () => {
     const updated = invoices.map(inv => inv.id === invoiceId ? { ...inv, vendorStatus } : inv);
     setInvoices(updated);
     localStorage.setItem('carryint_invoices', JSON.stringify(updated));
+  };
+
+  const handleAddExpense = (expense: Expense) => {
+    const updated = [...expenses, expense];
+    setExpenses(updated);
+    localStorage.setItem('carryint_expenses', JSON.stringify(updated));
+  };
+
+  const handleDeleteExpense = (id: string) => {
+    const updated = expenses.filter(e => e.id !== id);
+    setExpenses(updated);
+    localStorage.setItem('carryint_expenses', JSON.stringify(updated));
   };
 
 
@@ -304,7 +321,7 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard invoices={invoices} />;
+        return <Dashboard invoices={invoices} expenses={expenses} />;
       case 'create-invoice':
         return (
           <InvoiceForm
@@ -444,7 +461,7 @@ const App: React.FC = () => {
       case 'customers':
         return <CustomerManagement customers={customers} invoices={invoices} onAdd={handleAddCustomer} onEdit={handleEditCustomer} onDelete={handleDeleteCustomer} onUpdateInvoiceStatus={handleUpdateInvoiceStatus} />;
       case 'reports':
-        return <FinancialReports invoices={invoices} customers={customers} vendors={vendors} companyInfo={companyInfo} />;
+        return <FinancialReports invoices={invoices} customers={customers} vendors={vendors} companyInfo={companyInfo} expenses={expenses} />;
       case 'vendors':
         if (selectedVendor) {
           const vendorInvoices = invoices.filter(inv => inv.vendorId === selectedVendor.id);
@@ -725,6 +742,15 @@ const App: React.FC = () => {
             </div>
           </div>
         );
+      case 'expenses':
+        return (
+          <CompanyExpenses
+            expenses={expenses}
+            onAdd={handleAddExpense}
+            onDelete={handleDeleteExpense}
+            currentUser={currentUser}
+          />
+        );
       case 'settings':
         return (
           <Settings
@@ -741,7 +767,7 @@ const App: React.FC = () => {
           />
         );
       default:
-        return <Dashboard invoices={invoices} />;
+        return <Dashboard invoices={invoices} expenses={expenses} />;
     }
   };
 

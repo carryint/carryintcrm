@@ -4,17 +4,20 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, AreaChart, Area
 } from 'recharts';
-import { TrendingUp, DollarSign, Clock, AlertCircle, CheckCircle, CreditCard } from 'lucide-react';
+import { TrendingUp, DollarSign, Clock, AlertCircle, CheckCircle, CreditCard, Wallet } from 'lucide-react';
 import { formatCurrency } from '../utils';
-import { Invoice } from '../types';
+import { Invoice, Expense } from '../types';
 
 interface DashboardProps {
   invoices: Invoice[];
+  expenses: Expense[];
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ invoices }) => {
+const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses }) => {
   const totalRevenue = invoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
-  const totalProfit = invoices.reduce((sum, inv) => sum + inv.profit, 0);
+  const grossProfit = invoices.reduce((sum, inv) => sum + inv.profit, 0);
+  const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const netProfit = grossProfit - totalExpenses;
   
   const receivedAmount = invoices
     .filter(inv => inv.status === 'PAID')
@@ -77,11 +80,25 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices }) => {
           bgColor="bg-orange-50"
         />
         <StatCard 
-          title="Total Profit" 
-          value={formatCurrency(totalProfit)} 
+          title="Gross Profit" 
+          value={formatCurrency(grossProfit)} 
           icon={<TrendingUp className="text-green-600" />} 
-          trend="+8.2%" 
+          trend="Invoices" 
           bgColor="bg-green-50"
+        />
+        <StatCard 
+          title="Company Expenses" 
+          value={formatCurrency(totalExpenses)} 
+          icon={<Wallet className="text-red-600" />} 
+          trend="Outflow" 
+          bgColor="bg-red-50"
+        />
+        <StatCard 
+          title="Net Profit" 
+          value={formatCurrency(netProfit)} 
+          icon={<TrendingUp className="text-orange-600" />} 
+          trend="Final" 
+          bgColor="bg-orange-50"
         />
         <StatCard 
           title="Paid Amount (Vendors)" 

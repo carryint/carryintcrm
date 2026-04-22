@@ -14,7 +14,7 @@ import {
   Wallet,
   Clock
 } from 'lucide-react';
-import { Invoice, Customer, Vendor, CompanyInfo } from '../types';
+import { Invoice, Customer, Vendor, CompanyInfo, Expense } from '../types';
 import { formatCurrency } from '../utils';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
@@ -25,11 +25,12 @@ interface FinancialReportsProps {
   customers: Customer[];
   vendors: Vendor[];
   companyInfo: CompanyInfo;
+  expenses: Expense[];
 }
 
 type TimeRangeType = 'ALL' | 'DAILY' | 'MONTHLY' | 'YEARLY' | 'CUSTOM';
 
-const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers, vendors, companyInfo }) => {
+const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers, vendors, companyInfo, expenses }) => {
   const [selectedEntity, setSelectedEntity] = useState<string>('all');
   const [timeRange, setTimeRange] = useState<TimeRangeType>('ALL');
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -72,6 +73,23 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
     return true;
   });
 
+  const filteredExpenses = expenses.filter(exp => {
+    if (timeRange === 'ALL') return true;
+    const expDate = new Date(exp.date);
+    const filterDate = new Date(selectedDate);
+    if (timeRange === 'DAILY') return expDate.toDateString() === filterDate.toDateString();
+    if (timeRange === 'MONTHLY') return expDate.getMonth() === filterDate.getMonth() && expDate.getFullYear() === filterDate.getFullYear();
+    if (timeRange === 'YEARLY') return expDate.getFullYear() === filterDate.getFullYear();
+    if (timeRange === 'CUSTOM') {
+      const start = new Date(selectedDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      return expDate >= start && expDate <= end;
+    }
+    return true;
+  });
+
   const totals = filteredItems.reduce((acc, item) => {
     // Received: Sales Price where status is PAID
     if (item.status === 'PAID') {
@@ -99,6 +117,8 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
 
     return acc;
   }, { received: 0, notReceived: 0, paidToVendor: 0, notPaidToVendor: 0, paidToBroker: 0, notPaidToBroker: 0 });
+
+  const totalCompanyExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
 
   const activeInvoices = selectedInvoiceIds.length > 0 
     ? filteredItems.filter(i => selectedInvoiceIds.includes(i.id))
@@ -359,7 +379,22 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
                 <p className="text-[10px] font-black text-pink-600 uppercase">Not Paid (Broker)</p>
                 <TrendingDown size={14} className="text-pink-500" />
               </div>
-              <p className="text-lg font-black text-slate-900">{formatCurrency(currentTotals.notPaidToBroker)}</p>
+            </div>
+            <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl">
+              <div className="flex justify-between items-start">
+                <p className="text-[10px] font-black text-orange-600 uppercase">Company Expenses</p>
+                <Wallet size={14} className="text-orange-500" />
+              </div>
+              <p className="text-lg font-black text-slate-900">{formatCurrency(totalCompanyExpenses)}</p>
+            </div>
+            <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl">
+              <div className="flex justify-between items-start">
+                <p className="text-[10px] font-black text-indigo-600 uppercase">Net Profit</p>
+                <TrendingUp size={14} className="text-indigo-500" />
+              </div>
+              <p className="text-lg font-black text-slate-900">
+                {formatCurrency(currentTotals.received - currentTotals.paidToVendor - currentTotals.paidToBroker - totalCompanyExpenses)}
+              </p>
             </div>
           </div>
         </div>

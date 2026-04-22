@@ -97,9 +97,23 @@ export interface Invoice {
   auditLogs: AuditLog[];
 }
 
+
+export interface Expense {
+  id: string;
+  date: string;
+  amount: number;
+  itemDetails: string;
+  paymentMethod: string;
+  paymentReference: string;
+  payeeName: string;
+  createdBy: string;
+  createdByName: string;
+}
+
 export interface DashboardStats {
   totalRevenue: number;
   totalProfit: number;
   outstandingReceivables: number;
   outstandingPayables: number;
+  totalExpenses: number;
 }
