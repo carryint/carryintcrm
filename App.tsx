@@ -213,6 +213,11 @@ const App: React.FC = () => {
     setExpenses(updated);
     localStorage.setItem('carryint_expenses', JSON.stringify(updated));
   };
+  const handleUpdateExpense = (updatedExpense: Expense) => {
+    const updated = expenses.map(e => e.id === updatedExpense.id ? updatedExpense : e);
+    setExpenses(updated);
+    localStorage.setItem('carryint_expenses', JSON.stringify(updated));
+  };
 
   const handleDeleteExpense = (id: string) => {
     const updated = expenses.filter(e => e.id !== id);
@@ -747,6 +752,7 @@ const App: React.FC = () => {
           <CompanyExpenses
             expenses={expenses}
             onAdd={handleAddExpense}
+            onUpdate={handleUpdateExpense}
             onDelete={handleDeleteExpense}
             currentUser={currentUser}
           />

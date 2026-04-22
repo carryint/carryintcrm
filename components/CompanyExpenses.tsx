@@ -7,12 +7,14 @@ import { generateId, formatCurrency } from '../utils';
 interface CompanyExpensesProps {
   expenses: Expense[];
   onAdd: (expense: Expense) => void;
+  onUpdate: (expense: Expense) => void;
   onDelete: (id: string) => void;
   currentUser: UserType | null;
 }
 
-const CompanyExpenses: React.FC<CompanyExpensesProps> = ({ expenses, onAdd, onDelete, currentUser }) => {
+const CompanyExpenses: React.FC<CompanyExpensesProps> = ({ expenses, onAdd, onUpdate, onDelete, currentUser }) => {
   const [isAdding, setIsAdding] = useState(false);
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [amountStr, setAmountStr] = useState('');
   const [newExpense, setNewExpense] = useState<Partial<Expense>>({
@@ -23,25 +25,43 @@ const CompanyExpenses: React.FC<CompanyExpensesProps> = ({ expenses, onAdd, onDe
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (amountStr && newExpense.itemDetails && newExpense.payeeName) {
-      const expenseToAdd: Expense = {
-        id: generateId(),
-        date: newExpense.date || new Date().toISOString().split('T')[0],
-        amount: Number(amountStr),
-        itemDetails: newExpense.itemDetails || '',
-        paymentMethod: newExpense.paymentMethod || 'Cash',
-        paymentReference: newExpense.paymentReference || '-',
-        payeeName: newExpense.payeeName || '',
-        createdBy: currentUser?.id || 'unknown',
-        createdByName: currentUser?.name || 'Unknown',
-      };
-      onAdd(expenseToAdd);
+      if (editingExpenseId) {
+        const expenseToUpdate: Expense = {
+          ...newExpense as Expense,
+          id: editingExpenseId,
+          amount: Number(amountStr),
+        };
+        onUpdate(expenseToUpdate);
+      } else {
+        const expenseToAdd: Expense = {
+          id: generateId(),
+          date: newExpense.date || new Date().toISOString().split('T')[0],
+          amount: Number(amountStr),
+          itemDetails: newExpense.itemDetails || '',
+          paymentMethod: newExpense.paymentMethod || 'Cash',
+          paymentReference: newExpense.paymentReference || '-',
+          payeeName: newExpense.payeeName || '',
+          createdBy: currentUser?.id || 'unknown',
+          createdByName: currentUser?.name || 'Unknown',
+        };
+        onAdd(expenseToAdd);
+      }
+      
       setIsAdding(false);
+      setEditingExpenseId(null);
       setAmountStr('');
       setNewExpense({
         date: new Date().toISOString().split('T')[0],
         paymentMethod: 'Bank Transfer',
       });
     }
+  };
+
+  const handleEdit = (exp: Expense) => {
+    setNewExpense(exp);
+    setAmountStr(exp.amount.toString());
+    setEditingExpenseId(exp.id);
+    setIsAdding(true);
   };
 
   const filteredExpenses = expenses.filter(exp => 
@@ -63,7 +83,7 @@ const CompanyExpenses: React.FC<CompanyExpensesProps> = ({ expenses, onAdd, onDe
           <p className="text-gray-500 text-sm font-medium">Manage and track your company expenditures</p>
         </div>
         <button
-          onClick={() => setIsAdding(true)}
+          onClick={() => { setIsAdding(true); setEditingExpenseId(null); setAmountStr(''); setNewExpense({ date: new Date().toISOString().split('T')[0], paymentMethod: 'Bank Transfer' }); }}
           className="bg-orange-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-orange-700 transition-all shadow-md flex items-center gap-2 w-full md:w-auto justify-center"
         >
           <PlusCircle size={20} /> Record New Expense
@@ -91,8 +111,8 @@ const CompanyExpenses: React.FC<CompanyExpensesProps> = ({ expenses, onAdd, onDe
       {isAdding && (
         <div className="bg-white p-8 rounded-2xl shadow-xl border-2 border-orange-500 animate-in fade-in slide-in-from-top-4">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-black text-gray-900">Record New Expense</h3>
-            <button onClick={() => setIsAdding(false)} className="text-gray-400 hover:text-gray-600">
+            <h3 className="text-xl font-black text-gray-900">{editingExpenseId ? 'Edit Expense Record' : 'Record New Expense'}</h3>
+            <button onClick={() => { setIsAdding(false); setEditingExpenseId(null); }} className="text-gray-400 hover:text-gray-600">
               <X size={24} />
             </button>
           </div>
@@ -173,7 +193,7 @@ const CompanyExpenses: React.FC<CompanyExpensesProps> = ({ expenses, onAdd, onDe
 
             <div className="md:col-span-2 flex gap-4 mt-2">
               <button type="submit" className="flex-1 bg-orange-600 text-white font-black py-4 rounded-xl hover:bg-orange-700 transition-colors shadow-lg">
-                Save Expense Record
+                {editingExpenseId ? 'Update Expense Record' : 'Save Expense Record'}
               </button>
               <button
                 type="button"
@@ -244,17 +264,26 @@ const CompanyExpenses: React.FC<CompanyExpensesProps> = ({ expenses, onAdd, onDe
                       <span className="font-black text-red-600 text-lg">{exp.amount.toFixed(2)} AED</span>
                     </td>
                     <td className="px-6 py-5 text-right">
-                      <button
-                        onClick={() => {
-                          if (confirm('Are you sure you want to delete this expense record?')) {
-                            onDelete(exp.id);
-                          }
-                        }}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                        title="Delete Record"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => handleEdit(exp)}
+                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                          title="Edit Record"
+                        >
+                          <FileText size={18} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm('Are you sure you want to delete this expense record?')) {
+                              onDelete(exp.id);
+                            }
+                          }}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                          title="Delete Record"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
