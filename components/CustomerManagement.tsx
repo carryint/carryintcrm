@@ -11,10 +11,10 @@ interface CustomerManagementProps {
   onEdit: (customer: Customer) => void;
   onDelete: (id: string) => void;
   onUpdateInvoiceStatus: (invoiceId: string, status: 'PAID' | 'UNPAID', transactionReference?: string) => void;
+  searchQuery?: string;
 }
 
-const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invoices, onAdd, onEdit, onDelete, onUpdateInvoiceStatus }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invoices, onAdd, onEdit, onDelete, onUpdateInvoiceStatus, searchQuery = '' }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
@@ -23,7 +23,8 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
   const [newCustomer, setNewCustomer] = useState<Partial<Customer>>({ type: 'ONE_TIME' });
 
   const filteredCustomers = customers.filter(c =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase())
+    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.contact.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const getCustomerStats = (customerId: string) => {
@@ -236,16 +237,6 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-4">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-500" size={20} />
-            <input
-              type="text"
-              placeholder="Search customers..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-4 rounded-xl border border-amber-200 bg-amber-50 text-slate-900 font-medium focus:ring-2 focus:ring-orange-500 outline-none transition-all shadow-sm"
-            />
-          </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <table className="w-full text-left">

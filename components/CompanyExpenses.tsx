@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Wallet, PlusCircle, X, Search, FileText, Trash2, Calendar, CreditCard, User, Tag } from 'lucide-react';
 import { Expense, User as UserType } from '../types';
@@ -10,12 +9,12 @@ interface CompanyExpensesProps {
   onUpdate: (expense: Expense) => void;
   onDelete: (id: string) => void;
   currentUser: UserType | null;
+  searchQuery?: string;
 }
 
-const CompanyExpenses: React.FC<CompanyExpensesProps> = ({ expenses, onAdd, onUpdate, onDelete, currentUser }) => {
+const CompanyExpenses: React.FC<CompanyExpensesProps> = ({ expenses, onAdd, onUpdate, onDelete, currentUser, searchQuery = '' }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [amountStr, setAmountStr] = useState('');
   const [newExpense, setNewExpense] = useState<Partial<Expense>>({
     date: new Date().toISOString().split('T')[0],
@@ -91,20 +90,9 @@ const CompanyExpenses: React.FC<CompanyExpensesProps> = ({ expenses, onAdd, onUp
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 md:col-span-1">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 md:col-span-3">
           <p className="text-gray-500 text-xs font-black uppercase tracking-widest mb-1">Total Expenses (Filtered)</p>
           <h3 className="text-3xl font-black text-red-600">{formatCurrency(totalExpenses)}</h3>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 md:col-span-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input
-              placeholder="Search expenses by item, payee, or reference..."
-              className="w-full bg-gray-50 border border-gray-100 rounded-lg pl-10 pr-4 py-3 text-sm outline-none focus:ring-2 focus:ring-orange-500 transition-all font-medium"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
         </div>
       </div>
 

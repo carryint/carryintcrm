@@ -42,6 +42,7 @@ const App: React.FC = () => {
   const [isAppLoading, setIsAppLoading] = useState(true);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(DEFAULT_COMPANY_INFO as any);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Load initial data
   useEffect(() => {
@@ -387,12 +388,16 @@ const App: React.FC = () => {
           </div>
         ) : <p>No receipt available</p>;
       case 'invoices':
+        const filteredInvoices = invoices.filter(inv => 
+          inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          inv.customerName.toLowerCase().includes(searchQuery.toLowerCase())
+        );
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-6 border-b border-gray-50 flex justify-between items-center">
               <h3 className="text-xl font-bold text-gray-900">All Tax Invoices</h3>
               <button
-                onClick={() => setActiveTab('create-invoice')}
+                onClick={() => { setActiveTab('create-invoice'); setSearchQuery(''); }}
                 className="bg-orange-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"
               >
                 Create New
@@ -410,12 +415,14 @@ const App: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {invoices.length === 0 ? (
+                {filteredInvoices.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-20 text-gray-400 font-medium">No invoices generated yet.</td>
+                    <td colSpan={6} className="text-center py-20 text-gray-400 font-medium">
+                      {searchQuery ? `No invoices matching "${searchQuery}"` : "No invoices generated yet."}
+                    </td>
                   </tr>
                 ) : (
-                  invoices.slice().reverse().map(inv => (
+                  filteredInvoices.slice().reverse().map(inv => (
                     <tr key={inv.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 font-bold text-gray-900">{inv.invoiceNumber}</td>
                       <td className="px-6 py-4 text-gray-600">{inv.customerName}</td>
@@ -429,14 +436,14 @@ const App: React.FC = () => {
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-3">
                           <button
-                            onClick={() => { setSelectedInvoice(inv); setActiveTab('view-invoice'); }}
+                            onClick={() => { setSelectedInvoice(inv); setActiveTab('view-invoice'); setSearchQuery(''); }}
                             className="text-orange-600 font-bold hover:underline"
                           >
                             View
                           </button>
                           {inv.status === 'PAID' && (
                             <button
-                              onClick={() => { setSelectedInvoice(inv); setActiveTab('view-receipt'); }}
+                              onClick={() => { setSelectedInvoice(inv); setActiveTab('view-receipt'); setSearchQuery(''); }}
                               className="text-green-600 font-bold hover:underline"
                             >
                               Receipt
@@ -464,10 +471,14 @@ const App: React.FC = () => {
           </div>
         );
       case 'customers':
-        return <CustomerManagement customers={customers} invoices={invoices} onAdd={handleAddCustomer} onEdit={handleEditCustomer} onDelete={handleDeleteCustomer} onUpdateInvoiceStatus={handleUpdateInvoiceStatus} />;
+        return <CustomerManagement searchQuery={searchQuery} customers={customers} invoices={invoices} onAdd={handleAddCustomer} onEdit={handleEditCustomer} onDelete={handleDeleteCustomer} onUpdateInvoiceStatus={handleUpdateInvoiceStatus} />;
       case 'reports':
         return <FinancialReports invoices={invoices} customers={customers} vendors={vendors} companyInfo={companyInfo} expenses={expenses} />;
       case 'vendors':
+        const filteredVendors = vendors.filter(v => 
+          v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          v.contact.toLowerCase().includes(searchQuery.toLowerCase())
+        );
         if (selectedVendor) {
           const vendorInvoices = invoices.filter(inv => inv.vendorId === selectedVendor.id);
           const displayedInvoices = showUnpaidVendorOnly
@@ -705,7 +716,7 @@ const App: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {vendors.map(v => {
+                  {filteredVendors.map(v => {
                     const payable = invoices.filter(inv => inv.vendorId === v.id && inv.vendorStatus !== 'PAID').reduce((s, i) => s + i.vendorCost, 0);
                     return (
                       <tr key={v.id} className="group">
@@ -755,6 +766,7 @@ const App: React.FC = () => {
             onUpdate={handleUpdateExpense}
             onDelete={handleDeleteExpense}
             currentUser={currentUser}
+            searchQuery={searchQuery}
           />
         );
       case 'settings':
@@ -811,8 +823,10 @@ const App: React.FC = () => {
             <div className="relative w-48 lg:w-96">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input
-                placeholder="Search..."
+                placeholder={`Search in ${activeTab.replace('-', ' ')}...`}
                 className="w-full bg-gray-50 border border-gray-100 rounded-lg pl-10 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-500 transition-all font-medium"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
           </div>
