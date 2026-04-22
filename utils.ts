@@ -31,7 +31,7 @@ export const generateId = () => Math.random().toString(36).substr(2, 9);
 /**
  * Generates an Excel Workbook with multiple sheets
  */
-export const exportToExcel = (data: { invoices: any[], customers: any[], vendors: any[] }) => {
+export const exportToExcel = (data: { invoices: any[], customers: any[], vendors: any[], expenses?: any[] }) => {
   const wb = XLSX.utils.book_new();
   
   // Create Invoices Sheet
@@ -66,6 +66,20 @@ export const exportToExcel = (data: { invoices: any[], customers: any[], vendors
     'Address': v.address
   })));
   XLSX.utils.book_append_sheet(wb, vendSheet, 'Vendors');
+  
+  // Create Expenses Sheet
+  if (data.expenses && data.expenses.length > 0) {
+    const expSheet = XLSX.utils.json_to_sheet(data.expenses.map(e => ({
+      'Date': new Date(e.date).toLocaleDateString(),
+      'Details': e.itemDetails,
+      'Payee': e.payeeName,
+      'Method': e.paymentMethod,
+      'Reference': e.paymentReference,
+      'Amount': e.amount,
+      'Created By': e.createdByName
+    })));
+    XLSX.utils.book_append_sheet(wb, expSheet, 'Company Expenses');
+  }
 
   // Write file
   const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
@@ -86,7 +100,8 @@ export const downloadSystemZip = async (data: any) => {
   const excelBuffer = exportToExcel({
     invoices: data.invoices,
     customers: data.customers,
-    vendors: data.vendors
+    vendors: data.vendors,
+    expenses: data.expenses
   });
   zip.file(`carryint_financial_report_${timestamp}.xlsx`, excelBuffer);
   
@@ -99,7 +114,7 @@ export const downloadSystemZip = async (data: any) => {
   URL.revokeObjectURL(url);
 };
 
-export const downloadExcelOnly = (data: { invoices: any[], customers: any[], vendors: any[] }) => {
+export const downloadExcelOnly = (data: { invoices: any[], customers: any[], vendors: any[], expenses?: any[] }) => {
   const buffer = exportToExcel(data);
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);

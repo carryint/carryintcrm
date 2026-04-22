@@ -18,7 +18,7 @@ import {
   Edit2,
   Trash2
 } from 'lucide-react';
-import { CompanyInfo, Invoice, Customer, Vendor, User } from '../types';
+import { CompanyInfo, Invoice, Customer, Vendor, User, Expense } from '../types';
 import Logo from './Logo';
 import { downloadSystemZip, downloadExcelOnly, generateId } from '../utils';
 
@@ -29,6 +29,7 @@ interface SettingsProps {
   customers: Customer[];
   vendors: Vendor[];
   users: User[];
+  expenses: Expense[];
   onAddUser: (user: User) => void;
   onDeleteUser: (id: string) => void;
   onUpdateUser: (user: User) => void;
@@ -36,7 +37,7 @@ interface SettingsProps {
 }
 
 const Settings: React.FC<SettingsProps> = ({
-  companyInfo, onUpdate, invoices, customers, vendors, users, onAddUser, onDeleteUser, onUpdateUser, currentUser
+  companyInfo, onUpdate, invoices, customers, vendors, users, expenses, onAddUser, onDeleteUser, onUpdateUser, currentUser
 }) => {
   const [formData, setFormData] = useState<CompanyInfo>(companyInfo);
   const [isSaved, setIsSaved] = useState(false);
@@ -101,6 +102,7 @@ const Settings: React.FC<SettingsProps> = ({
       invoices,
       customers,
       vendors,
+      expenses,
       companyInfo
     };
     await downloadSystemZip(fullData);
@@ -108,7 +110,7 @@ const Settings: React.FC<SettingsProps> = ({
   };
 
   const handleExcelExport = () => {
-    downloadExcelOnly({ invoices, customers, vendors });
+    downloadExcelOnly({ invoices, customers, vendors, expenses });
   };
 
   const inputClass = "w-full px-4 py-3 rounded-lg border border-amber-300 bg-amber-100 text-slate-950 font-bold focus:ring-2 focus:ring-orange-500 outline-none transition-all";

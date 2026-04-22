@@ -760,6 +760,7 @@ const App: React.FC = () => {
             customers={customers}
             vendors={vendors}
             users={users}
+            expenses={expenses}
             onAddUser={handleAddUser}
             onDeleteUser={handleDeleteUser}
             onUpdateUser={handleUpdateUser}
