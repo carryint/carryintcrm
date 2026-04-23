@@ -156,6 +156,8 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
                   />
                 </th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase">Invoice No</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase">From</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase">To</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase">Date</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase">Status</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase text-right">Amount</th>
@@ -164,7 +166,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
             <tbody className="divide-y divide-gray-100 border-b border-gray-100">
               {displayedInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-20 text-gray-400 font-medium">No records found for this selection.</td>
+                  <td colSpan={7} className="text-center py-20 text-gray-400 font-medium">No records found for this selection.</td>
                 </tr>
               ) : (
                 displayedInvoices.map(inv => (
@@ -181,6 +183,16 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
                       />
                     </td>
                     <td className="px-6 py-5 font-bold text-gray-900">{inv.invoiceNumber}</td>
+                    <td className="px-6 py-5">
+                      <span className="text-[10px] font-black px-2 py-1 rounded bg-orange-50 text-orange-700 border border-orange-100 uppercase">
+                        {inv.items[0]?.coo || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-5">
+                      <span className="text-[10px] font-black px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-100 uppercase">
+                        {inv.destinationCountry}
+                      </span>
+                    </td>
                     <td className="px-6 py-5 text-gray-600 text-sm">{new Date(inv.date).toLocaleDateString()}</td>
                     <td className="px-6 py-5">
                       <button

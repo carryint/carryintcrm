@@ -43,6 +43,9 @@ const App: React.FC = () => {
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(DEFAULT_COMPANY_INFO as any);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [invoiceFilterStatus, setInvoiceFilterStatus] = useState<'ALL' | 'PAID' | 'UNPAID'>('ALL');
+  const [invoiceFilterDate, setInvoiceFilterDate] = useState('');
+  const [invoiceFilterMonth, setInvoiceFilterMonth] = useState('');
 
   // Load initial data
   useEffect(() => {
@@ -388,26 +391,83 @@ const App: React.FC = () => {
           </div>
         ) : <p>No receipt available</p>;
       case 'invoices':
-        const filteredInvoices = invoices.filter(inv => 
-          inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          inv.customerName.toLowerCase().includes(searchQuery.toLowerCase())
-        );
+        const filteredInvoices = invoices.filter(inv => {
+          const matchesSearch = inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            inv.customerName.toLowerCase().includes(searchQuery.toLowerCase());
+          
+          const matchesCustomer = !searchQuery || inv.customerName.toLowerCase().includes(searchQuery.toLowerCase());
+          
+          const matchesStatus = invoiceFilterStatus === 'ALL' || inv.status === invoiceFilterStatus;
+          
+          const matchesDate = !invoiceFilterDate || inv.date.startsWith(invoiceFilterDate);
+          
+          const matchesMonth = !invoiceFilterMonth || inv.date.startsWith(invoiceFilterMonth);
+
+          return matchesSearch && matchesStatus && matchesDate && matchesMonth;
+        });
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="p-6 border-b border-gray-50 flex justify-between items-center">
-              <h3 className="text-xl font-bold text-gray-900">All Tax Invoices</h3>
-              <button
-                onClick={() => { setActiveTab('create-invoice'); setSearchQuery(''); }}
-                className="bg-orange-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"
-              >
-                Create New
-              </button>
+            <div className="p-6 border-b border-gray-50 flex flex-col gap-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold text-gray-900">All Tax Invoices</h3>
+                <button
+                  onClick={() => { setActiveTab('create-invoice'); setSearchQuery(''); }}
+                  className="bg-orange-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"
+                >
+                  Create New
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-xl">
+                <div>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Customer / Invoice #</label>
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-orange-500"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Specific Date</label>
+                  <input
+                    type="date"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-orange-500"
+                    value={invoiceFilterDate}
+                    onChange={(e) => setInvoiceFilterDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Filter by Month</label>
+                  <input
+                    type="month"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-orange-500"
+                    value={invoiceFilterMonth}
+                    onChange={(e) => setInvoiceFilterMonth(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Payment Status</label>
+                  <select
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-orange-500 font-bold"
+                    value={invoiceFilterStatus}
+                    onChange={(e) => setInvoiceFilterStatus(e.target.value as any)}
+                  >
+                    <option value="ALL">All Status</option>
+                    <option value="PAID">PAID</option>
+                    <option value="UNPAID">UNPAID</option>
+                  </select>
+                </div>
+              </div>
             </div>
             <table className="w-full text-left">
               <thead className="bg-gray-50 text-xs font-black text-gray-500 uppercase tracking-widest">
                 <tr>
                   <th className="px-6 py-4">Invoice No</th>
                   <th className="px-6 py-4">Customer</th>
+                  <th className="px-6 py-4">From</th>
+                  <th className="px-6 py-4">To</th>
                   <th className="px-6 py-4">Date</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4 text-right">Total Amount</th>
@@ -425,8 +485,18 @@ const App: React.FC = () => {
                   filteredInvoices.slice().reverse().map(inv => (
                     <tr key={inv.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 font-bold text-gray-900">{inv.invoiceNumber}</td>
-                      <td className="px-6 py-4 text-gray-600">{inv.customerName}</td>
-                      <td className="px-6 py-4 text-gray-500">{new Date(inv.date).toLocaleDateString()}</td>
+                      <td className="px-6 py-4 text-gray-600 font-medium">{inv.customerName}</td>
+                      <td className="px-6 py-4">
+                        <span className="text-[10px] font-black px-2 py-1 rounded bg-orange-50 text-orange-700 border border-orange-100 uppercase">
+                          {inv.items[0]?.coo || 'N/A'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-[10px] font-black px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-100 uppercase">
+                          {inv.destinationCountry}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-gray-500 font-bold">{new Date(inv.date).toLocaleDateString()}</td>
                       <td className="px-6 py-4">
                         <span className={`text-[10px] font-black px-2 py-1 rounded-full ${inv.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                           {inv.status}
@@ -574,6 +644,8 @@ const App: React.FC = () => {
                         />
                       </th>
                       <th className="px-6 py-4 text-[10px] font-black uppercase">Invoice No</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase">From</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase">To</th>
                       <th className="px-6 py-4 text-[10px] font-black uppercase">Date</th>
                       <th className="px-6 py-4 text-[10px] font-black uppercase">Status</th>
                       <th className="px-6 py-4 text-[10px] font-black uppercase text-right">Vendor Cost</th>
@@ -582,7 +654,7 @@ const App: React.FC = () => {
                   <tbody className="divide-y divide-gray-100 border-b border-gray-100">
                     {displayedInvoices.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="text-center py-20 text-gray-400 font-medium">No records found for this selection.</td>
+                        <td colSpan={7} className="text-center py-20 text-gray-400 font-medium">No records found for this selection.</td>
                       </tr>
                     ) : (
                       displayedInvoices.map(inv => (
@@ -599,6 +671,16 @@ const App: React.FC = () => {
                             />
                           </td>
                           <td className="px-6 py-5 font-bold text-gray-900">{inv.invoiceNumber}</td>
+                          <td className="px-6 py-5">
+                            <span className="text-[10px] font-black px-2 py-1 rounded bg-orange-50 text-orange-700 border border-orange-100 uppercase">
+                              {inv.items[0]?.coo || 'N/A'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-5">
+                            <span className="text-[10px] font-black px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-100 uppercase">
+                              {inv.destinationCountry}
+                            </span>
+                          </td>
                           <td className="px-6 py-5 text-gray-600 text-sm">{new Date(inv.date).toLocaleDateString()}</td>
                           <td className="px-6 py-5">
                             <button

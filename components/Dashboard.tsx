@@ -163,7 +163,7 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses }) => {
                 <div key={inv.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                   <div>
                     <p className="font-semibold text-gray-900">{inv.customerName}</p>
-                    <p className="text-xs text-gray-500">{inv.invoiceNumber} • {inv.destinationCountry}</p>
+                    <p className="text-xs text-gray-500">{inv.invoiceNumber} • {inv.items[0]?.coo || 'N/A'} to {inv.destinationCountry}</p>
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-orange-600">{formatCurrency(inv.totalAmount)}</p>
