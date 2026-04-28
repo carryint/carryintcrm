@@ -11,9 +11,10 @@ import { Invoice, Expense } from '../types';
 interface DashboardProps {
   invoices: Invoice[];
   expenses: Expense[];
+  onInvoiceClick: (invoice: Invoice) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses }) => {
+const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, onInvoiceClick }) => {
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
 
@@ -196,7 +197,11 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses }) => {
               <p className="text-gray-500 text-center py-10">No shipments found.</p>
             ) : (
               recentShipments.map((inv) => (
-                <div key={inv.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div 
+                  key={inv.id} 
+                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer border border-transparent hover:border-orange-200"
+                  onClick={() => onInvoiceClick(inv)}
+                >
                   <div>
                     <p className="font-semibold text-gray-900">{inv.customerName}</p>
                     <p className="text-xs text-gray-500">{inv.invoiceNumber} • {inv.items[0]?.coo || 'N/A'} to {inv.destinationCountry}</p>
@@ -247,6 +252,8 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses }) => {
                             <th className="px-4 py-3 border-b">Inv No</th>
                             <th className="px-4 py-3 border-b">Date</th>
                             <th className="px-4 py-3 border-b">Customer</th>
+                            <th className="px-4 py-3 border-b">From</th>
+                            <th className="px-4 py-3 border-b">To</th>
                             <th className="px-4 py-3 border-b text-right">Total Amount</th>
                             <th className="px-4 py-3 border-b text-center">Status</th>
                             {selectedFilter === 'Gross Profit' || selectedFilter === 'Net Profit' ? (
@@ -272,12 +279,31 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses }) => {
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {filteredResults.items.map((item: any) => (
-                        <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                        <tr 
+                          key={item.id} 
+                          className={`hover:bg-gray-50 transition-colors ${filteredResults.type === 'invoice' ? 'cursor-pointer' : ''}`}
+                          onClick={() => {
+                            if (filteredResults.type === 'invoice') {
+                              onInvoiceClick(item);
+                              setShowModal(false);
+                            }
+                          }}
+                        >
                           {filteredResults.type === 'invoice' ? (
                             <>
                               <td className="px-4 py-4 font-bold text-gray-900">{item.invoiceNumber}</td>
                               <td className="px-4 py-4 text-sm text-gray-500">{new Date(item.date).toLocaleDateString()}</td>
                               <td className="px-4 py-4 text-sm font-medium">{item.customerName}</td>
+                              <td className="px-4 py-4">
+                                <span className="text-[10px] font-black px-2 py-1 rounded bg-orange-50 text-orange-700 border border-orange-100 uppercase">
+                                  {item.items[0]?.coo || 'N/A'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-4">
+                                <span className="text-[10px] font-black px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-100 uppercase">
+                                  {item.destinationCountry}
+                                </span>
+                              </td>
                               <td className="px-4 py-4 text-right font-bold text-orange-600">{formatCurrency(item.totalAmount)}</td>
                               <td className="px-4 py-4 text-center">
                                 <span className={`text-[10px] font-black px-2 py-1 rounded ${

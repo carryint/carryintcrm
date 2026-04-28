@@ -330,7 +330,16 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard invoices={invoices} expenses={expenses} />;
+        return (
+          <Dashboard 
+            invoices={invoices} 
+            expenses={expenses} 
+            onInvoiceClick={(inv) => {
+              setSelectedInvoice(inv);
+              setActiveTab('view-invoice');
+            }}
+          />
+        );
       case 'create-invoice':
         return (
           <InvoiceForm
