@@ -877,7 +877,16 @@ const App: React.FC = () => {
           />
         );
       default:
-        return <Dashboard invoices={invoices} expenses={expenses} />;
+        return (
+          <Dashboard 
+            invoices={invoices} 
+            expenses={expenses} 
+            onInvoiceClick={(inv) => {
+              setSelectedInvoice(inv);
+              setActiveTab('view-invoice');
+            }}
+          />
+        );
     }
   };
 
