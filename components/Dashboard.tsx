@@ -69,13 +69,11 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, onInvoiceClic
       case 'Total Revenue': return { type: 'invoice', items: invoices };
       case 'Received Amount': return { type: 'invoice', items: invoices.filter(inv => inv.status === 'PAID') };
       case 'Outstanding Receivables': return { type: 'invoice', items: invoices.filter(inv => inv.status !== 'PAID') };
-      case 'Gross Profit': return { type: 'invoice', items: invoices };
       case 'Company Expenses': return { type: 'expense', items: expenses };
-      case 'Net Profit': return { type: 'invoice', items: invoices }; // Showing invoices profit
-      case 'Paid Amount (Vendors)': return { type: 'invoice', items: invoices.filter(inv => inv.vendorStatus === 'PAID') };
-      case 'Outstanding Payables': return { type: 'invoice', items: invoices.filter(inv => inv.vendorStatus !== 'PAID') };
-      case 'Paid Broker Comm.': return { type: 'invoice', items: invoices.filter(inv => inv.agentStatus === 'PAID') };
-      case 'Unpaid Broker Comm.': return { type: 'invoice', items: invoices.filter(inv => inv.agentStatus !== 'PAID') };
+      case 'Paid Amount (Vendors)': return { type: 'invoice', items: invoices.filter(inv => inv.vendorId && inv.vendorStatus === 'PAID') };
+      case 'Outstanding Payables': return { type: 'invoice', items: invoices.filter(inv => inv.vendorId && inv.vendorStatus !== 'PAID') };
+      case 'Paid Broker Comm.': return { type: 'invoice', items: invoices.filter(inv => (inv.agentCommission || 0) > 0 && inv.agentStatus === 'PAID') };
+      case 'Unpaid Broker Comm.': return { type: 'invoice', items: invoices.filter(inv => (inv.agentCommission || 0) > 0 && inv.agentStatus !== 'PAID') };
       default: return { type: 'invoice', items: [] };
     }
   };
@@ -115,7 +113,6 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, onInvoiceClic
           icon={<TrendingUp className="text-green-600" />} 
           trend="Invoices" 
           bgColor="bg-green-50"
-          onClick={() => handleCardClick('Gross Profit')}
         />
         <StatCard 
           title="Company Expenses" 
@@ -131,7 +128,6 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, onInvoiceClic
           icon={<TrendingUp className="text-orange-600" />} 
           trend="Final" 
           bgColor="bg-orange-50"
-          onClick={() => handleCardClick('Net Profit')}
         />
         <StatCard 
           title="Paid Amount (Vendors)" 
@@ -354,25 +350,34 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, onInvoiceClic
   );
 };
 
-const StatCard = ({ title, value, icon, trend, bgColor, onClick }: any) => (
-  <button 
-    onClick={onClick}
-    className={`p-6 rounded-xl shadow-sm border border-gray-100 bg-white text-left hover:border-orange-200 hover:shadow-md transition-all active:scale-95 group relative overflow-hidden`}
-  >
-    <div className="flex items-center justify-between mb-4">
-      <div className={`p-3 rounded-lg ${bgColor}`}>
-        {icon}
+const StatCard = ({ title, value, icon, trend, bgColor, onClick }: any) => {
+  const isClickable = !!onClick;
+  const CardWrapper = isClickable ? 'button' : 'div';
+  
+  return (
+    <CardWrapper 
+      onClick={onClick}
+      className={`p-6 rounded-xl shadow-sm border border-gray-100 bg-white text-left transition-all ${
+        isClickable 
+          ? 'hover:border-orange-200 hover:shadow-md active:scale-95 group cursor-pointer' 
+          : ''
+      } relative overflow-hidden`}
+    >
+      <div className="flex items-center justify-between mb-4">
+        <div className={`p-3 rounded-lg ${bgColor}`}>
+          {icon}
+        </div>
+        <span className={`text-xs font-bold px-2 py-1 rounded-full ${trend.includes('+') || trend === 'Secured' || trend === 'Settled' || trend === 'Final' || trend === 'Invoices' ? 'text-green-600 bg-green-50' : 'text-orange-600 bg-orange-50'}`}>
+          {trend}
+        </span>
       </div>
-      <span className={`text-xs font-bold px-2 py-1 rounded-full ${trend.includes('+') ? 'text-green-600 bg-green-50' : 'text-orange-600 bg-orange-50'}`}>
-        {trend}
-      </span>
-    </div>
-    <p className="text-gray-500 text-sm font-medium">{title}</p>
-    <div className="flex items-end justify-between">
-      <h3 className="text-2xl font-bold text-gray-900 mt-1">{value}</h3>
-      <ExternalLink size={14} className="text-gray-300 group-hover:text-orange-500 transition-colors mb-1" />
-    </div>
-  </button>
-);
+      <p className="text-gray-500 text-sm font-medium">{title}</p>
+      <div className="flex items-end justify-between">
+        <h3 className="text-2xl font-bold text-gray-900 mt-1">{value}</h3>
+        {isClickable && <ExternalLink size={14} className="text-gray-300 group-hover:text-orange-500 transition-colors mb-1" />}
+      </div>
+    </CardWrapper>
+  );
+};
 
 export default Dashboard;
