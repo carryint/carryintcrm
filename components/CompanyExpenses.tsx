@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { Wallet, PlusCircle, X, Search, FileText, Trash2, Calendar, CreditCard, User, Tag } from 'lucide-react';
+import { Wallet, PlusCircle, X, Search, FileText, Trash2, Calendar, CreditCard, User, Tag, Download, FileSpreadsheet, Printer } from 'lucide-react';
 import { Expense, User as UserType } from '../types';
 import { generateId, formatCurrency } from '../utils';
+import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface CompanyExpensesProps {
   expenses: Expense[];
@@ -12,6 +15,8 @@ interface CompanyExpensesProps {
   searchQuery?: string;
 }
 
+type TimeRangeType = 'ALL' | 'MONTHLY' | 'CUSTOM';
+
 const CompanyExpenses: React.FC<CompanyExpensesProps> = ({ expenses, onAdd, onUpdate, onDelete, currentUser, searchQuery = '' }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
@@ -20,6 +25,11 @@ const CompanyExpenses: React.FC<CompanyExpensesProps> = ({ expenses, onAdd, onUp
     date: new Date().toISOString().split('T')[0],
     paymentMethod: 'Bank Transfer',
   });
+
+  const [timeRange, setTimeRange] = useState<TimeRangeType>('ALL');
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedExpenseIds, setSelectedExpenseIds] = useState<string[]>([]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,13 +73,106 @@ const CompanyExpenses: React.FC<CompanyExpensesProps> = ({ expenses, onAdd, onUp
     setIsAdding(true);
   };
 
-  const filteredExpenses = expenses.filter(exp => 
-    exp.itemDetails.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    exp.payeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    exp.paymentReference.toLowerCase().includes(searchQuery.toLowerCase())
-  ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const filteredExpenses = expenses.filter(exp => {
+    // Search filter
+    const matchesSearch = exp.itemDetails.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      exp.payeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      exp.paymentReference.toLowerCase().includes(searchQuery.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    // Time filter
+    if (timeRange === 'ALL') return true;
+
+    const expDate = new Date(exp.date);
+    const filterDate = new Date(selectedDate);
+
+    if (timeRange === 'MONTHLY') {
+      return expDate.getMonth() === filterDate.getMonth() && 
+             expDate.getFullYear() === filterDate.getFullYear();
+    } else if (timeRange === 'CUSTOM') {
+      const start = new Date(selectedDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      return expDate >= start && expDate <= end;
+    }
+
+    return true;
+  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+  const selectedExpenses = selectedExpenseIds.length > 0 
+    ? filteredExpenses.filter(exp => selectedExpenseIds.includes(exp.id))
+    : filteredExpenses;
+
+  const totalSelectedExpenses = selectedExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+  const handleExportExcel = () => {
+    const data = selectedExpenses.map(exp => ({
+      'Date': new Date(exp.date).toLocaleDateString(),
+      'Details': exp.itemDetails,
+      'Payee': exp.payeeName,
+      'Method': exp.paymentMethod,
+      'Reference': exp.paymentReference || '-',
+      'Amount (AED)': exp.amount,
+      'Created By': exp.createdByName
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Company Expenses');
+    
+    const wscols = [
+      { wch: 15 }, { wch: 30 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 20 }
+    ];
+    worksheet['!cols'] = wscols;
+
+    XLSX.writeFile(workbook, `Company_Expenses_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF('p', 'mm', 'a4');
+    
+    // Header
+    doc.setFontSize(20);
+    doc.setTextColor(249, 115, 22); 
+    doc.text(`Company Expenses Report`, 14, 22);
+    
+    const rangeText = timeRange === 'CUSTOM' ? `${selectedDate} to ${endDate}` : timeRange === 'MONTHLY' ? selectedDate.substring(0, 7) : 'All Records';
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+    doc.text(`Filter: ${timeRange} (${rangeText})`, 14, 35);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(0);
+    doc.text(`Total Amount: ${formatCurrency(totalSelectedExpenses)}`, 14, 45);
+
+    const tableData = selectedExpenses.map(exp => [
+      new Date(exp.date).toLocaleDateString(),
+      exp.itemDetails,
+      exp.payeeName,
+      exp.paymentMethod,
+      exp.amount.toFixed(2)
+    ]);
+
+    autoTable(doc, {
+      startY: 50,
+      head: [['Date', 'Details', 'Payee', 'Method', 'Amount (AED)']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [249, 115, 22], textColor: [255, 255, 255], fontSize: 9 },
+      bodyStyles: { fontSize: 9 },
+      columnStyles: {
+        4: { halign: 'right', fontStyle: 'bold' }
+      }
+    });
+
+    doc.save(`Company_Expenses_Report.pdf`);
+  };
 
   return (
     <div className="space-y-6">
@@ -90,9 +193,81 @@ const CompanyExpenses: React.FC<CompanyExpensesProps> = ({ expenses, onAdd, onUp
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 md:col-span-3">
-          <p className="text-gray-500 text-xs font-black uppercase tracking-widest mb-1">Total Expenses (Filtered)</p>
-          <h3 className="text-3xl font-black text-red-600">{formatCurrency(totalExpenses)}</h3>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 md:col-span-3 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div>
+            <p className="text-gray-500 text-xs font-black uppercase tracking-widest mb-1">Total Expenses (Filtered)</p>
+            <h3 className="text-3xl font-black text-red-600">{formatCurrency(totalExpenses)}</h3>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-3 no-print">
+            <button 
+              onClick={handleExportExcel}
+              className="bg-green-50 text-green-700 px-4 py-2 rounded-lg font-bold hover:bg-green-100 flex items-center gap-2 transition-all border border-green-100"
+            >
+              <FileSpreadsheet size={18} /> Excel
+            </button>
+            <button 
+              onClick={handleExportPDF}
+              className="bg-slate-900 text-white px-4 py-2 rounded-lg font-bold hover:bg-slate-800 flex items-center gap-2 transition-all shadow-md"
+            >
+              <Download size={18} /> Export PDF
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 no-print">
+        <div className="flex flex-col md:flex-row items-center gap-6">
+          <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-xl border border-gray-100">
+            {(['ALL', 'MONTHLY', 'CUSTOM'] as TimeRangeType[]).map((range) => (
+              <button
+                key={range}
+                onClick={() => { setTimeRange(range); setSelectedExpenseIds([]); }}
+                className={`text-[10px] font-black px-4 py-2 rounded-lg transition-all ${
+                  timeRange === range 
+                    ? 'bg-orange-600 text-white shadow-md shadow-orange-100' 
+                    : 'text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
+
+          {timeRange !== 'ALL' && (
+            <div className="flex items-center gap-3 animate-in fade-in slide-in-from-left-2">
+              {timeRange === 'MONTHLY' ? (
+                <input 
+                  type="month"
+                  value={selectedDate.substring(0, 7)}
+                  onChange={(e) => setSelectedDate(e.target.value + '-01')}
+                  className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-bold outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-bold outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  <span className="text-gray-400 text-xs font-bold">TO</span>
+                  <input 
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-bold outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+          
+          {selectedExpenseIds.length > 0 && (
+            <div className="text-xs font-black text-orange-600 uppercase tracking-widest bg-orange-50 px-3 py-2 rounded-lg border border-orange-100">
+              {selectedExpenseIds.length} Expenses Selected
+            </div>
+          )}
         </div>
       </div>
 
@@ -200,24 +375,47 @@ const CompanyExpenses: React.FC<CompanyExpensesProps> = ({ expenses, onAdd, onUp
           <table className="w-full text-left">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="px-6 py-4 no-print w-10">
+                  <input
+                    type="checkbox"
+                    checked={filteredExpenses.length > 0 && selectedExpenseIds.length === filteredExpenses.length}
+                    onChange={(e) => {
+                      if (e.target.checked) setSelectedExpenseIds(filteredExpenses.map(exp => exp.id));
+                      else setSelectedExpenseIds([]);
+                    }}
+                    className="w-4 h-4 accent-orange-500 cursor-pointer"
+                  />
+                </th>
                 <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Date</th>
                 <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Expense Details</th>
                 <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Payee</th>
                 <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Payment Info</th>
                 <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest text-right">Amount</th>
-                <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest text-right">Actions</th>
+                <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest text-right no-print">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredExpenses.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-20 text-center text-gray-400 font-medium italic">
+                  <td colSpan={7} className="px-6 py-20 text-center text-gray-400 font-medium italic">
                     No expense records found.
                   </td>
                 </tr>
               ) : (
                 filteredExpenses.map((exp) => (
-                  <tr key={exp.id} className="hover:bg-gray-50 transition-colors group">
+                  <tr key={exp.id} className={`hover:bg-gray-50 transition-colors group ${selectedExpenseIds.length > 0 && !selectedExpenseIds.includes(exp.id) ? 'opacity-40 no-print' : ''}`}>
+                    <td className="px-6 py-5 no-print">
+                      <input
+                        type="checkbox"
+                        checked={selectedExpenseIds.includes(exp.id)}
+                        onChange={() => {
+                          setSelectedExpenseIds(prev => 
+                            prev.includes(exp.id) ? prev.filter(id => id !== exp.id) : [...prev, exp.id]
+                          );
+                        }}
+                        className="w-4 h-4 accent-orange-500 cursor-pointer"
+                      />
+                    </td>
                     <td className="px-6 py-5 whitespace-nowrap">
                       <div className="flex items-center gap-2 text-gray-900 font-bold">
                         <Calendar size={14} className="text-orange-500" />
@@ -251,7 +449,7 @@ const CompanyExpenses: React.FC<CompanyExpensesProps> = ({ expenses, onAdd, onUp
                     <td className="px-6 py-5 text-right">
                       <span className="font-black text-red-600 text-lg">{exp.amount.toFixed(2)} AED</span>
                     </td>
-                    <td className="px-6 py-5 text-right">
+                    <td className="px-6 py-5 text-right no-print">
                       <div className="flex justify-end gap-2">
                         <button
                           onClick={() => handleEdit(exp)}

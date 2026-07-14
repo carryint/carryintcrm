@@ -10,7 +10,8 @@ import FinancialReports from './components/FinancialReports';
 import Settings from './components/Settings';
 import CompanyExpenses from './components/CompanyExpenses';
 import Login from './components/Login';
-import { Customer, Vendor, Invoice, CompanyInfo, User, Expense } from './types';
+import AdjustmentsManagement from './components/AdjustmentsManagement';
+import { Customer, Vendor, Invoice, CompanyInfo, User, Expense, AdjustmentNote } from './types';
 import { COMPANY_INFO as DEFAULT_COMPANY_INFO } from './constants';
 import {
   Bell, Search,
@@ -29,6 +30,19 @@ import {
 } from 'lucide-react';
 import { generateId } from './utils';
 
+const getInvoiceAging = (dateStr: string, isPaid: boolean, paidDateStr?: string) => {
+  const invDate = new Date(dateStr);
+  const endDate = isPaid && paidDateStr ? new Date(paidDateStr) : new Date();
+  invDate.setHours(0, 0, 0, 0);
+  endDate.setHours(0, 0, 0, 0);
+  const diffTime = endDate.getTime() - invDate.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return 'Future';
+  if (diffDays === 0) return 'Today';
+  if (isPaid) return `Paid in ${diffDays} ${diffDays === 1 ? 'day' : 'days'}`;
+  return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} old`;
+};
+
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -36,6 +50,9 @@ const App: React.FC = () => {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [adjustmentNotes, setAdjustmentNotes] = useState<AdjustmentNote[]>([]);
+  const [preSelectedInvoice, setPreSelectedInvoice] = useState<Invoice | null>(null);
+  const [preSelectedType, setPreSelectedType] = useState<'CREDIT' | 'DEBIT' | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authError, setAuthError] = useState<string>('');
@@ -115,6 +132,8 @@ const App: React.FC = () => {
 
     if (savedInvoices) setInvoices(JSON.parse(savedInvoices));
     if (savedExpenses) setExpenses(JSON.parse(savedExpenses));
+    const savedAdjustments = localStorage.getItem('carryint_adjustment_notes');
+    if (savedAdjustments) setAdjustmentNotes(JSON.parse(savedAdjustments));
 
     setIsAppLoading(false);
   }, []);
@@ -206,8 +225,18 @@ const App: React.FC = () => {
     localStorage.setItem('carryint_invoices', JSON.stringify(updated));
   };
 
-  const handleUpdateVendorStatus = (invoiceId: string, vendorStatus: 'PAID' | 'UNPAID') => {
-    const updated = invoices.map(inv => inv.id === invoiceId ? { ...inv, vendorStatus } : inv);
+  const handleUpdateVendorStatus = (invoiceId: string, vendorStatus: 'PAID' | 'UNPAID', vendorPaymentDate?: string, vendorTransactionReference?: string) => {
+    const updated = invoices.map(inv => {
+      if (inv.id === invoiceId) {
+        return {
+          ...inv,
+          vendorStatus,
+          vendorPaymentDate: vendorStatus === 'PAID' ? (vendorPaymentDate || inv.vendorPaymentDate || new Date().toISOString().split('T')[0]) : undefined,
+          vendorTransactionReference: vendorStatus === 'PAID' ? (vendorTransactionReference !== undefined ? vendorTransactionReference : inv.vendorTransactionReference) : undefined
+        };
+      }
+      return inv;
+    });
     setInvoices(updated);
     localStorage.setItem('carryint_invoices', JSON.stringify(updated));
   };
@@ -229,6 +258,62 @@ const App: React.FC = () => {
     localStorage.setItem('carryint_expenses', JSON.stringify(updated));
   };
 
+  const handleAddAdjustmentNote = (note: AdjustmentNote) => {
+    const updated = [...adjustmentNotes, note];
+    setAdjustmentNotes(updated);
+    localStorage.setItem('carryint_adjustment_notes', JSON.stringify(updated));
+
+    const updatedInvoices = invoices.map(inv => {
+      if (inv.id === note.originalInvoiceId) {
+        return {
+          ...inv,
+          auditLogs: [
+            ...(inv.auditLogs || []),
+            {
+              action: 'EDIT' as const,
+              userId: currentUser?.id || 'system',
+              userName: currentUser?.name || 'System User',
+              timestamp: new Date().toISOString(),
+              details: `Issued ${note.type} ${note.noteNumber} for amount ${note.amount} AED (Reason: ${note.reason})`
+            }
+          ]
+        };
+      }
+      return inv;
+    });
+    setInvoices(updatedInvoices);
+    localStorage.setItem('carryint_invoices', JSON.stringify(updatedInvoices));
+  };
+
+  const handleDeleteAdjustmentNote = (id: string) => {
+    const noteToDelete = adjustmentNotes.find(n => n.id === id);
+    if (!noteToDelete) return;
+
+    const updated = adjustmentNotes.filter(n => n.id !== id);
+    setAdjustmentNotes(updated);
+    localStorage.setItem('carryint_adjustment_notes', JSON.stringify(updated));
+
+    const updatedInvoices = invoices.map(inv => {
+      if (inv.id === noteToDelete.originalInvoiceId) {
+        return {
+          ...inv,
+          auditLogs: [
+            ...(inv.auditLogs || []),
+            {
+              action: 'EDIT' as const,
+              userId: currentUser?.id || 'system',
+              userName: currentUser?.name || 'System User',
+              timestamp: new Date().toISOString(),
+              details: `Deleted ${noteToDelete.type} ${noteToDelete.noteNumber} for amount ${noteToDelete.amount} AED`
+            }
+          ]
+        };
+      }
+      return inv;
+    });
+    setInvoices(updatedInvoices);
+    localStorage.setItem('carryint_invoices', JSON.stringify(updatedInvoices));
+  };
 
   const handleSaveInvoice = (invoice: Invoice) => {
     const exists = invoices.find(inv => inv.id === invoice.id);
@@ -283,7 +368,8 @@ const App: React.FC = () => {
   };
 
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
-  const [showUnpaidVendorOnly, setShowUnpaidVendorOnly] = useState(false);
+  const [vendorInvoiceFilter, setVendorInvoiceFilter] = useState<'ALL' | 'UNPAID' | 'PAID_LATEST'>('ALL');
+  const [showVendorDescriptions, setShowVendorDescriptions] = useState(false);
   const [isAddingVendor, setIsAddingVendor] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [newVendor, setNewVendor] = useState<Partial<Vendor>>({});
@@ -334,6 +420,7 @@ const App: React.FC = () => {
           <Dashboard 
             invoices={invoices} 
             expenses={expenses} 
+            adjustmentNotes={adjustmentNotes}
             onInvoiceClick={(inv) => {
               setSelectedInvoice(inv);
               setActiveTab('view-invoice');
@@ -356,7 +443,12 @@ const App: React.FC = () => {
           <div>
             <div className="flex justify-end gap-2 mb-4 no-print">
               <button
-                onClick={() => window.print()}
+                onClick={() => {
+                  const originalTitle = document.title;
+                  document.title = selectedInvoice.invoiceNumber;
+                  window.print();
+                  document.title = originalTitle;
+                }}
                 className="bg-orange-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg"
               >
                 Print / Save PDF
@@ -376,7 +468,16 @@ const App: React.FC = () => {
                 Back to List
               </button>
             </div>
-            <InvoicePreview invoice={selectedInvoice} companyInfo={companyInfo} />
+            <InvoicePreview 
+              invoice={selectedInvoice} 
+              companyInfo={companyInfo} 
+              adjustmentNotes={adjustmentNotes}
+              onIssueAdjustment={(type) => {
+                setPreSelectedInvoice(selectedInvoice);
+                setPreSelectedType(type);
+                setActiveTab('adjustments');
+              }}
+            />
           </div>
         ) : <p>No invoice selected</p>;
       case 'view-receipt':
@@ -384,7 +485,13 @@ const App: React.FC = () => {
           <div>
             <div className="flex justify-end gap-2 mb-4 no-print">
               <button
-                onClick={() => window.print()}
+                onClick={() => {
+                  const originalTitle = document.title;
+                  const receiptNo = `RCP-${selectedInvoice.invoiceNumber.split('-')[1] || selectedInvoice.invoiceNumber}`;
+                  document.title = receiptNo;
+                  window.print();
+                  document.title = originalTitle;
+                }}
                 className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg"
               >
                 Print Receipt
@@ -511,7 +618,23 @@ const App: React.FC = () => {
                           {inv.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right font-black text-gray-900">{inv.totalAmount.toFixed(2)} AED</td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="font-black text-gray-900">{inv.totalAmount.toFixed(2)} AED</div>
+                        {(() => {
+                          const linked = adjustmentNotes.filter(n => n.originalInvoiceId === inv.id);
+                          if (linked.length > 0) {
+                            const credits = linked.filter(n => n.type === 'CREDIT').reduce((sum, n) => sum + n.amount, 0);
+                            const debits = linked.filter(n => n.type === 'DEBIT').reduce((sum, n) => sum + n.amount, 0);
+                            const adjusted = inv.totalAmount + debits - credits;
+                            return (
+                              <div className="text-[10px] font-black text-blue-600 mt-0.5 whitespace-nowrap">
+                                Adjusted: {adjusted.toFixed(2)} AED
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-3">
                           <button
@@ -550,9 +673,33 @@ const App: React.FC = () => {
           </div>
         );
       case 'customers':
-        return <CustomerManagement searchQuery={searchQuery} customers={customers} invoices={invoices} onAdd={handleAddCustomer} onEdit={handleEditCustomer} onDelete={handleDeleteCustomer} onUpdateInvoiceStatus={handleUpdateInvoiceStatus} />;
+        return (
+          <CustomerManagement 
+            searchQuery={searchQuery} 
+            customers={customers} 
+            invoices={invoices} 
+            adjustmentNotes={adjustmentNotes}
+            onAdd={handleAddCustomer} 
+            onEdit={handleEditCustomer} 
+            onDelete={handleDeleteCustomer} 
+            onUpdateInvoiceStatus={handleUpdateInvoiceStatus} 
+            onInvoiceClick={(inv) => {
+              setSelectedInvoice(inv);
+              setActiveTab('view-invoice');
+            }}
+          />
+        );
       case 'reports':
-        return <FinancialReports invoices={invoices} customers={customers} vendors={vendors} companyInfo={companyInfo} expenses={expenses} />;
+        return (
+          <FinancialReports 
+            invoices={invoices} 
+            customers={customers} 
+            vendors={vendors} 
+            companyInfo={companyInfo} 
+            expenses={expenses} 
+            adjustmentNotes={adjustmentNotes}
+          />
+        );
       case 'vendors':
         const filteredVendors = vendors.filter(v => 
           v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -560,13 +707,23 @@ const App: React.FC = () => {
         );
         if (selectedVendor) {
           const vendorInvoices = invoices.filter(inv => inv.vendorId === selectedVendor.id);
-          const displayedInvoices = showUnpaidVendorOnly
-            ? vendorInvoices.filter(inv => inv.vendorStatus !== 'PAID')
-            : vendorInvoices;
+          
+          let displayedInvoices = [...vendorInvoices];
+          if (vendorInvoiceFilter === 'UNPAID') {
+            displayedInvoices = vendorInvoices.filter(inv => inv.vendorStatus !== 'PAID');
+          } else if (vendorInvoiceFilter === 'PAID_LATEST') {
+            displayedInvoices = vendorInvoices
+              .filter(inv => inv.vendorStatus === 'PAID')
+              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          }
           
           const totalPayable = selectedVendorInvoiceIds.length > 0
             ? displayedInvoices.filter(inv => selectedVendorInvoiceIds.includes(inv.id)).reduce((s, i) => s + i.vendorCost, 0)
             : displayedInvoices.filter(inv => inv.vendorStatus !== 'PAID').reduce((s, i) => s + i.vendorCost, 0);
+
+          const totalPaid = selectedVendorInvoiceIds.length > 0
+            ? displayedInvoices.filter(inv => selectedVendorInvoiceIds.includes(inv.id)).reduce((s, i) => s + i.vendorCost, 0)
+            : displayedInvoices.reduce((s, i) => s + i.vendorCost, 0);
 
           const handleSelectAllVendors = (e: React.ChangeEvent<HTMLInputElement>) => {
             if (e.target.checked) {
@@ -630,15 +787,29 @@ const App: React.FC = () => {
                     <Truck size={18} className="text-orange-500" />
                     Transaction History
                   </h3>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={showUnpaidVendorOnly}
-                      onChange={() => setShowUnpaidVendorOnly(!showUnpaidVendorOnly)}
-                      className="w-4 h-4 accent-orange-500"
-                    />
-                    <span className="text-xs font-bold text-gray-600">Show Unpaid Only</span>
-                  </label>
+                  <div className="flex items-center gap-6">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={showVendorDescriptions}
+                        onChange={() => setShowVendorDescriptions(!showVendorDescriptions)}
+                        className="w-4 h-4 accent-orange-500"
+                      />
+                      <span className="text-xs font-bold text-gray-600">Show Descriptions</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-gray-600">Filter Invoices:</span>
+                      <select
+                        value={vendorInvoiceFilter}
+                        onChange={(e) => setVendorInvoiceFilter(e.target.value as any)}
+                        className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs outline-none focus:ring-2 focus:ring-orange-500 font-bold bg-white text-gray-700 cursor-pointer shadow-sm"
+                      >
+                        <option value="ALL">All Invoices</option>
+                        <option value="UNPAID">Unpaid Only</option>
+                        <option value="PAID_LATEST">Latest Paid</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
 
                 <table className="w-full text-left">
@@ -679,7 +850,18 @@ const App: React.FC = () => {
                               className="w-4 h-4 accent-orange-500 cursor-pointer"
                             />
                           </td>
-                          <td className="px-6 py-5 font-bold text-gray-900">{inv.invoiceNumber}</td>
+                          <td className="px-6 py-5 font-bold text-gray-900">
+                            <div>{inv.invoiceNumber}</div>
+                            {showVendorDescriptions && inv.items && inv.items.length > 0 && (
+                              <div className="text-xs text-gray-500 font-normal mt-1 space-y-0.5 max-w-xs">
+                                {inv.items.map((item, idx) => (
+                                  <div key={idx} className="border-l-2 border-orange-200 pl-2">
+                                    {item.description}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </td>
                           <td className="px-6 py-5">
                             <span className="text-[10px] font-black px-2 py-1 rounded bg-orange-50 text-orange-700 border border-orange-100 uppercase">
                               {inv.items[0]?.coo || 'N/A'}
@@ -690,18 +872,63 @@ const App: React.FC = () => {
                               {inv.destinationCountry}
                             </span>
                           </td>
-                          <td className="px-6 py-5 text-gray-600 text-sm">{new Date(inv.date).toLocaleDateString()}</td>
+                          <td className="px-6 py-5 text-gray-600 text-sm">
+                            <div className="font-bold text-gray-800">{new Date(inv.date).toLocaleDateString()}</div>
+                            <div className="text-[11px] font-medium text-orange-600 mt-0.5 whitespace-nowrap">
+                              {getInvoiceAging(inv.date, inv.vendorStatus === 'PAID', inv.vendorPaymentDate)}
+                            </div>
+                          </td>
                           <td className="px-6 py-5">
-                            <button
-                              onClick={() => handleUpdateVendorStatus(inv.id, inv.vendorStatus === 'PAID' ? 'UNPAID' : 'PAID')}
-                              className={`text-[10px] font-black px-3 py-1.5 rounded-full transition-all hover:scale-105 active:scale-95 no-print ${inv.vendorStatus === 'PAID' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'
-                                }`}
-                            >
-                              {inv.vendorStatus}
-                            </button>
-                            <span className={`print-only text-[10px] font-black px-3 py-1.5 rounded-full ${inv.vendorStatus === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                              {inv.vendorStatus}
-                            </span>
+                            <div className="flex flex-col gap-1">
+                              <button
+                                onClick={() => {
+                                  if (inv.vendorStatus === 'UNPAID') {
+                                    const dateStr = prompt('Enter vendor payment date (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+                                    if (dateStr === null) return;
+                                    const refStr = prompt('Enter vendor transaction reference (optional):', '');
+                                    if (refStr === null) return;
+                                    handleUpdateVendorStatus(inv.id, 'PAID', dateStr || undefined, refStr);
+                                  } else {
+                                    handleUpdateVendorStatus(inv.id, 'UNPAID');
+                                  }
+                                }}
+                                className={`text-[10px] font-black px-3 py-1.5 rounded-full transition-all hover:scale-105 active:scale-95 no-print w-fit ${inv.vendorStatus === 'PAID' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'
+                                  }`}
+                              >
+                                {inv.vendorStatus}
+                              </button>
+                              <span className={`print-only text-[10px] font-black px-3 py-1.5 rounded-full ${inv.vendorStatus === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                {inv.vendorStatus}
+                              </span>
+                              {inv.vendorStatus === 'PAID' && (
+                                <div
+                                  className="text-[10px] text-gray-500 font-bold cursor-pointer hover:text-orange-600 no-print space-y-0.5"
+                                  onClick={() => {
+                                    const dateStr = prompt('Update vendor payment date (YYYY-MM-DD):', inv.vendorPaymentDate || new Date().toISOString().split('T')[0]);
+                                    if (dateStr === null) return;
+                                    const refStr = prompt('Update vendor transaction reference:', inv.vendorTransactionReference || '');
+                                    if (refStr === null) return;
+                                    handleUpdateVendorStatus(inv.id, 'PAID', dateStr || undefined, refStr);
+                                  }}
+                                  title="Click to update payment details"
+                                >
+                                  <div className="underline decoration-dashed">
+                                    📅 {inv.vendorPaymentDate ? new Date(inv.vendorPaymentDate).toLocaleDateString() : 'N/A'}
+                                  </div>
+                                  {inv.vendorTransactionReference && (
+                                    <div className="underline decoration-dashed text-blue-500">
+                                      🔖 {inv.vendorTransactionReference}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {inv.vendorStatus === 'PAID' && (
+                                <div className="text-[10px] text-gray-500 font-bold print-only space-y-0.5">
+                                  {inv.vendorPaymentDate && <div>Paid: {new Date(inv.vendorPaymentDate).toLocaleDateString()}</div>}
+                                  {inv.vendorTransactionReference && <div>Ref: {inv.vendorTransactionReference}</div>}
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-5 text-right font-black text-gray-900">{inv.vendorCost.toFixed(2)} AED</td>
                         </tr>
@@ -710,8 +937,12 @@ const App: React.FC = () => {
                   </tbody>
                   <tfoot>
                     <tr className="bg-gray-50">
-                      <td colSpan={3} className="px-6 py-5 text-right text-xs font-black text-gray-500 uppercase">Total Payable</td>
-                      <td className="px-6 py-5 text-right font-black text-red-600 text-lg">{totalPayable.toFixed(2)} AED</td>
+                      <td colSpan={3} className="px-6 py-5 text-right text-xs font-black text-gray-500 uppercase">
+                        {vendorInvoiceFilter === 'PAID_LATEST' ? 'Total Paid' : 'Total Payable'}
+                      </td>
+                      <td className={`px-6 py-5 text-right font-black text-lg ${vendorInvoiceFilter === 'PAID_LATEST' ? 'text-green-600' : 'text-red-600'}`}>
+                        {(vendorInvoiceFilter === 'PAID_LATEST' ? totalPaid : totalPayable).toFixed(2)} AED
+                      </td>
                     </tr>
                   </tfoot>
                 </table>
@@ -849,6 +1080,24 @@ const App: React.FC = () => {
             </div>
           </div>
         );
+      case 'adjustments':
+        return (
+          <AdjustmentsManagement
+            invoices={invoices}
+            customers={customers}
+            adjustmentNotes={adjustmentNotes}
+            onAddNote={handleAddAdjustmentNote}
+            onDeleteNote={handleDeleteAdjustmentNote}
+            currentUser={currentUser}
+            searchQuery={searchQuery}
+            preSelectedInvoice={preSelectedInvoice}
+            preSelectedType={preSelectedType}
+            onClearPreSelections={() => {
+              setPreSelectedInvoice(null);
+              setPreSelectedType(null);
+            }}
+          />
+        );
       case 'expenses':
         return (
           <CompanyExpenses
@@ -870,6 +1119,7 @@ const App: React.FC = () => {
             vendors={vendors}
             users={users}
             expenses={expenses}
+            adjustmentNotes={adjustmentNotes}
             onAddUser={handleAddUser}
             onDeleteUser={handleDeleteUser}
             onUpdateUser={handleUpdateUser}
@@ -881,6 +1131,7 @@ const App: React.FC = () => {
           <Dashboard 
             invoices={invoices} 
             expenses={expenses} 
+            adjustmentNotes={adjustmentNotes}
             onInvoiceClick={(inv) => {
               setSelectedInvoice(inv);
               setActiveTab('view-invoice');

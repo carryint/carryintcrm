@@ -1,6 +1,150 @@
 
-import React, { useState } from 'react';
-import { Plus, Trash2, Save, Send } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Plus, Trash2, Save, Send, Search, ChevronDown, X } from 'lucide-react';
+
+// ── Reusable Searchable Dropdown ─────────────────────────────────────────────
+interface SearchableSelectProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string; sub?: string }[];
+  placeholder?: string;
+  required?: boolean;
+  id?: string;
+}
+
+const SearchableSelect: React.FC<SearchableSelectProps> = ({
+  label, value, onChange, options, placeholder = 'Search…', required, id
+}) => {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selected = options.find(o => o.value === value);
+
+  const filtered = query.trim() === ''
+    ? options
+    : options.filter(o =>
+        o.label.toLowerCase().includes(query.toLowerCase()) ||
+        (o.sub && o.sub.toLowerCase().includes(query.toLowerCase()))
+      );
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleOpen = () => {
+    setOpen(true);
+    setQuery('');
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  const handleSelect = (opt: { value: string; label: string }) => {
+    onChange(opt.value);
+    setOpen(false);
+    setQuery('');
+  };
+
+  const handleClear = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onChange('');
+    setQuery('');
+  };
+
+  return (
+    <div className="space-y-1" ref={ref}>
+      <label className="block text-sm font-black text-gray-600 uppercase tracking-widest">{label}</label>
+
+      {/* Trigger button */}
+      {!open ? (
+        <button
+          id={id}
+          type="button"
+          onClick={handleOpen}
+          className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-amber-300 bg-amber-100 text-slate-950 font-bold focus:ring-2 focus:ring-orange-500 outline-none transition-all cursor-pointer hover:border-orange-400"
+        >
+          <span className={selected ? 'text-slate-900' : 'text-slate-400 font-normal'}>
+            {selected ? selected.label : placeholder}
+          </span>
+          <div className="flex items-center gap-1">
+            {selected && (
+              <span
+                role="button"
+                onClick={handleClear}
+                className="text-gray-400 hover:text-red-500 transition-colors p-0.5 rounded"
+              >
+                <X size={14} />
+              </span>
+            )}
+            <ChevronDown size={16} className="text-gray-400" />
+          </div>
+        </button>
+      ) : (
+        <div className="relative">
+          {/* Search input */}
+          <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border-2 border-orange-400 bg-amber-50 shadow-md">
+            <Search size={15} className="text-orange-500 flex-shrink-0" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder={placeholder}
+              className="flex-1 bg-transparent outline-none text-slate-900 font-semibold text-sm placeholder:text-gray-400"
+            />
+            {query && (
+              <button type="button" onClick={() => setQuery('')} className="text-gray-400 hover:text-gray-600">
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Dropdown list */}
+          <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <div className="px-4 py-6 text-center text-gray-400 text-sm">No results for "{query}"</div>
+            ) : (
+              filtered.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => handleSelect(opt)}
+                  className={`w-full text-left px-4 py-3 hover:bg-orange-50 transition-colors flex flex-col border-b border-gray-50 last:border-0 ${
+                    opt.value === value ? 'bg-orange-50 font-black text-orange-700' : 'text-slate-800 font-semibold'
+                  }`}
+                >
+                  <span className="text-sm">{opt.label}</span>
+                  {opt.sub && <span className="text-[11px] text-gray-400 font-normal">{opt.sub}</span>}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Hidden native input for form validation */}
+      {required && (
+        <input
+          type="text"
+          value={value}
+          required
+          readOnly
+          style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
+          tabIndex={-1}
+        />
+      )}
+    </div>
+  );
+};
+// ─────────────────────────────────────────────────────────────────────────────
 import {
   Invoice,
   InvoiceItem,
@@ -34,6 +178,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const [selectedVendorId, setSelectedVendorId] = useState(editingInvoice?.vendorId || '');
   const [vendorCost, setVendorCost] = useState(editingInvoice?.vendorCost || 0);
   const [agentCommission, setAgentCommission] = useState(editingInvoice?.agentCommission || 0);
+  const [pickupCost, setPickupCost] = useState(editingInvoice?.pickupCost || 0);
   const [destinationCountry, setDestinationCountry] = useState(editingInvoice?.destinationCountry || DESTINATION_COUNTRIES[0]);
   const [globalCoo, setGlobalCoo] = useState<string>(() => {
     if (editingInvoice && editingInvoice.items.length > 0) {
@@ -59,6 +204,8 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   });
   const [status, setStatus] = useState<PaymentStatus>(editingInvoice?.status || 'UNPAID');
   const [vendorStatus, setVendorStatus] = useState<PaymentStatus>(editingInvoice?.vendorStatus || 'UNPAID');
+  const [vendorPaymentDate, setVendorPaymentDate] = useState<string>(editingInvoice?.vendorPaymentDate || new Date().toISOString().split('T')[0]);
+  const [vendorTransactionReference, setVendorTransactionReference] = useState<string>(editingInvoice?.vendorTransactionReference || '');
   const [agentStatus, setAgentStatus] = useState<PaymentStatus>(editingInvoice?.agentStatus || 'UNPAID');
   const [manualTotal, setManualTotal] = useState<number>(editingInvoice?.totalAmount || 0);
   const [paymentDate, setPaymentDate] = useState<string>(editingInvoice?.paymentDate || new Date().toISOString().split('T')[0]);
@@ -129,7 +276,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     if (!customer) return alert("Please select a customer");
 
     const { totalAmount, totalVat, netAmount } = calculateTotals();
-    const profit = manualTotal - vendorCost - agentCommission;
+    const profit = manualTotal - vendorCost - agentCommission - pickupCost;
 
     const auditLog: AuditLog = {
       action: editingInvoice ? 'EDIT' : 'CREATE',
@@ -155,6 +302,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       vendorName: vendor?.name,
       vendorCost,
       agentCommission,
+      pickupCost,
       status: status,
       vendorStatus: vendorStatus,
       agentStatus: agentStatus,
@@ -165,6 +313,8 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       paymentDate: status === 'PAID' ? paymentDate : undefined,
       paymentMethod: status === 'PAID' ? paymentMethod : undefined,
       transactionReference: status === 'PAID' ? transactionReference : undefined,
+      vendorPaymentDate: vendorStatus === 'PAID' ? vendorPaymentDate : undefined,
+      vendorTransactionReference: vendorStatus === 'PAID' ? vendorTransactionReference : undefined,
       companyTrn: companyInfo.trn,
       createdBy: editingInvoice?.createdBy || currentUser?.id || 'system',
       createdByName: editingInvoice?.createdByName || currentUser?.name || 'System',
@@ -187,48 +337,42 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="space-y-4">
-            <label className="block text-sm font-black text-gray-600 uppercase tracking-widest">Customer Selection</label>
-            <select
-              value={selectedCustomerId}
-              onChange={(e) => setSelectedCustomerId(e.target.value)}
-              className={selectClass}
-              required
-            >
-              <option value="" className="bg-amber-100">Select Customer Profile</option>
-              {customers.map(c => (
-                <option key={c.id} value={c.id} className="bg-amber-100">{c.name} ({c.type})</option>
-              ))}
-            </select>
-          </div>
+          {/* Customer — searchable */}
+          <SearchableSelect
+            id="customer-select"
+            label="Customer Selection"
+            value={selectedCustomerId}
+            onChange={setSelectedCustomerId}
+            placeholder="Type name to search…"
+            required
+            options={customers.map(c => ({
+              value: c.id,
+              label: c.name,
+              sub: `${c.type === 'CREDIT' ? 'Commercial' : 'One-Time'} · ${c.contact}`
+            }))}
+          />
 
-          <div className="space-y-4">
-            <label className="block text-sm font-black text-gray-600 uppercase tracking-widest">Country of Origin (COO)</label>
-            <select
-              value={globalCoo}
-              onChange={(e) => handleGlobalCooChange(e.target.value)}
-              className={selectClass}
-              required
-            >
-              {ALL_COUNTRIES.map(c => (
-                <option key={c} value={c} className="bg-amber-100">{c}</option>
-              ))}
-            </select>
-          </div>
+          {/* Country of Origin — searchable */}
+          <SearchableSelect
+            id="coo-select"
+            label="Country of Origin (COO)"
+            value={globalCoo}
+            onChange={handleGlobalCooChange}
+            placeholder="Type country name…"
+            required
+            options={ALL_COUNTRIES.map(c => ({ value: c, label: c }))}
+          />
 
-          <div className="space-y-4">
-            <label className="block text-sm font-black text-gray-600 uppercase tracking-widest">Destination Country</label>
-            <select
-              value={destinationCountry}
-              onChange={(e) => setDestinationCountry(e.target.value)}
-              className={selectClass}
-              required
-            >
-              {DESTINATION_COUNTRIES.map(c => (
-                <option key={c} value={c} className="bg-amber-100">{c}</option>
-              ))}
-            </select>
-          </div>
+          {/* Destination Country — searchable */}
+          <SearchableSelect
+            id="destination-select"
+            label="Destination Country"
+            value={destinationCountry}
+            onChange={setDestinationCountry}
+            placeholder="Type country name…"
+            required
+            options={DESTINATION_COUNTRIES.map(c => ({ value: c, label: c }))}
+          />
         </div>
       </div>
 
@@ -387,6 +531,16 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
               />
               <p className="text-xs text-amber-900 mt-1 italic font-bold">Commission paid to the broker.</p>
             </div>
+            <div>
+              <label className="block text-sm font-black text-gray-600 uppercase tracking-widest mb-1">Pickup / Transportation Cost (AED)</label>
+              <input
+                type="number"
+                value={pickupCost}
+                onChange={(e) => setPickupCost(Number(e.target.value))}
+                className={inputClass}
+              />
+              <p className="text-xs text-amber-900 mt-1 italic font-bold">Additional transportation or pickup costs paid.</p>
+            </div>
 
             <div className="pt-4 border-t border-amber-200 space-y-4">
               <div>
@@ -451,6 +605,29 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                   <option value="PAID">PAID (Closed Vendor Bill)</option>
                 </select>
               </div>
+              {vendorStatus === 'PAID' && (
+                <div className="space-y-4 pt-2">
+                  <div className="bg-green-50 p-4 rounded-xl border-2 border-green-200">
+                    <label className="block text-xs font-black text-green-700 uppercase tracking-widest mb-1">Vendor Payment Done Date</label>
+                    <input
+                      type="date"
+                      value={vendorPaymentDate}
+                      onChange={(e) => setVendorPaymentDate(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div className="bg-green-50 p-4 rounded-xl border-2 border-green-200">
+                    <label className="block text-xs font-black text-green-700 uppercase tracking-widest mb-1">Vendor Transaction Reference</label>
+                    <input
+                      type="text"
+                      placeholder="Enter Bank Ref, Cheque No, etc. for Vendor..."
+                      value={vendorTransactionReference}
+                      onChange={(e) => setVendorTransactionReference(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-black text-orange-800 uppercase tracking-widest mb-1 italic">Broker Payment Status</label>
                 <select
@@ -508,7 +685,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
             <div className="mt-4 pt-4 border-t border-slate-700">
               <div className="flex justify-between text-sm text-green-400 font-black uppercase tracking-widest">
                 <span>Net Margin:</span>
-                <span>{(manualTotal - vendorCost - agentCommission).toFixed(2)} AED</span>
+                <span>{(manualTotal - vendorCost - agentCommission - pickupCost).toFixed(2)} AED</span>
               </div>
             </div>
           </div>

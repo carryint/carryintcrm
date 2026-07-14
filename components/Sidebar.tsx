@@ -9,7 +9,8 @@ import {
   PlusCircle,
   Receipt,
   X,
-  Wallet
+  Wallet,
+  FileText
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -25,6 +26,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
     { id: 'invoices', label: 'Invoices', icon: Receipt },
     { id: 'create-invoice', label: 'Create Invoice', icon: PlusCircle },
     { id: 'customers', label: 'Customers', icon: Users },
+    { id: 'adjustments', label: 'Credit/Debit Notes', icon: FileText },
     { id: 'vendors', label: 'Vendors', icon: Truck },
     { id: 'expenses', label: 'Company Expenses', icon: Wallet },
     { id: 'reports', label: 'Financial Reports', icon: PieChart },

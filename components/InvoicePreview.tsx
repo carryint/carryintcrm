@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Invoice, CompanyInfo } from '../types';
+import { Invoice, CompanyInfo, AdjustmentNote } from '../types';
 import { formatCurrency, numberToWords } from '../utils';
 import { COUNTRY_SHORT_NAMES } from '../constants';
 import Logo from './Logo';
@@ -8,9 +8,15 @@ import Logo from './Logo';
 interface InvoicePreviewProps {
   invoice: Invoice;
   companyInfo: CompanyInfo;
+  adjustmentNotes?: AdjustmentNote[];
+  onIssueAdjustment?: (type: 'CREDIT' | 'DEBIT') => void;
 }
 
-const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, companyInfo }) => {
+const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, companyInfo, adjustmentNotes = [], onIssueAdjustment }) => {
+  const linkedNotes = adjustmentNotes.filter(n => n.originalInvoiceId === invoice.id);
+  const totalCredits = linkedNotes.filter(n => n.type === 'CREDIT').reduce((sum, n) => sum + n.amount, 0);
+  const totalDebits = linkedNotes.filter(n => n.type === 'DEBIT').reduce((sum, n) => sum + n.amount, 0);
+  const adjustedBalance = invoice.totalAmount + totalDebits - totalCredits;
   const displayTrn = invoice.companyTrn || companyInfo.trn;
 
   const getCountryDisplay = (name: string) => {
@@ -19,6 +25,23 @@ const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, companyInfo })
 
   return (
     <div className="bg-white p-6 max-w-4xl mx-auto shadow-2xl border border-gray-200 my-4 invoice-container">
+      {/* Action Buttons - only shown on screen, not in print */}
+      {onIssueAdjustment && (
+        <div className="no-print flex gap-2 mb-4 justify-end">
+          <button
+            onClick={() => onIssueAdjustment('CREDIT')}
+            className="px-4 py-2 text-xs font-black bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all shadow-sm flex items-center gap-1"
+          >
+            + Issue Credit Note
+          </button>
+          <button
+            onClick={() => onIssueAdjustment('DEBIT')}
+            className="px-4 py-2 text-xs font-black bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all shadow-sm flex items-center gap-1"
+          >
+            + Issue Debit Note
+          </button>
+        </div>
+      )}
       {/* Header */}
       <div className="flex justify-between items-start mb-4 border-b-2 border-orange-500 pb-4">
         <div>
@@ -104,7 +127,7 @@ const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, companyInfo })
                     {item.isAdditionalCharge ? '-' : getCountryDisplay(item.coo)}
                   </td>
                   <td className="py-2 px-4 text-center text-xs font-medium text-gray-600">
-                    {item.isAdditionalCharge ? '-' : `${item.weight} kg`}
+                    {item.isAdditionalCharge ? '-' : (item.weight === 0 ? '--' : `${item.weight} kg`)}
                   </td>
                   <td className="py-2 px-4 text-center text-xs font-medium text-gray-600">
                     {item.isAdditionalCharge ? '-' : (item.cbm !== undefined && item.cbm !== null ? `${item.cbm} CBM` : '-')}
@@ -169,8 +192,62 @@ const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, companyInfo })
             <span className="text-gray-900 font-black text-sm">TOTAL</span>
             <span className="text-orange-600 font-black text-lg">{formatCurrency(invoice.totalAmount)}</span>
           </div>
+          {linkedNotes.length > 0 && (
+            <>
+              {totalCredits > 0 && (
+                <div className="flex justify-between items-center text-[10px] text-green-700">
+                  <span className="font-medium">Credit Notes</span>
+                  <span className="font-bold">- {formatCurrency(totalCredits)}</span>
+                </div>
+              )}
+              {totalDebits > 0 && (
+                <div className="flex justify-between items-center text-[10px] text-red-700">
+                  <span className="font-medium">Debit Notes</span>
+                  <span className="font-bold">+ {formatCurrency(totalDebits)}</span>
+                </div>
+              )}
+              <div className="h-px bg-gray-300"></div>
+              <div className="flex justify-between items-center py-0.5">
+                <span className="text-gray-900 font-black text-sm">ADJUSTED BALANCE DUE</span>
+                <span className="text-blue-700 font-black text-lg">{formatCurrency(adjustedBalance)}</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Linked Credit & Debit Notes */}
+      {linkedNotes.length > 0 && (
+        <div className="mt-4 border border-gray-200 rounded-xl overflow-hidden">
+          <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+            <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Linked Voucher Adjustments</h4>
+          </div>
+          <table className="w-full text-[10px]">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="px-3 py-1.5 text-left font-black text-gray-600 uppercase">Note No</th>
+                <th className="px-3 py-1.5 text-left font-black text-gray-600 uppercase">Type</th>
+                <th className="px-3 py-1.5 text-left font-black text-gray-600 uppercase">Date</th>
+                <th className="px-3 py-1.5 text-left font-black text-gray-600 uppercase">Reason</th>
+                <th className="px-3 py-1.5 text-right font-black text-gray-600 uppercase">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {linkedNotes.map(note => (
+                <tr key={note.id} className="border-t border-gray-100">
+                  <td className="px-3 py-1.5 font-bold text-gray-800">{note.noteNumber}</td>
+                  <td className={`px-3 py-1.5 font-black ${ note.type === 'CREDIT' ? 'text-green-600' : 'text-red-600' }`}>{note.type}</td>
+                  <td className="px-3 py-1.5 text-gray-600">{new Date(note.date).toLocaleDateString()}</td>
+                  <td className="px-3 py-1.5 text-gray-600 max-w-[180px] truncate">{note.reason}</td>
+                  <td className={`px-3 py-1.5 font-bold text-right ${ note.type === 'CREDIT' ? 'text-green-700' : 'text-red-700' }`}>
+                    {note.type === 'CREDIT' ? '- ' : '+ '}{formatCurrency(note.amount)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Footer */}
       <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-end">

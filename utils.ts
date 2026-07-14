@@ -31,7 +31,7 @@ export const generateId = () => Math.random().toString(36).substr(2, 9);
 /**
  * Generates an Excel Workbook with multiple sheets
  */
-export const exportToExcel = (data: { invoices: any[], customers: any[], vendors: any[], expenses?: any[] }) => {
+export const exportToExcel = (data: { invoices: any[], customers: any[], vendors: any[], expenses?: any[], adjustmentNotes?: any[] }) => {
   const wb = XLSX.utils.book_new();
   
   // Create Invoices Sheet
@@ -81,6 +81,21 @@ export const exportToExcel = (data: { invoices: any[], customers: any[], vendors
     XLSX.utils.book_append_sheet(wb, expSheet, 'Company Expenses');
   }
 
+  // Create Voucher Adjustments Sheet
+  if (data.adjustmentNotes && data.adjustmentNotes.length > 0) {
+    const adjSheet = XLSX.utils.json_to_sheet(data.adjustmentNotes.map(a => ({
+      'Note No': a.noteNumber,
+      'Type': a.type,
+      'Date': new Date(a.date).toLocaleDateString(),
+      'Customer': a.customerName,
+      'Invoice No': a.originalInvoiceNumber || 'N/A',
+      'Reason': a.reason,
+      'Amount': a.amount,
+      'Action': a.creditAction || 'REDUCE_OUTSTANDING',
+    })));
+    XLSX.utils.book_append_sheet(wb, adjSheet, 'Voucher Adjustments');
+  }
+
   // Write file
   const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   return excelBuffer;
@@ -101,7 +116,8 @@ export const downloadSystemZip = async (data: any) => {
     invoices: data.invoices,
     customers: data.customers,
     vendors: data.vendors,
-    expenses: data.expenses
+    expenses: data.expenses,
+    adjustmentNotes: data.adjustmentNotes,
   });
   zip.file(`carryint_financial_report_${timestamp}.xlsx`, excelBuffer);
   
@@ -114,7 +130,7 @@ export const downloadSystemZip = async (data: any) => {
   URL.revokeObjectURL(url);
 };
 
-export const downloadExcelOnly = (data: { invoices: any[], customers: any[], vendors: any[], expenses?: any[] }) => {
+export const downloadExcelOnly = (data: { invoices: any[], customers: any[], vendors: any[], expenses?: any[], adjustmentNotes?: any[] }) => {
   const buffer = exportToExcel(data);
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);

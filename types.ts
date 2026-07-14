@@ -81,6 +81,7 @@ export interface Invoice {
   vendorName?: string;
   vendorCost: number;
   agentCommission?: number;
+  pickupCost?: number;
   agentStatus?: PaymentStatus;
   status: PaymentStatus;
   vendorStatus: PaymentStatus;
@@ -89,6 +90,8 @@ export interface Invoice {
   netAmount: number;
   profit: number;
   paymentDate?: string;    // Date when customer paid
+  vendorPaymentDate?: string; // Date when vendor was paid
+  vendorTransactionReference?: string; // Transaction reference for vendor payment
   paymentMethod?: string;  // e.g. Cash, Bank Transfer, Cheque
   transactionReference?: string; // Transaction reference for bank transfers
   companyTrn?: string; // Capture TRN at time of generation
@@ -117,3 +120,21 @@ export interface DashboardStats {
   outstandingPayables: number;
   totalExpenses: number;
 }
+
+export interface AdjustmentNote {
+  id: string;
+  type: 'CREDIT' | 'DEBIT';
+  noteNumber: string; // e.g. CN-0001, DN-0001
+  date: string;
+  customerId: string;
+  customerName: string;
+  originalInvoiceId: string;
+  originalInvoiceNumber: string;
+  reason: string;
+  amount: number;
+  creditAction?: 'REFUND' | 'APPLY_AS_CREDIT' | 'REDUCE_OUTSTANDING'; // Only for CREDIT notes
+  createdBy: string;
+  createdByName: string;
+  timestamp: string;
+}
+

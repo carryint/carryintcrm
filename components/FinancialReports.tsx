@@ -14,7 +14,7 @@ import {
   Wallet,
   Clock
 } from 'lucide-react';
-import { Invoice, Customer, Vendor, CompanyInfo, Expense } from '../types';
+import { Invoice, Customer, Vendor, CompanyInfo, Expense, AdjustmentNote } from '../types';
 import { formatCurrency } from '../utils';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
@@ -26,11 +26,12 @@ interface FinancialReportsProps {
   vendors: Vendor[];
   companyInfo: CompanyInfo;
   expenses: Expense[];
+  adjustmentNotes: AdjustmentNote[];
 }
 
 type TimeRangeType = 'ALL' | 'DAILY' | 'MONTHLY' | 'YEARLY' | 'CUSTOM';
 
-const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers, vendors, companyInfo, expenses }) => {
+const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers, vendors, companyInfo, expenses, adjustmentNotes }) => {
   const [selectedEntity, setSelectedEntity] = useState<string>('all');
   const [timeRange, setTimeRange] = useState<TimeRangeType>('ALL');
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -90,6 +91,24 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
     return true;
   });
 
+  const filteredAdjustments = adjustmentNotes.filter(adj => {
+    if (selectedEntity !== 'all' && adj.customerId !== selectedEntity) return false;
+    if (timeRange === 'ALL') return true;
+    const adjDate = new Date(adj.date);
+    const filterDate = new Date(selectedDate);
+    if (timeRange === 'DAILY') return adjDate.toDateString() === filterDate.toDateString();
+    if (timeRange === 'MONTHLY') return adjDate.getMonth() === filterDate.getMonth() && adjDate.getFullYear() === filterDate.getFullYear();
+    if (timeRange === 'YEARLY') return adjDate.getFullYear() === filterDate.getFullYear();
+    if (timeRange === 'CUSTOM') {
+      const start = new Date(selectedDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      return adjDate >= start && adjDate <= end;
+    }
+    return true;
+  });
+
   const totals = filteredItems.reduce((acc, item) => {
     // Received: Sales Price where status is PAID
     if (item.status === 'PAID') {
@@ -115,8 +134,29 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
       }
     }
 
+    acc.pickupCost += item.pickupCost || 0;
+
     return acc;
-  }, { received: 0, notReceived: 0, paidToVendor: 0, notPaidToVendor: 0, paidToBroker: 0, notPaidToBroker: 0 });
+  }, { received: 0, notReceived: 0, paidToVendor: 0, notPaidToVendor: 0, paidToBroker: 0, notPaidToBroker: 0, pickupCost: 0 });
+
+  // Add Adjustments to Totals
+  filteredAdjustments.forEach(adj => {
+    const origInvoice = invoices.find(inv => inv.id === adj.originalInvoiceId);
+    const isPaid = origInvoice ? origInvoice.status === 'PAID' : false;
+    if (adj.type === 'DEBIT') {
+      if (isPaid) {
+        totals.received += adj.amount;
+      } else {
+        totals.notReceived += adj.amount;
+      }
+    } else if (adj.type === 'CREDIT') {
+      if (isPaid) {
+        totals.received -= adj.amount;
+      } else {
+        totals.notReceived -= adj.amount;
+      }
+    }
+  });
 
   const totalCompanyExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
 
@@ -136,9 +176,31 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
           if (item.agentStatus === 'PAID') acc.paidToBroker += item.agentCommission;
           else acc.notPaidToBroker += item.agentCommission;
         }
+        acc.pickupCost += item.pickupCost || 0;
         return acc;
-      }, { received: 0, notReceived: 0, paidToVendor: 0, notPaidToVendor: 0, paidToBroker: 0, notPaidToBroker: 0 })
+      }, { received: 0, notReceived: 0, paidToVendor: 0, notPaidToVendor: 0, paidToBroker: 0, notPaidToBroker: 0, pickupCost: 0 })
     : totals;
+
+  if (selectedInvoiceIds.length > 0) {
+    const selectedAdjustments = filteredAdjustments.filter(adj => selectedInvoiceIds.includes(adj.originalInvoiceId));
+    selectedAdjustments.forEach(adj => {
+      const origInvoice = invoices.find(inv => inv.id === adj.originalInvoiceId);
+      const isPaid = origInvoice ? origInvoice.status === 'PAID' : false;
+      if (adj.type === 'DEBIT') {
+        if (isPaid) {
+          currentTotals.received += adj.amount;
+        } else {
+          currentTotals.notReceived += adj.amount;
+        }
+      } else if (adj.type === 'CREDIT') {
+        if (isPaid) {
+          currentTotals.received -= adj.amount;
+        } else {
+          currentTotals.notReceived -= adj.amount;
+        }
+      }
+    });
+  }
 
   const handleExportExcel = () => {
     const data = activeInvoices.map(item => ({
@@ -153,6 +215,7 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
       'Not Paid Vendor': item.vendorStatus !== 'PAID' ? item.vendorCost : 0,
       'Paid Broker': item.agentStatus === 'PAID' ? (item.agentCommission || 0) : 0,
       'Not Paid Broker': item.agentStatus !== 'PAID' ? (item.agentCommission || 0) : 0,
+      'Pickup Cost': item.pickupCost || 0,
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(data);
@@ -193,7 +256,8 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
     doc.text(`Not Paid: ${formatCurrency(currentTotals.notPaidToVendor)}`, 212, 45);
     doc.text(`Broker Paid: ${formatCurrency(currentTotals.paidToBroker)}`, 14, 52);
     doc.text(`Broker Not Paid: ${formatCurrency(currentTotals.notPaidToBroker)}`, 80, 52);
-
+    doc.text(`Pickup Cost: ${formatCurrency(currentTotals.pickupCost)}`, 146, 52);
+ 
     const tableData = activeInvoices.map(item => [
       item.invoiceNumber,
       new Date(item.date).toLocaleDateString(),
@@ -205,13 +269,14 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
       item.status !== 'PAID' ? item.totalAmount.toFixed(2) : '0.00',
       item.vendorStatus === 'PAID' ? item.vendorCost.toFixed(2) : '0.00',
       item.vendorStatus !== 'PAID' ? item.vendorCost.toFixed(2) : '0.00',
+      (item.pickupCost || 0).toFixed(2),
       item.agentStatus === 'PAID' ? (item.agentCommission || 0).toFixed(2) : '0.00',
       item.agentStatus !== 'PAID' ? (item.agentCommission || 0).toFixed(2) : '0.00',
     ]);
 
     autoTable(doc, {
       startY: 60,
-      head: [['Inv No', 'Date', 'Customer', 'Vendor', 'Rec. Bank', 'Rec. Cash', 'Not Rec.', 'Paid Ven.', 'Not Paid Ven.', 'Paid Brok.', 'Not Paid Brok.']],
+      head: [['Inv No', 'Date', 'Customer', 'Vendor', 'Rec. Bank', 'Rec. Cash', 'Not Rec.', 'Paid Ven.', 'Not Paid Ven.', 'Pickup Cost', 'Paid Brok.', 'Not Paid Brok.']],
       body: tableData,
       theme: 'grid',
       headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontSize: 8 },
@@ -222,6 +287,7 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
         6: { fontStyle: 'bold', textColor: [220, 38, 38] }, 
         7: { fontStyle: 'bold', textColor: [37, 99, 235] },
         8: { fontStyle: 'bold', textColor: [217, 119, 6] },
+        9: { fontStyle: 'bold', textColor: [13, 148, 136] },
       }
     });
 
@@ -379,6 +445,14 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
                 <p className="text-[10px] font-black text-pink-600 uppercase">Not Paid (Broker)</p>
                 <TrendingDown size={14} className="text-pink-500" />
               </div>
+              <p className="text-lg font-black text-slate-900">{formatCurrency(currentTotals.notPaidToBroker)}</p>
+            </div>
+            <div className="bg-cyan-50 border border-cyan-100 p-4 rounded-xl">
+              <div className="flex justify-between items-start">
+                <p className="text-[10px] font-black text-cyan-600 uppercase">Pickup Cost</p>
+                <Wallet size={14} className="text-cyan-500" />
+              </div>
+              <p className="text-lg font-black text-slate-900">{formatCurrency(currentTotals.pickupCost)}</p>
             </div>
             <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl">
               <div className="flex justify-between items-start">
@@ -393,7 +467,7 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
                 <TrendingUp size={14} className="text-indigo-500" />
               </div>
               <p className="text-lg font-black text-slate-900">
-                {formatCurrency(currentTotals.received - currentTotals.paidToVendor - currentTotals.paidToBroker - totalCompanyExpenses)}
+                {formatCurrency(currentTotals.received - currentTotals.paidToVendor - currentTotals.paidToBroker - currentTotals.pickupCost - totalCompanyExpenses)}
               </p>
             </div>
           </div>
@@ -444,6 +518,7 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
                       <th className="px-6 py-4 border-b text-right bg-red-50/30 text-red-700">Not Rec.</th>
                       <th className="px-6 py-4 border-b text-right bg-blue-50/30 text-blue-700">Paid (Vendor)</th>
                       <th className="px-6 py-4 border-b text-right bg-amber-50/30 text-amber-700">Not Paid (Vendor)</th>
+                      <th className="px-6 py-4 border-b text-right bg-cyan-50/30 text-cyan-700">Pickup Cost</th>
                       <th className="px-6 py-4 border-b text-right bg-teal-50/30 text-teal-700">Paid (Broker)</th>
                       <th className="px-6 py-4 border-b text-right bg-pink-50/30 text-pink-700">Not Paid (Broker)</th>
                     </tr>
@@ -501,6 +576,13 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
                           <td className="px-6 py-4 text-right">
                             {item.vendorId && item.vendorStatus !== 'PAID' ? (
                               <span className="font-black text-amber-600">{formatCurrency(item.vendorCost)}</span>
+                            ) : '-'}
+                          </td>
+
+                          {/* Pickup Cost */}
+                          <td className="px-6 py-4 text-right">
+                            {item.pickupCost ? (
+                              <span className="font-black text-cyan-600">{formatCurrency(item.pickupCost)}</span>
                             ) : '-'}
                           </td>
 
