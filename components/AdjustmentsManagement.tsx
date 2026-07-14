@@ -3,8 +3,9 @@ import {
   ArrowLeft, PlusCircle, Search, FileText, Printer, X, Plus, 
   AlertCircle, Trash2, Calendar, FileSpreadsheet, ShieldCheck, DollarSign
 } from 'lucide-react';
-import { Customer, Invoice, AdjustmentNote, User } from '../types';
+import { Customer, Invoice, AdjustmentNote, User, CompanyInfo } from '../types';
 import { formatCurrency, numberToWords, generateId } from '../utils';
+import Logo from './Logo';
 
 interface AdjustmentsManagementProps {
   invoices: Invoice[];
@@ -16,6 +17,7 @@ interface AdjustmentsManagementProps {
   searchQuery?: string;
   preSelectedInvoice?: Invoice | null;
   preSelectedType?: 'CREDIT' | 'DEBIT' | null;
+  companyInfo: CompanyInfo;
   onClearPreSelections?: () => void;
 }
 
@@ -29,6 +31,7 @@ const AdjustmentsManagement: React.FC<AdjustmentsManagementProps> = ({
   searchQuery: externalSearchQuery = '',
   preSelectedInvoice,
   preSelectedType,
+  companyInfo,
   onClearPreSelections
 }) => {
   const [activeView, setActiveView] = useState<'LIST' | 'CREATE' | 'VIEW'>('LIST');
@@ -256,14 +259,18 @@ const AdjustmentsManagement: React.FC<AdjustmentsManagementProps> = ({
               <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">
                 {selectedNote.type === 'CREDIT' ? 'Credit Note' : 'Debit Note'}
               </h1>
-              <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mt-1">
+              <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mt-1 mb-1">
                 Official Adjustment Voucher
               </p>
+              <p className="text-xs font-bold text-orange-600">TRN: {companyInfo.trn}</p>
             </div>
             <div className="text-right">
-              <p className="font-black text-lg text-gray-800">CARRYINT LOGISTICS</p>
-              <p className="text-[10px] text-gray-500">Deira, Dubai, United Arab Emirates</p>
-              <p className="text-[10px] text-gray-500">TRN: 100456209800003</p>
+              <Logo src={companyInfo.logoUrl} className="h-14 mb-1 ml-auto" />
+              <p className="font-black text-base text-gray-800">{companyInfo.name}</p>
+              <p className="text-[10px] text-gray-600 max-w-xs ml-auto leading-tight">{companyInfo.address}</p>
+              <p className="text-[10px] text-gray-600">Tel: {companyInfo.contact}</p>
+              <p className="text-[10px] text-gray-600">Email: {companyInfo.email}</p>
+              <p className="text-[10px] text-gray-600 font-bold">{companyInfo.website}</p>
             </div>
           </div>
 

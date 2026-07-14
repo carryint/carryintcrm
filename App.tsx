@@ -1092,6 +1092,7 @@ const App: React.FC = () => {
             searchQuery={searchQuery}
             preSelectedInvoice={preSelectedInvoice}
             preSelectedType={preSelectedType}
+            companyInfo={companyInfo}
             onClearPreSelections={() => {
               setPreSelectedInvoice(null);
               setPreSelectedType(null);
