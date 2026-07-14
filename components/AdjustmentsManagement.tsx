@@ -352,10 +352,23 @@ const AdjustmentsManagement: React.FC<AdjustmentsManagementProps> = ({
               )}
             </div>
 
-            <div className="w-64 bg-orange-50/50 p-4 rounded-xl border border-orange-100">
-              <div className="flex justify-between items-center py-1">
-                <span className="text-xs font-black text-gray-600 uppercase">Total Adjustment</span>
-                <span className="text-xl font-black text-orange-600">{formatCurrency(selectedNote.amount)}</span>
+            <div className="w-80 bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col gap-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-gray-500 uppercase">Invoice Amount</span>
+                <span className="font-black text-gray-900">{formatCurrency(origInvoice?.totalAmount || 0)}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-gray-500 uppercase">{selectedNote.type === 'CREDIT' ? 'Less Credit Note' : 'Add Debit Note'}</span>
+                <span className={`font-black ${selectedNote.type === 'CREDIT' ? 'text-green-600' : 'text-red-600'}`}>
+                  {selectedNote.type === 'CREDIT' ? '-' : '+'} {formatCurrency(selectedNote.amount)}
+                </span>
+              </div>
+              <div className="h-px bg-gray-200 my-1"></div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-black text-gray-800 uppercase tracking-wider">Outstanding Amount</span>
+                <span className="text-xl font-black text-orange-600">
+                  {formatCurrency(origInvoice ? (origInvoice.totalAmount + adjustmentNotes.filter(n => n.originalInvoiceId === selectedNote.originalInvoiceId && n.type === 'DEBIT').reduce((s, n) => s + n.amount, 0) - adjustmentNotes.filter(n => n.originalInvoiceId === selectedNote.originalInvoiceId && n.type === 'CREDIT').reduce((s, n) => s + n.amount, 0)) : 0)}
+                </span>
               </div>
             </div>
           </div>
