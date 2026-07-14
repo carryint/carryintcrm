@@ -43,7 +43,7 @@ const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, companyInfo, a
         </div>
       )}
       {/* Header */}
-      <div className="flex justify-between items-start mb-4 border-b-2 border-orange-500 pb-4">
+      <div className="flex justify-between items-end mb-4 border-b-2 border-orange-500 pb-4">
         <div>
           <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">Tax Invoice</h1>
           <p className="text-xs font-bold text-orange-600">TRN: {displayTrn}</p>

@@ -254,7 +254,7 @@ const AdjustmentsManagement: React.FC<AdjustmentsManagementProps> = ({
 
         <div className="bg-white p-8 max-w-4xl mx-auto shadow-2xl border border-gray-200 my-4 invoice-container">
           {/* Header */}
-          <div className="flex justify-between items-start mb-6 border-b-2 border-orange-500 pb-4">
+          <div className="flex justify-between items-end mb-6 border-b-2 border-orange-500 pb-4">
             <div>
               <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">
                 {selectedNote.type === 'CREDIT' ? 'Credit Note' : 'Debit Note'}
@@ -324,7 +324,7 @@ const AdjustmentsManagement: React.FC<AdjustmentsManagementProps> = ({
                       " {selectedNote.reason} "
                     </p>
                   </td>
-                  <td className="py-5 px-6 text-right font-black text-base text-gray-900 vertical-top">
+                  <td className="py-5 px-6 text-right font-black text-base text-gray-900 align-middle">
                     {formatCurrency(selectedNote.amount)}
                   </td>
                 </tr>

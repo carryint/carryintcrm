@@ -22,7 +22,7 @@ const PaymentReceipt: React.FC<PaymentReceiptProps> = ({ invoice, companyInfo })
       </div>
 
       {/* Header */}
-      <div className="flex justify-between items-start mb-8 border-b-2 border-green-600 pb-6 relative z-10">
+      <div className="flex justify-between items-end mb-8 border-b-2 border-green-600 pb-6 relative z-10">
         <div>
           <div className="flex items-center gap-2 mb-1">
              <CheckCircle2 size={32} className="text-green-600" />
