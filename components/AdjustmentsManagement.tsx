@@ -76,21 +76,22 @@ const AdjustmentsManagement: React.FC<AdjustmentsManagementProps> = ({
     }
   }, [preSelectedInvoice, preSelectedType, onClearPreSelections]);
 
-  const generateNextNoteNumber = (type: 'CREDIT' | 'DEBIT') => {
+  const generateNextNoteNumber = (type: 'CREDIT' | 'DEBIT', originalInvoiceNumber?: string) => {
     const prefix = type === 'CREDIT' ? 'CN' : 'DN';
-    const matching = adjustmentNotes.filter(n => n.type === type);
-    if (matching.length === 0) {
-      return `${prefix}-0001`;
+    if (!originalInvoiceNumber) return `${prefix}-PENDING`;
+
+    const parts = originalInvoiceNumber.split('-');
+    const suffix = parts.length > 1 ? parts[1] : originalInvoiceNumber;
+    const baseNumber = `${prefix}-${suffix}`;
+    
+    let finalNumber = baseNumber;
+    let counter = 1;
+    while (adjustmentNotes.some(n => n.noteNumber === finalNumber)) {
+      finalNumber = `${baseNumber}-${counter}`;
+      counter++;
     }
-    let max = 0;
-    matching.forEach(n => {
-      const parts = n.noteNumber.split('-');
-      const numPart = parseInt(parts[1] || '0', 10);
-      if (numPart > max) {
-        max = numPart;
-      }
-    });
-    return `${prefix}-${String(max + 1).padStart(4, '0')}`;
+    
+    return finalNumber;
   };
 
   const selectedInvoice = invoices.find(inv => inv.id === selectedInvoiceId);
@@ -150,7 +151,7 @@ const AdjustmentsManagement: React.FC<AdjustmentsManagementProps> = ({
       if (!confirmExceed) return;
     }
 
-    const noteNumber = generateNextNoteNumber(noteType);
+    const noteNumber = generateNextNoteNumber(noteType, selectedInvoice.invoiceNumber);
     const newNote: AdjustmentNote = {
       id: generateId(),
       type: noteType,
@@ -652,7 +653,7 @@ const AdjustmentsManagement: React.FC<AdjustmentsManagementProps> = ({
             <div className="bg-slate-900 p-6 rounded-xl text-white">
               <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Note Numbering</p>
               <p className="text-2xl font-black text-orange-500">
-                {noteType === 'CREDIT' ? `CN-${String((adjustmentNotes.filter(n => n.type === 'CREDIT').length) + 1).padStart(4, '0')}` : `DN-${String((adjustmentNotes.filter(n => n.type === 'DEBIT').length) + 1).padStart(4, '0')}`}
+                {selectedInvoice ? generateNextNoteNumber(noteType, selectedInvoice.invoiceNumber) : `${noteType === 'CREDIT' ? 'CN' : 'DN'}-...`}
               </p>
               <p className="text-[10px] text-slate-500 mt-1">Auto-assigned on generation</p>
             </div>
