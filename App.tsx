@@ -472,11 +472,6 @@ const App: React.FC = () => {
               invoice={selectedInvoice} 
               companyInfo={companyInfo} 
               adjustmentNotes={adjustmentNotes}
-              onIssueAdjustment={(type) => {
-                setPreSelectedInvoice(selectedInvoice);
-                setPreSelectedType(type);
-                setActiveTab('adjustments');
-              }}
             />
           </div>
         ) : <p>No invoice selected</p>;

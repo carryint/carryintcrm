@@ -9,10 +9,9 @@ interface InvoicePreviewProps {
   invoice: Invoice;
   companyInfo: CompanyInfo;
   adjustmentNotes?: AdjustmentNote[];
-  onIssueAdjustment?: (type: 'CREDIT' | 'DEBIT') => void;
 }
 
-const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, companyInfo, adjustmentNotes = [], onIssueAdjustment }) => {
+const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, companyInfo, adjustmentNotes = [] }) => {
   const linkedNotes = adjustmentNotes.filter(n => n.originalInvoiceId === invoice.id);
   const totalCredits = linkedNotes.filter(n => n.type === 'CREDIT').reduce((sum, n) => sum + n.amount, 0);
   const totalDebits = linkedNotes.filter(n => n.type === 'DEBIT').reduce((sum, n) => sum + n.amount, 0);
@@ -25,23 +24,6 @@ const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, companyInfo, a
 
   return (
     <div className="bg-white p-6 max-w-4xl mx-auto shadow-2xl border border-gray-200 my-4 invoice-container">
-      {/* Action Buttons - only shown on screen, not in print */}
-      {onIssueAdjustment && (
-        <div className="no-print flex gap-2 mb-4 justify-end">
-          <button
-            onClick={() => onIssueAdjustment('CREDIT')}
-            className="px-4 py-2 text-xs font-black bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all shadow-sm flex items-center gap-1"
-          >
-            + Issue Credit Note
-          </button>
-          <button
-            onClick={() => onIssueAdjustment('DEBIT')}
-            className="px-4 py-2 text-xs font-black bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all shadow-sm flex items-center gap-1"
-          >
-            + Issue Debit Note
-          </button>
-        </div>
-      )}
       {/* Header */}
       <div className="flex justify-between items-end mb-4 border-b-2 border-orange-500 pb-4">
         <div>
