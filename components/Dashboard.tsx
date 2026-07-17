@@ -170,8 +170,12 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
     return true;
   });
 
-  const totalRevenue = filteredInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
-  const grossProfit = filteredInvoices.reduce((sum, inv) => sum + inv.profit, 0);
+  const debitAdjustments = filteredAdjustments.filter(n => n.type === 'DEBIT').reduce((sum, n) => sum + n.amount, 0);
+  const creditAdjustments = filteredAdjustments.filter(n => n.type === 'CREDIT').reduce((sum, n) => sum + n.amount, 0);
+  const netAdjustments = debitAdjustments - creditAdjustments;
+
+  const totalRevenue = filteredInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0) + netAdjustments;
+  const grossProfit = filteredInvoices.reduce((sum, inv) => sum + inv.profit, 0) + netAdjustments;
   const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
   const netProfit = grossProfit - totalExpenses;
   
@@ -233,6 +237,22 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
       if (target) {
         target.revenue += inv.totalAmount;
         target.profit += inv.profit;
+      }
+    });
+
+    filteredAdjustments.forEach(adj => {
+      const adjDate = new Date(adj.date);
+      const y = adjDate.getFullYear();
+      const m = adjDate.getMonth();
+      const target = months.find(item => item.year === y && item.month === m);
+      if (target) {
+        if (adj.type === 'DEBIT') {
+          target.revenue += adj.amount;
+          target.profit += adj.amount;
+        } else if (adj.type === 'CREDIT') {
+          target.revenue -= adj.amount;
+          target.profit -= adj.amount;
+        }
       }
     });
 
@@ -689,8 +709,20 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
                     <p className="text-xs text-gray-500">{inv.invoiceNumber} • {inv.items[0]?.coo || 'N/A'} to {inv.destinationCountry}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-orange-600">{formatCurrency(inv.totalAmount)}</p>
-                    <p className="text-xs font-medium text-green-600">Profit: {formatCurrency(inv.profit)}</p>
+                    <p className="font-bold text-orange-600">
+                      {(() => {
+                        const relAdj = adjustmentNotes.filter(n => n.originalInvoiceId === inv.id);
+                        const net = relAdj.filter(n => n.type === 'DEBIT').reduce((s, n) => s + n.amount, 0) - relAdj.filter(n => n.type === 'CREDIT').reduce((s, n) => s + n.amount, 0);
+                        return formatCurrency(inv.totalAmount + net);
+                      })()}
+                    </p>
+                    <p className="text-xs font-medium text-green-600">
+                      Profit: {(() => {
+                        const relAdj = adjustmentNotes.filter(n => n.originalInvoiceId === inv.id);
+                        const net = relAdj.filter(n => n.type === 'DEBIT').reduce((s, n) => s + n.amount, 0) - relAdj.filter(n => n.type === 'CREDIT').reduce((s, n) => s + n.amount, 0);
+                        return formatCurrency(inv.profit + net);
+                      })()}
+                    </p>
                   </div>
                 </div>
               ))
@@ -786,7 +818,13 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
                                   {item.destinationCountry}
                                 </span>
                               </td>
-                              <td className="px-4 py-4 text-right font-bold text-orange-600">{formatCurrency(item.totalAmount)}</td>
+                              <td className="px-4 py-4 text-right font-bold text-orange-600">
+                                {(() => {
+                                  const relAdj = adjustmentNotes.filter(n => n.originalInvoiceId === item.id);
+                                  const net = relAdj.filter(n => n.type === 'DEBIT').reduce((s, n) => s + n.amount, 0) - relAdj.filter(n => n.type === 'CREDIT').reduce((s, n) => s + n.amount, 0);
+                                  return formatCurrency(item.totalAmount + net);
+                                })()}
+                              </td>
                               <td className="px-4 py-4 text-center">
                                 <span className={`text-[10px] font-black px-2 py-1 rounded ${
                                   item.status === 'PAID' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
@@ -795,7 +833,13 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
                                 </span>
                               </td>
                               {selectedFilter === 'Gross Profit' || selectedFilter === 'Net Profit' ? (
-                                <td className="px-4 py-4 text-right font-bold text-green-600">{formatCurrency(item.profit)}</td>
+                                <td className="px-4 py-4 text-right font-bold text-green-600">
+                                  {(() => {
+                                    const relAdj = adjustmentNotes.filter(n => n.originalInvoiceId === item.id);
+                                    const net = relAdj.filter(n => n.type === 'DEBIT').reduce((s, n) => s + n.amount, 0) - relAdj.filter(n => n.type === 'CREDIT').reduce((s, n) => s + n.amount, 0);
+                                    return formatCurrency(item.profit + net);
+                                  })()}
+                                </td>
                               ) : null}
                               {selectedFilter?.includes('Broker') && (
                                 <td className="px-4 py-4 text-right font-bold text-teal-600">{formatCurrency(item.agentCommission || 0)}</td>
