@@ -146,14 +146,26 @@ const App: React.FC = () => {
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedPass = pass.trim();
 
-    // Primary check: Search in the loaded users list
-    let user = users.find(u =>
+    // Check live database directly to guarantee newest user accounts can log in immediately
+    let userList = users;
+    try {
+      const { data: dbUsers } = await supabase.from('users').select('*');
+      if (dbUsers && dbUsers.length > 0) {
+        userList = dbUsers;
+        setUsers(dbUsers);
+        localStorage.setItem('carryint_users', JSON.stringify(dbUsers));
+      }
+    } catch (e) {
+      console.warn("Could not query live users on login, using local state", e);
+    }
+
+    // Primary check: Search in users list
+    let user = userList.find(u =>
       (u.email?.toLowerCase().trim() === trimmedEmail) &&
       (u.password?.trim() === trimmedPass)
     );
 
     // Bulletproof Fallback: Hardcoded check for default admin
-    // This repairs the login if localStorage was corrupted or empty on a specific browser
     if (!user && trimmedEmail === 'info@carryint.com' && trimmedPass === 'intCC3#0') {
       user = {
         id: 'admin-1',
@@ -162,13 +174,13 @@ const App: React.FC = () => {
         password: 'intCC3#0',
         role: 'ADMIN'
       };
-      // Auto-repair the users list
-      const updated = users.some(u => u.id === 'admin-1')
-        ? users.map(u => u.id === 'admin-1' ? user! : u)
-        : [...users, user];
+      const updated = userList.some(u => u.id === 'admin-1')
+        ? userList.map(u => u.id === 'admin-1' ? user! : u)
+        : [...userList, user];
 
       setUsers(updated);
       localStorage.setItem('carryint_users', JSON.stringify(updated));
+      await supabase.from('users').upsert([user]);
     }
 
     if (user) {
@@ -187,9 +199,19 @@ const App: React.FC = () => {
 
   const handleAddUser = async (user: User) => {
     if (currentUser?.role !== 'ADMIN') return;
-    const updated = [...users, user];
+    const cleanUser: User = {
+      ...user,
+      email: user.email.trim().toLowerCase(),
+      password: user.password?.trim() || ''
+    };
+    const updated = [...users.filter(u => u.id !== user.id), cleanUser];
     setUsers(updated);
     localStorage.setItem('carryint_users', JSON.stringify(updated));
+    const { error } = await supabase.from('users').upsert([cleanUser]);
+    if (error) {
+      console.error("Error saving user to Supabase:", error);
+      alert("Failed to sync user to cloud: " + error.message);
+    }
   };
 
   const handleDeleteUser = async (id: string) => {
@@ -202,14 +224,28 @@ const App: React.FC = () => {
       const updated = users.filter(u => u.id !== id);
       setUsers(updated);
       localStorage.setItem('carryint_users', JSON.stringify(updated));
+      const { error } = await supabase.from('users').delete().eq('id', id);
+      if (error) {
+        console.error("Error deleting user from Supabase:", error);
+      }
     }
   };
 
   const handleUpdateUser = async (updatedUser: User) => {
     if (currentUser?.role !== 'ADMIN') return;
-    const updated = users.map(u => u.id === updatedUser.id ? updatedUser : u);
+    const cleanUser: User = {
+      ...updatedUser,
+      email: updatedUser.email.trim().toLowerCase(),
+      password: updatedUser.password?.trim() || ''
+    };
+    const updated = users.map(u => u.id === cleanUser.id ? cleanUser : u);
     setUsers(updated);
     localStorage.setItem('carryint_users', JSON.stringify(updated));
+    const { error } = await supabase.from('users').upsert([cleanUser]);
+    if (error) {
+      console.error("Error updating user in Supabase:", error);
+      alert("Failed to sync user update to cloud: " + error.message);
+    }
   };
 
   const handleUpdateInvoiceStatus = async (invoiceId: string, status: 'PAID' | 'UNPAID', transactionReference?: string) => {
@@ -227,8 +263,9 @@ const App: React.FC = () => {
     });
     setInvoices(updated);
     localStorage.setItem('carryint_invoices', JSON.stringify(updated));
+    const target = updated.find(i => i.id === invoiceId);
+    if (target) await supabase.from('invoices').upsert([target]);
   };
-
   const handleUpdateVendorStatus = async (invoiceId: string, vendorStatus: 'PAID' | 'UNPAID', vendorPaymentDate?: string, vendorTransactionReference?: string) => {
     const updated = invoices.map(inv => {
       if (inv.id === invoiceId) {
