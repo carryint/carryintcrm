@@ -1,11 +1,7 @@
 /// <reference types="vite/client" />
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("Missing Supabase credentials in .env.local");
-}
+const supabaseUrl = 'https://beqyvmcizjlcmkpqdkio.supabase.co';
+const supabaseAnonKey = 'sb_publishable_Oco4p6m_Ap_trLAcNev_gQ_XfEW1-ys';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
