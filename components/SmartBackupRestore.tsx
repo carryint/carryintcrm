@@ -241,32 +241,46 @@ export const SmartBackupRestore: React.FC<SmartBackupRestoreProps> = ({
         finalUsers = backup.users && backup.users.length > 0 ? backup.users : currentUsers;
       }
 
-      // Step 1: Upload to Supabase Cloud
+      // Step 1: Upload to Supabase Cloud & Local Cache
       setRestoreProgress('Syncing customers & vendors to database...');
       if (finalCustomers.length > 0) {
-        await supabase.from('customers').upsert(finalCustomers);
+        const { error: custErr } = await supabase.from('customers').upsert(finalCustomers);
+        if (custErr) throw new Error(`Customers sync: ${custErr.message}`);
+        localStorage.setItem('carryint_customers', JSON.stringify(finalCustomers));
       }
       if (finalVendors.length > 0) {
-        await supabase.from('vendors').upsert(finalVendors);
+        const { error: venErr } = await supabase.from('vendors').upsert(finalVendors);
+        if (venErr) throw new Error(`Vendors sync: ${venErr.message}`);
+        localStorage.setItem('carryint_vendors', JSON.stringify(finalVendors));
       }
 
       setRestoreProgress('Syncing invoices & adjustment notes...');
       if (finalInvoices.length > 0) {
-        await supabase.from('invoices').upsert(finalInvoices);
+        const { error: invErr } = await supabase.from('invoices').upsert(finalInvoices);
+        if (invErr) throw new Error(`Invoices sync: ${invErr.message}`);
+        localStorage.setItem('carryint_invoices', JSON.stringify(finalInvoices));
       }
       if (finalAdjustments.length > 0) {
-        await supabase.from('adjustment_notes').upsert(finalAdjustments);
+        const { error: adjErr } = await supabase.from('adjustment_notes').upsert(finalAdjustments);
+        if (adjErr) throw new Error(`Adjustment notes sync: ${adjErr.message}`);
+        localStorage.setItem('carryint_adjustment_notes', JSON.stringify(finalAdjustments));
       }
 
       setRestoreProgress('Syncing expenses & settings...');
       if (finalExpenses.length > 0) {
-        await supabase.from('expenses').upsert(finalExpenses);
+        const { error: expErr } = await supabase.from('expenses').upsert(finalExpenses);
+        if (expErr) throw new Error(`Expenses sync: ${expErr.message}`);
+        localStorage.setItem('carryint_expenses', JSON.stringify(finalExpenses));
       }
       if (finalUsers.length > 0) {
-        await supabase.from('users').upsert(finalUsers);
+        const { error: userErr } = await supabase.from('users').upsert(finalUsers);
+        if (userErr) throw new Error(`Users sync: ${userErr.message}`);
+        localStorage.setItem('carryint_users', JSON.stringify(finalUsers));
       }
       if (backup.companyInfo) {
-        await supabase.from('company_info').upsert([{ id: '1', ...backup.companyInfo }]);
+        const { error: compErr } = await supabase.from('company_info').upsert([{ id: '1', ...backup.companyInfo }]);
+        if (compErr) throw new Error(`Company info sync: ${compErr.message}`);
+        localStorage.setItem('carryint_company_info', JSON.stringify(backup.companyInfo));
       }
 
       // Step 2: Notify Parent to update live React state

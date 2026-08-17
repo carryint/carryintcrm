@@ -65,78 +65,81 @@ const App: React.FC = () => {
   const [invoiceFilterDate, setInvoiceFilterDate] = useState('');
   const [invoiceFilterMonth, setInvoiceFilterMonth] = useState('');
 
-  // Load initial data
+  // Load initial data from Supabase Cloud
   useEffect(() => {
-    const savedCustomers = localStorage.getItem('carryint_customers');
-    const savedVendors = localStorage.getItem('carryint_vendors');
-    const savedInvoices = localStorage.getItem('carryint_invoices');
-    const savedExpenses = localStorage.getItem('carryint_expenses');
-    const savedCompanyInfo = localStorage.getItem('carryint_company_info');
-    const savedUsers = localStorage.getItem('carryint_users');
-    const sessionUser = localStorage.getItem('carryint_current_user');
+    const loadData = async () => {
+      try {
+        const [
+          { data: savedUsers, error: usersErr },
+          { data: savedCompanyInfo },
+          { data: savedCustomers },
+          { data: savedVendors },
+          { data: savedInvoices },
+          { data: savedExpenses },
+          { data: savedAdjustments }
+        ] = await Promise.all([
+          supabase.from('users').select('*'),
+          supabase.from('company_info').select('*'),
+          supabase.from('customers').select('*'),
+          supabase.from('vendors').select('*'),
+          supabase.from('invoices').select('*'),
+          supabase.from('expenses').select('*'),
+          supabase.from('adjustment_notes').select('*')
+        ]);
 
-    if (savedCompanyInfo) {
-      setCompanyInfo(JSON.parse(savedCompanyInfo));
-    } else {
-      const initial = { ...DEFAULT_COMPANY_INFO, trn: '100456209800003' };
-      setCompanyInfo(initial as any);
-      localStorage.setItem('carryint_company_info', JSON.stringify(initial));
-    }
-
-    try {
-      if (savedUsers) {
-        const parsed = JSON.parse(savedUsers);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setUsers(parsed);
+        if (savedCompanyInfo && savedCompanyInfo.length > 0) {
+          setCompanyInfo(savedCompanyInfo[0] as any);
         } else {
-          throw new Error('Invalid users data');
+          const initial = { ...DEFAULT_COMPANY_INFO, trn: '100456209800003' };
+          setCompanyInfo(initial as any);
         }
-      } else {
-        throw new Error('No users found');
+
+        const defaultAdmin: User = {
+          id: 'admin-1',
+          name: 'Super Admin',
+          email: 'info@carryint.com',
+          password: 'intCC3#0',
+          role: 'ADMIN'
+        };
+
+        if (savedUsers && savedUsers.length > 0) {
+          setUsers(savedUsers);
+        } else {
+          setUsers([defaultAdmin]);
+          try {
+            await supabase.from('users').upsert([defaultAdmin]);
+          } catch (e) {
+            console.error('Error seeding default admin:', e);
+          }
+        }
+
+        if (savedCustomers && savedCustomers.length > 0) {
+          setCustomers(savedCustomers);
+        }
+        if (savedVendors && savedVendors.length > 0) {
+          setVendors(savedVendors);
+        }
+        if (savedInvoices && savedInvoices.length > 0) {
+          setInvoices(savedInvoices);
+        }
+        if (savedExpenses && savedExpenses.length > 0) {
+          setExpenses(savedExpenses);
+        }
+        if (savedAdjustments && savedAdjustments.length > 0) {
+          setAdjustmentNotes(savedAdjustments);
+        }
+
+        const sessionUser = localStorage.getItem('carryint_current_user');
+        if (sessionUser) {
+          setCurrentUser(JSON.parse(sessionUser));
+        }
+      } catch (error) {
+        console.error("Error loading data from Supabase:", error);
+      } finally {
+        setIsAppLoading(false);
       }
-    } catch (e) {
-      const defaultAdmin: User = {
-        id: 'admin-1',
-        name: 'Super Admin',
-        email: 'info@carryint.com',
-        password: 'intCC3#0',
-        role: 'ADMIN'
-      };
-      setUsers([defaultAdmin]);
-      localStorage.setItem('carryint_users', JSON.stringify([defaultAdmin]));
-    }
-
-    if (sessionUser) {
-      setCurrentUser(JSON.parse(sessionUser));
-    }
-
-    if (savedCustomers) setCustomers(JSON.parse(savedCustomers));
-    else {
-      const mockCustomers: Customer[] = [
-        { id: '1', name: 'Al Ghurair Group', address: 'Al Rigga, Deira, Dubai', contact: '+971 4 222 3333', type: 'CREDIT', vatNumber: '100023456700003' },
-        { id: '2', name: 'Emaar Properties', address: 'Downtown Dubai', contact: '+971 4 367 3333', type: 'CREDIT' },
-        { id: '3', name: 'Retail Cash Customer', address: 'Bur Dubai', contact: '+971 50 123 4567', type: 'ONE_TIME' },
-      ];
-      setCustomers(mockCustomers);
-      localStorage.setItem('carryint_customers', JSON.stringify(mockCustomers));
-    }
-
-    if (savedVendors) setVendors(JSON.parse(savedVendors));
-    else {
-      const mockVendors: Vendor[] = [
-        { id: 'v1', name: 'DP World', contact: '+971 4 881 5555', address: 'Jebel Ali Port, Dubai' },
-        { id: 'v2', name: 'Maersk Line', contact: '+971 4 433 9999', address: 'Port Rashid, Dubai' },
-      ];
-      setVendors(mockVendors);
-      localStorage.setItem('carryint_vendors', JSON.stringify(mockVendors));
-    }
-
-    if (savedInvoices) setInvoices(JSON.parse(savedInvoices));
-    if (savedExpenses) setExpenses(JSON.parse(savedExpenses));
-    const savedAdjustments = localStorage.getItem('carryint_adjustment_notes');
-    if (savedAdjustments) setAdjustmentNotes(JSON.parse(savedAdjustments));
-
-    setIsAppLoading(false);
+    };
+    loadData();
   }, []);
 
   const handleLogin = async (email: string, pass: string) => {
@@ -430,6 +433,14 @@ const App: React.FC = () => {
     setAdjustmentNotes(restored.adjustmentNotes);
     if (restored.companyInfo) setCompanyInfo(restored.companyInfo);
     if (restored.users && restored.users.length > 0) setUsers(restored.users);
+
+    localStorage.setItem('carryint_invoices', JSON.stringify(restored.invoices));
+    localStorage.setItem('carryint_customers', JSON.stringify(restored.customers));
+    localStorage.setItem('carryint_vendors', JSON.stringify(restored.vendors));
+    localStorage.setItem('carryint_expenses', JSON.stringify(restored.expenses));
+    localStorage.setItem('carryint_adjustment_notes', JSON.stringify(restored.adjustmentNotes));
+    if (restored.companyInfo) localStorage.setItem('carryint_company_info', JSON.stringify(restored.companyInfo));
+    if (restored.users && restored.users.length > 0) localStorage.setItem('carryint_users', JSON.stringify(restored.users));
   };
 
   const renderContent = () => {
