@@ -11,6 +11,8 @@ import Settings from './components/Settings';
 import CompanyExpenses from './components/CompanyExpenses';
 import Login from './components/Login';
 import AdjustmentsManagement from './components/AdjustmentsManagement';
+import { MigrationTool } from './components/MigrationTool';
+import { supabase } from './supabase';
 import { Customer, Vendor, Invoice, CompanyInfo, User, Expense, AdjustmentNote } from './types';
 import { COMPANY_INFO as DEFAULT_COMPANY_INFO } from './constants';
 import {
@@ -138,7 +140,7 @@ const App: React.FC = () => {
     setIsAppLoading(false);
   }, []);
 
-  const handleLogin = (email: string, pass: string) => {
+  const handleLogin = async (email: string, pass: string) => {
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedPass = pass.trim();
 
@@ -181,14 +183,14 @@ const App: React.FC = () => {
     localStorage.removeItem('carryint_current_user');
   };
 
-  const handleAddUser = (user: User) => {
+  const handleAddUser = async (user: User) => {
     if (currentUser?.role !== 'ADMIN') return;
     const updated = [...users, user];
     setUsers(updated);
     localStorage.setItem('carryint_users', JSON.stringify(updated));
   };
 
-  const handleDeleteUser = (id: string) => {
+  const handleDeleteUser = async (id: string) => {
     if (currentUser?.role !== 'ADMIN') return;
     if (users.find(u => u.id === id)?.role === 'ADMIN' && users.filter(u => u.role === 'ADMIN').length === 1) {
       alert("Cannot delete the last administrator.");
@@ -201,14 +203,14 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateUser = (updatedUser: User) => {
+  const handleUpdateUser = async (updatedUser: User) => {
     if (currentUser?.role !== 'ADMIN') return;
     const updated = users.map(u => u.id === updatedUser.id ? updatedUser : u);
     setUsers(updated);
     localStorage.setItem('carryint_users', JSON.stringify(updated));
   };
 
-  const handleUpdateInvoiceStatus = (invoiceId: string, status: 'PAID' | 'UNPAID', transactionReference?: string) => {
+  const handleUpdateInvoiceStatus = async (invoiceId: string, status: 'PAID' | 'UNPAID', transactionReference?: string) => {
     const updated = invoices.map(inv => {
       if (inv.id === invoiceId) {
         return {
@@ -225,7 +227,7 @@ const App: React.FC = () => {
     localStorage.setItem('carryint_invoices', JSON.stringify(updated));
   };
 
-  const handleUpdateVendorStatus = (invoiceId: string, vendorStatus: 'PAID' | 'UNPAID', vendorPaymentDate?: string, vendorTransactionReference?: string) => {
+  const handleUpdateVendorStatus = async (invoiceId: string, vendorStatus: 'PAID' | 'UNPAID', vendorPaymentDate?: string, vendorTransactionReference?: string) => {
     const updated = invoices.map(inv => {
       if (inv.id === invoiceId) {
         return {
@@ -241,24 +243,24 @@ const App: React.FC = () => {
     localStorage.setItem('carryint_invoices', JSON.stringify(updated));
   };
 
-  const handleAddExpense = (expense: Expense) => {
+  const handleAddExpense = async (expense: Expense) => {
     const updated = [...expenses, expense];
     setExpenses(updated);
     localStorage.setItem('carryint_expenses', JSON.stringify(updated));
   };
-  const handleUpdateExpense = (updatedExpense: Expense) => {
+  const handleUpdateExpense = async (updatedExpense: Expense) => {
     const updated = expenses.map(e => e.id === updatedExpense.id ? updatedExpense : e);
     setExpenses(updated);
     localStorage.setItem('carryint_expenses', JSON.stringify(updated));
   };
 
-  const handleDeleteExpense = (id: string) => {
+  const handleDeleteExpense = async (id: string) => {
     const updated = expenses.filter(e => e.id !== id);
     setExpenses(updated);
     localStorage.setItem('carryint_expenses', JSON.stringify(updated));
   };
 
-  const handleAddAdjustmentNote = (note: AdjustmentNote) => {
+  const handleAddAdjustmentNote = async (note: AdjustmentNote) => {
     const updated = [...adjustmentNotes, note];
     setAdjustmentNotes(updated);
     localStorage.setItem('carryint_adjustment_notes', JSON.stringify(updated));
@@ -285,7 +287,7 @@ const App: React.FC = () => {
     localStorage.setItem('carryint_invoices', JSON.stringify(updatedInvoices));
   };
 
-  const handleDeleteAdjustmentNote = (id: string) => {
+  const handleDeleteAdjustmentNote = async (id: string) => {
     const noteToDelete = adjustmentNotes.find(n => n.id === id);
     if (!noteToDelete) return;
 
@@ -315,7 +317,7 @@ const App: React.FC = () => {
     localStorage.setItem('carryint_invoices', JSON.stringify(updatedInvoices));
   };
 
-  const handleSaveInvoice = (invoice: Invoice) => {
+  const handleSaveInvoice = async (invoice: Invoice) => {
     const exists = invoices.find(inv => inv.id === invoice.id);
     let updatedInvoices;
     if (exists) {
@@ -329,7 +331,7 @@ const App: React.FC = () => {
     setActiveTab('view-invoice');
   };
 
-  const handleDeleteInvoice = (id: string) => {
+  const handleDeleteInvoice = async (id: string) => {
     if (confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
       const updated = invoices.filter(inv => inv.id !== id);
       setInvoices(updated);
@@ -342,19 +344,19 @@ const App: React.FC = () => {
     setActiveTab('create-invoice');
   };
 
-  const handleAddCustomer = (customer: Customer) => {
+  const handleAddCustomer = async (customer: Customer) => {
     const updated = [...customers, customer];
     setCustomers(updated);
     localStorage.setItem('carryint_customers', JSON.stringify(updated));
   };
 
-  const handleEditCustomer = (updatedCustomer: Customer) => {
+  const handleEditCustomer = async (updatedCustomer: Customer) => {
     const updated = customers.map(c => c.id === updatedCustomer.id ? updatedCustomer : c);
     setCustomers(updated);
     localStorage.setItem('carryint_customers', JSON.stringify(updated));
   };
 
-  const handleDeleteCustomer = (id: string) => {
+  const handleDeleteCustomer = async (id: string) => {
     if (confirm('Are you sure you want to remove this client? This will affect existing invoices linked to this client.')) {
       const updated = customers.filter(c => c.id !== id);
       setCustomers(updated);
@@ -362,7 +364,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateCompanyInfo = (info: CompanyInfo) => {
+  const handleUpdateCompanyInfo = async (info: CompanyInfo) => {
     setCompanyInfo(info);
     localStorage.setItem('carryint_company_info', JSON.stringify(info));
   };
@@ -375,7 +377,7 @@ const App: React.FC = () => {
   const [newVendor, setNewVendor] = useState<Partial<Vendor>>({});
   const [selectedVendorInvoiceIds, setSelectedVendorInvoiceIds] = useState<string[]>([]);
 
-  const handleAddVendorSubmit = (e: React.FormEvent) => {
+  const handleAddVendorSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newVendor.name && newVendor.contact && newVendor.address) {
       if (editingVendor) {
@@ -397,7 +399,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDeleteVendor = (id: string, e: React.MouseEvent) => {
+  const handleDeleteVendor = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (confirm('Are you sure you want to remove this vendor?')) {
       const updated = vendors.filter(v => v.id !== id);
