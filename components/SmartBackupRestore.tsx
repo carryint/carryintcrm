@@ -18,7 +18,7 @@ import {
   FileText,
   Sparkles
 } from 'lucide-react';
-import { Invoice, Customer, Vendor, Expense, AdjustmentNote, CompanyInfo, User } from '../types';
+import { Invoice, Customer, Vendor, Expense, AdjustmentNote, CompanyInfo, User, Quotation } from '../types';
 import { supabase } from '../supabase';
 
 interface SmartBackupRestoreProps {
@@ -29,6 +29,7 @@ interface SmartBackupRestoreProps {
   currentAdjustmentNotes: AdjustmentNote[];
   currentCompanyInfo: CompanyInfo;
   currentUsers: User[];
+  currentQuotations?: Quotation[];
   onDataRestored: (data: {
     invoices: Invoice[];
     customers: Customer[];
@@ -37,6 +38,7 @@ interface SmartBackupRestoreProps {
     adjustmentNotes: AdjustmentNote[];
     companyInfo?: CompanyInfo;
     users?: User[];
+    quotations?: Quotation[];
   }) => void;
 }
 
@@ -51,6 +53,7 @@ interface AnalysisResult {
     adjustmentNotes: AdjustmentNote[];
     companyInfo?: CompanyInfo;
     users?: User[];
+    quotations?: Quotation[];
   };
   diff: {
     invoices: { totalInBackup: number; missingCount: number; newItems: Invoice[] };
@@ -59,6 +62,7 @@ interface AnalysisResult {
     expenses: { totalInBackup: number; missingCount: number; newItems: Expense[] };
     adjustmentNotes: { totalInBackup: number; missingCount: number; newItems: AdjustmentNote[] };
     users: { totalInBackup: number; missingCount: number; newItems: User[] };
+    quotations?: { totalInBackup: number; missingCount: number; newItems: Quotation[] };
   };
   totalMissingRecords: number;
 }
@@ -71,6 +75,7 @@ export const SmartBackupRestore: React.FC<SmartBackupRestoreProps> = ({
   currentAdjustmentNotes,
   currentCompanyInfo,
   currentUsers,
+  currentQuotations = [],
   onDataRestored,
 }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -88,6 +93,7 @@ export const SmartBackupRestore: React.FC<SmartBackupRestoreProps> = ({
     const backupExpenses: Expense[] = Array.isArray(parsedData.expenses) ? parsedData.expenses : [];
     const backupAdjustments: AdjustmentNote[] = Array.isArray(parsedData.adjustmentNotes) ? parsedData.adjustmentNotes : [];
     const backupUsers: User[] = Array.isArray(parsedData.users) ? parsedData.users : [];
+    const backupQuotations: Quotation[] = Array.isArray(parsedData.quotations) ? parsedData.quotations : [];
 
     // Calculate diffs by ID
     const existingInvoiceIds = new Set(currentInvoices.map((i) => i.id));
@@ -108,13 +114,17 @@ export const SmartBackupRestore: React.FC<SmartBackupRestoreProps> = ({
     const existingUserIds = new Set(currentUsers.map((u) => u.id));
     const missingUsers = backupUsers.filter((u) => !existingUserIds.has(u.id));
 
+    const existingQuoteIds = new Set(currentQuotations.map((q) => q.id));
+    const missingQuotations = backupQuotations.filter((q) => !existingQuoteIds.has(q.id));
+
     const totalMissing =
       missingInvoices.length +
       missingCustomers.length +
       missingVendors.length +
       missingExpenses.length +
       missingAdjustments.length +
-      missingUsers.length;
+      missingUsers.length +
+      missingQuotations.length;
 
     setAnalysis({
       fileName,
@@ -127,6 +137,7 @@ export const SmartBackupRestore: React.FC<SmartBackupRestoreProps> = ({
         adjustmentNotes: backupAdjustments,
         companyInfo: parsedData.companyInfo,
         users: backupUsers,
+        quotations: backupQuotations,
       },
       diff: {
         invoices: { totalInBackup: backupInvoices.length, missingCount: missingInvoices.length, newItems: missingInvoices },
@@ -135,6 +146,7 @@ export const SmartBackupRestore: React.FC<SmartBackupRestoreProps> = ({
         expenses: { totalInBackup: backupExpenses.length, missingCount: missingExpenses.length, newItems: missingExpenses },
         adjustmentNotes: { totalInBackup: backupAdjustments.length, missingCount: missingAdjustments.length, newItems: missingAdjustments },
         users: { totalInBackup: backupUsers.length, missingCount: missingUsers.length, newItems: missingUsers },
+        quotations: { totalInBackup: backupQuotations.length, missingCount: missingQuotations.length, newItems: missingQuotations },
       },
       totalMissingRecords: totalMissing,
     });
@@ -203,6 +215,7 @@ export const SmartBackupRestore: React.FC<SmartBackupRestoreProps> = ({
       let finalExpenses: Expense[] = [];
       let finalAdjustments: AdjustmentNote[] = [];
       let finalUsers: User[] = [];
+      let finalQuotations: Quotation[] = [];
 
       if (mode === 'merge') {
         // Map by ID to preserve all records and upsert incoming
@@ -231,6 +244,12 @@ export const SmartBackupRestore: React.FC<SmartBackupRestoreProps> = ({
           backup.users.forEach((u) => userMap.set(u.id, { ...userMap.get(u.id), ...u }));
         }
         finalUsers = Array.from(userMap.values());
+
+        const quoteMap = new Map(currentQuotations.map((q) => [q.id, q]));
+        if (backup.quotations && backup.quotations.length > 0) {
+          backup.quotations.forEach((q) => quoteMap.set(q.id, { ...quoteMap.get(q.id), ...q }));
+        }
+        finalQuotations = Array.from(quoteMap.values());
       } else {
         // Overwrite
         finalInvoices = backup.invoices;
@@ -239,6 +258,7 @@ export const SmartBackupRestore: React.FC<SmartBackupRestoreProps> = ({
         finalExpenses = backup.expenses;
         finalAdjustments = backup.adjustmentNotes;
         finalUsers = backup.users && backup.users.length > 0 ? backup.users : currentUsers;
+        finalQuotations = backup.quotations && backup.quotations.length > 0 ? backup.quotations : currentQuotations;
       }
 
       // Step 1: Upload to Supabase Cloud & Local Cache
@@ -254,7 +274,7 @@ export const SmartBackupRestore: React.FC<SmartBackupRestoreProps> = ({
         localStorage.setItem('carryint_vendors', JSON.stringify(finalVendors));
       }
 
-      setRestoreProgress('Syncing invoices & adjustment notes...');
+      setRestoreProgress('Syncing invoices, adjustments & quotations...');
       if (finalInvoices.length > 0) {
         const { error: invErr } = await supabase.from('invoices').upsert(finalInvoices);
         if (invErr) throw new Error(`Invoices sync: ${invErr.message}`);
@@ -264,6 +284,14 @@ export const SmartBackupRestore: React.FC<SmartBackupRestoreProps> = ({
         const { error: adjErr } = await supabase.from('adjustment_notes').upsert(finalAdjustments);
         if (adjErr) throw new Error(`Adjustment notes sync: ${adjErr.message}`);
         localStorage.setItem('carryint_adjustment_notes', JSON.stringify(finalAdjustments));
+      }
+      if (finalQuotations.length > 0) {
+        try {
+          await supabase.from('quotations').upsert(finalQuotations);
+        } catch (e) {
+          console.warn('Quotations table sync bypassed', e);
+        }
+        localStorage.setItem('carryint_quotations', JSON.stringify(finalQuotations));
       }
 
       setRestoreProgress('Syncing expenses & settings...');
@@ -292,6 +320,7 @@ export const SmartBackupRestore: React.FC<SmartBackupRestoreProps> = ({
         adjustmentNotes: finalAdjustments,
         companyInfo: backup.companyInfo,
         users: finalUsers,
+        quotations: finalQuotations,
       });
 
       setSuccessMsg(

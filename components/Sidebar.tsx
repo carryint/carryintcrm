@@ -10,7 +10,8 @@ import {
   Receipt,
   X,
   Wallet,
-  FileText
+  FileText,
+  FileCheck
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -24,6 +25,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'invoices', label: 'Invoices', icon: Receipt },
+    { id: 'quotations', label: 'Quotations', icon: FileCheck },
     { id: 'create-invoice', label: 'Create Invoice', icon: PlusCircle },
     { id: 'customers', label: 'Customers', icon: Users },
     { id: 'adjustments', label: 'Credit/Debit Notes', icon: FileText },

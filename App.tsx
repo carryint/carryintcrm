@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -11,8 +10,11 @@ import Settings from './components/Settings';
 import CompanyExpenses from './components/CompanyExpenses';
 import Login from './components/Login';
 import AdjustmentsManagement from './components/AdjustmentsManagement';
+import QuotationManagement from './components/QuotationManagement';
+import QuotationForm from './components/QuotationForm';
+import QuotationPreview from './components/QuotationPreview';
 import { supabase } from './supabase';
-import { Customer, Vendor, Invoice, CompanyInfo, User, Expense, AdjustmentNote } from './types';
+import { Customer, Vendor, Invoice, CompanyInfo, User, Expense, AdjustmentNote, Quotation } from './types';
 import { COMPANY_INFO as DEFAULT_COMPANY_INFO } from './constants';
 import {
   Bell, Search,
@@ -50,6 +52,9 @@ const App: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null);
+  const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [adjustmentNotes, setAdjustmentNotes] = useState<AdjustmentNote[]>([]);
   const [preSelectedInvoice, setPreSelectedInvoice] = useState<Invoice | null>(null);
@@ -127,6 +132,25 @@ const App: React.FC = () => {
         }
         if (savedAdjustments && savedAdjustments.length > 0) {
           setAdjustmentNotes(savedAdjustments);
+        }
+
+        // Load Quotations (Local Storage first, then Supabase if table exists)
+        const localQuotations = localStorage.getItem('carryint_quotations');
+        if (localQuotations) {
+          try {
+            setQuotations(JSON.parse(localQuotations));
+          } catch (e) {
+            console.error('Error parsing local quotations:', e);
+          }
+        }
+        try {
+          const { data: savedQuotations } = await supabase.from('quotations').select('*');
+          if (savedQuotations && savedQuotations.length > 0) {
+            setQuotations(savedQuotations);
+            localStorage.setItem('carryint_quotations', JSON.stringify(savedQuotations));
+          }
+        } catch (e) {
+          console.log('Quotations cloud sync fallback to local storage');
         }
 
         const sessionUser = localStorage.getItem('carryint_current_user');
@@ -454,6 +478,147 @@ const App: React.FC = () => {
     setIsAddingVendor(true);
   };
 
+  const handleSaveQuotation = async (quotation: Quotation, andPreview = false) => {
+    const exists = quotations.find(q => q.id === quotation.id);
+    let updated: Quotation[];
+    if (exists) {
+      updated = quotations.map(q => q.id === quotation.id ? quotation : q);
+    } else {
+      updated = [quotation, ...quotations];
+    }
+    setQuotations(updated);
+    localStorage.setItem('carryint_quotations', JSON.stringify(updated));
+    try {
+      await supabase.from('quotations').upsert([quotation]);
+    } catch (e) {
+      console.warn('Quotations Supabase sync skipped:', e);
+    }
+
+    if (andPreview) {
+      setSelectedQuotation(quotation);
+      setActiveTab('view-quotation');
+    } else {
+      setActiveTab('quotations');
+    }
+  };
+
+  const handleDeleteQuotation = async (id: string) => {
+    if (confirm('Are you sure you want to delete this quotation?')) {
+      const updated = quotations.filter(q => q.id !== id);
+      setQuotations(updated);
+      localStorage.setItem('carryint_quotations', JSON.stringify(updated));
+      try {
+        await supabase.from('quotations').delete().eq('id', id);
+      } catch (e) {
+        console.warn('Quotations Supabase delete skipped:', e);
+      }
+    }
+  };
+
+  const handleDuplicateQuotation = (quotation: Quotation) => {
+    const today = new Date().toISOString().split('T')[0];
+    const valD = new Date(today);
+    valD.setDate(valD.getDate() + 5);
+
+    const duplicated: Quotation = {
+      ...quotation,
+      id: generateId(),
+      quotationNumber: `${quotation.quotationNumber}-COPY`,
+      date: today,
+      validityDate: valD.toISOString().split('T')[0],
+      status: 'DRAFT',
+      createdAt: new Date().toISOString()
+    };
+    setEditingQuotation(duplicated);
+    setActiveTab('create-quotation');
+  };
+
+  const handleConvertToInvoice = (quotation: Quotation) => {
+    if (confirm(`Convert quotation "${quotation.quotationNumber}" for ${quotation.customerName} into an active invoice?`)) {
+      const currentYear = new Date().getFullYear();
+      const yearPrefix = `INV-${currentYear}-`;
+      const numbers = invoices
+        .map(i => i.invoiceNumber)
+        .filter(num => num && num.startsWith(yearPrefix))
+        .map(num => {
+          const parts = num.split('-');
+          return parseInt(parts[2], 10);
+        })
+        .filter(n => !isNaN(n));
+      const nextNum = numbers.length > 0 ? Math.max(...numbers) + 1 : 1;
+      const invNumber = `${yearPrefix}${String(nextNum).padStart(4, '0')}`;
+
+      const matchedCust = customers.find(c => 
+        c.id === quotation.customerId || 
+        c.name.trim().toLowerCase() === quotation.customerName.trim().toLowerCase()
+      );
+
+      const draftInvoice: Invoice = {
+        id: generateId(),
+        invoiceNumber: invNumber,
+        date: new Date().toISOString().split('T')[0],
+        customerId: matchedCust ? matchedCust.id : (quotation.customerId || generateId()),
+        customerName: quotation.customerName,
+        customerAddress: quotation.customerAddress,
+        customerContact: quotation.customerContact,
+        customerEmail: quotation.customerEmail,
+        customerVat: quotation.customerVat,
+        destinationCountry: quotation.destinationCountry || 'United Arab Emirates',
+        items: quotation.items.map(item => ({
+          commodityType: item.commodityType,
+          description: item.description,
+          weight: item.weight,
+          cbm: item.cbm,
+          quantity: item.quantity,
+          coo: quotation.originCountry || 'United Arab Emirates',
+          price: item.price,
+          vatPercent: item.vatPercent || 0
+        })),
+        vendorCost: 0,
+        agentCommission: 0,
+        pickupCost: 0,
+        status: 'UNPAID',
+        vendorStatus: 'UNPAID',
+        totalAmount: quotation.totalAmount,
+        totalVat: quotation.vatAmount,
+        netAmount: quotation.subtotal,
+        profit: quotation.subtotal,
+        createdBy: currentUser?.id || 'admin-1',
+        createdByName: currentUser?.name || 'Super Admin',
+        auditLogs: [
+          {
+            action: 'CREATE',
+            userId: currentUser?.id || 'system',
+            userName: currentUser?.name || 'System User',
+            timestamp: new Date().toISOString(),
+            details: `Converted from Quotation ${quotation.quotationNumber}`
+          }
+        ]
+      };
+
+      if (!matchedCust && quotation.customerName.trim()) {
+        const newCust: Customer = {
+          id: draftInvoice.customerId,
+          name: quotation.customerName.trim(),
+          address: quotation.customerAddress.trim() || 'Dubai, UAE',
+          contact: quotation.customerContact.trim() || '+971',
+          email: quotation.customerEmail?.trim(),
+          vatNumber: quotation.customerVat?.trim(),
+          type: quotation.customerCategory === 'COMMERCIAL' ? 'CREDIT' : 'ONE_TIME'
+        };
+        handleAddCustomer(newCust);
+      }
+
+      handleSaveQuotation({
+        ...quotation,
+        status: 'ACCEPTED'
+      });
+
+      setSelectedInvoice(draftInvoice);
+      setActiveTab('create-invoice');
+    }
+  };
+
   const handleDataRestored = (restored: {
     invoices: Invoice[];
     customers: Customer[];
@@ -462,12 +627,17 @@ const App: React.FC = () => {
     adjustmentNotes: AdjustmentNote[];
     companyInfo?: CompanyInfo;
     users?: User[];
+    quotations?: Quotation[];
   }) => {
     setInvoices(restored.invoices);
     setCustomers(restored.customers);
     setVendors(restored.vendors);
     setExpenses(restored.expenses);
     setAdjustmentNotes(restored.adjustmentNotes);
+    if (restored.quotations) {
+      setQuotations(restored.quotations);
+      localStorage.setItem('carryint_quotations', JSON.stringify(restored.quotations));
+    }
     if (restored.companyInfo) setCompanyInfo(restored.companyInfo);
     if (restored.users && restored.users.length > 0) setUsers(restored.users);
 
@@ -493,6 +663,66 @@ const App: React.FC = () => {
               setActiveTab('view-invoice');
             }}
           />
+        );
+      case 'quotations':
+        return (
+          <QuotationManagement
+            quotations={quotations}
+            onAddNew={() => {
+              setEditingQuotation(null);
+              setActiveTab('create-quotation');
+            }}
+            onView={(q) => {
+              setSelectedQuotation(q);
+              setActiveTab('view-quotation');
+            }}
+            onEdit={(q) => {
+              setEditingQuotation(q);
+              setActiveTab('create-quotation');
+            }}
+            onDelete={handleDeleteQuotation}
+            onDuplicate={handleDuplicateQuotation}
+            onConvertToInvoice={handleConvertToInvoice}
+            searchQuery={searchQuery}
+          />
+        );
+      case 'create-quotation':
+        return (
+          <QuotationForm
+            initialQuotation={editingQuotation}
+            existingQuotations={quotations}
+            customers={customers}
+            onSave={handleSaveQuotation}
+            onCancel={() => {
+              setEditingQuotation(null);
+              setActiveTab('quotations');
+            }}
+            currentUserId={currentUser?.id}
+            currentUserName={currentUser?.name}
+          />
+        );
+      case 'view-quotation':
+        return selectedQuotation ? (
+          <QuotationPreview
+            quotation={selectedQuotation}
+            companyInfo={companyInfo}
+            onBack={() => setActiveTab('quotations')}
+            onEdit={(q) => {
+              setEditingQuotation(q);
+              setActiveTab('create-quotation');
+            }}
+            onConvertToInvoice={handleConvertToInvoice}
+          />
+        ) : (
+          <div className="p-8 text-center text-gray-500">
+            <p>No quotation selected</p>
+            <button
+              onClick={() => setActiveTab('quotations')}
+              className="mt-3 px-4 py-2 bg-orange-600 text-white rounded-lg text-xs font-bold"
+            >
+              Back to Quotations
+            </button>
+          </div>
         );
       case 'create-invoice':
         return (
@@ -574,11 +804,8 @@ const App: React.FC = () => {
             inv.customerName.toLowerCase().includes(searchQuery.toLowerCase());
           
           const matchesCustomer = !searchQuery || inv.customerName.toLowerCase().includes(searchQuery.toLowerCase());
-          
           const matchesStatus = invoiceFilterStatus === 'ALL' || inv.status === invoiceFilterStatus;
-          
           const matchesDate = !invoiceFilterDate || inv.date.startsWith(invoiceFilterDate);
-          
           const matchesMonth = !invoiceFilterMonth || inv.date.startsWith(invoiceFilterMonth);
 
           return matchesSearch && matchesStatus && matchesDate && matchesMonth;
@@ -589,7 +816,7 @@ const App: React.FC = () => {
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-bold text-gray-900">All Tax Invoices</h3>
                 <button
-                  onClick={() => { setActiveTab('create-invoice'); setSearchQuery(''); }}
+                  onClick={() => { setActiveTab('create-invoice'); setSearchQuery(''); setSelectedInvoice(null); }}
                   className="bg-orange-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"
                 >
                   Create New
@@ -1183,6 +1410,7 @@ const App: React.FC = () => {
             users={users}
             expenses={expenses}
             adjustmentNotes={adjustmentNotes}
+            quotations={quotations}
             onAddUser={handleAddUser}
             onDeleteUser={handleDeleteUser}
             onUpdateUser={handleUpdateUser}

@@ -18,7 +18,7 @@ import {
   Edit2,
   Trash2
 } from 'lucide-react';
-import { CompanyInfo, Invoice, Customer, Vendor, User, Expense, AdjustmentNote } from '../types';
+import { CompanyInfo, Invoice, Customer, Vendor, User, Expense, AdjustmentNote, Quotation } from '../types';
 import Logo from './Logo';
 import { downloadSystemZip, downloadExcelOnly, generateId } from '../utils';
 import { SmartBackupRestore } from './SmartBackupRestore';
@@ -32,6 +32,7 @@ interface SettingsProps {
   users: User[];
   expenses: Expense[];
   adjustmentNotes: AdjustmentNote[];
+  quotations?: Quotation[];
   onAddUser: (user: User) => void;
   onDeleteUser: (id: string) => void;
   onUpdateUser: (user: User) => void;
@@ -44,11 +45,12 @@ interface SettingsProps {
     adjustmentNotes: AdjustmentNote[];
     companyInfo?: CompanyInfo;
     users?: User[];
+    quotations?: Quotation[];
   }) => void;
 }
 
 const Settings: React.FC<SettingsProps> = ({
-  companyInfo, onUpdate, invoices, customers, vendors, users, expenses, adjustmentNotes, onAddUser, onDeleteUser, onUpdateUser, currentUser, onDataRestored
+  companyInfo, onUpdate, invoices, customers, vendors, users, expenses, adjustmentNotes, quotations = [], onAddUser, onDeleteUser, onUpdateUser, currentUser, onDataRestored
 }) => {
   const [formData, setFormData] = useState<CompanyInfo>(companyInfo);
   const [isSaved, setIsSaved] = useState(false);
@@ -115,6 +117,7 @@ const Settings: React.FC<SettingsProps> = ({
       vendors,
       expenses,
       adjustmentNotes,
+      quotations,
       companyInfo,
       users
     };
@@ -123,7 +126,7 @@ const Settings: React.FC<SettingsProps> = ({
   };
 
   const handleExcelExport = () => {
-    downloadExcelOnly({ invoices, customers, vendors, expenses, adjustmentNotes });
+    downloadExcelOnly({ invoices, customers, vendors, expenses, adjustmentNotes, quotations });
   };
 
   const inputClass = "w-full px-4 py-3 rounded-lg border border-amber-300 bg-amber-100 text-slate-950 font-bold focus:ring-2 focus:ring-orange-500 outline-none transition-all";
@@ -153,6 +156,7 @@ const Settings: React.FC<SettingsProps> = ({
         currentVendors={vendors}
         currentExpenses={expenses}
         currentAdjustmentNotes={adjustmentNotes}
+        currentQuotations={quotations}
         currentCompanyInfo={companyInfo}
         currentUsers={users}
         onDataRestored={(restored) => {

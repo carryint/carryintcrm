@@ -138,3 +138,44 @@ export interface AdjustmentNote {
   timestamp: string;
 }
 
+export type CustomerCategory = 'COMMERCIAL' | 'PERSONAL';
+export type QuotationStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
+
+export interface QuotationItem {
+  commodityType: string;
+  description: string;
+  weight: number;      // Approximate weight (kg)
+  quantity: number;    // Quantity / units
+  cbm?: number;        // CBM (optional)
+  price: number;       // Line Price in AED
+  vatPercent: number;  // VAT % (0 or 5)
+}
+
+export interface Quotation {
+  id: string;
+  quotationNumber: string; // Unique Quotation Code e.g. QT-2026-0001
+  date: string;            // Generated Date (YYYY-MM-DD)
+  validityDate: string;    // Validity Date (Default 5 days from generated date)
+  customerCategory: CustomerCategory; // 'COMMERCIAL' | 'PERSONAL'
+  customerId?: string;     // Link to customer if selected from list
+  customerName: string;
+  customerAddress: string;
+  customerContact: string;
+  customerEmail?: string;
+  customerVat?: string;    // VAT / TRN (especially for commercial)
+  pickupAddress: string;   // Pickup location
+  deliveryAddress: string; // Delivery location
+  originCountry?: string;
+  destinationCountry?: string;
+  items: QuotationItem[];
+  subtotal: number;
+  vatAmount: number;
+  totalAmount: number;
+  notesAndTerms: string;   // Type or copy-paste terms and conditions
+  status: QuotationStatus;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+

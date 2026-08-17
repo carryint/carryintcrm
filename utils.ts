@@ -31,7 +31,7 @@ export const generateId = () => Math.random().toString(36).substr(2, 9);
 /**
  * Generates an Excel Workbook with multiple sheets
  */
-export const exportToExcel = (data: { invoices: any[], customers: any[], vendors: any[], expenses?: any[], adjustmentNotes?: any[] }) => {
+export const exportToExcel = (data: { invoices: any[], customers: any[], vendors: any[], expenses?: any[], adjustmentNotes?: any[], quotations?: any[] }) => {
   const wb = XLSX.utils.book_new();
   
   // Create Invoices Sheet
@@ -48,6 +48,23 @@ export const exportToExcel = (data: { invoices: any[], customers: any[], vendors
     'Vendor': i.vendorName || 'N/A'
   })));
   XLSX.utils.book_append_sheet(wb, invSheet, 'Invoices');
+
+  // Create Quotations Sheet
+  if (data.quotations && data.quotations.length > 0) {
+    const quotSheet = XLSX.utils.json_to_sheet(data.quotations.map(q => ({
+      'Quote No': q.quotationNumber,
+      'Date': new Date(q.date).toLocaleDateString(),
+      'Valid Until': new Date(q.validityDate).toLocaleDateString(),
+      'Category': q.customerCategory,
+      'Customer': q.customerName,
+      'Contact': q.customerContact,
+      'Pickup Address': q.pickupAddress,
+      'Delivery Address': q.deliveryAddress,
+      'Total Amount (AED)': q.totalAmount,
+      'Status': q.status
+    })));
+    XLSX.utils.book_append_sheet(wb, quotSheet, 'Quotations');
+  }
 
   // Create Customers Sheet
   const custSheet = XLSX.utils.json_to_sheet(data.customers.map(c => ({
@@ -118,6 +135,7 @@ export const downloadSystemZip = async (data: any) => {
     vendors: data.vendors,
     expenses: data.expenses,
     adjustmentNotes: data.adjustmentNotes,
+    quotations: data.quotations,
   });
   zip.file(`carryint_financial_report_${timestamp}.xlsx`, excelBuffer);
   
@@ -130,7 +148,7 @@ export const downloadSystemZip = async (data: any) => {
   URL.revokeObjectURL(url);
 };
 
-export const downloadExcelOnly = (data: { invoices: any[], customers: any[], vendors: any[], expenses?: any[], adjustmentNotes?: any[] }) => {
+export const downloadExcelOnly = (data: { invoices: any[], customers: any[], vendors: any[], expenses?: any[], adjustmentNotes?: any[], quotations?: any[] }) => {
   const buffer = exportToExcel(data);
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
