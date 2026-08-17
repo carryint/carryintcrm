@@ -11,7 +11,6 @@ import Settings from './components/Settings';
 import CompanyExpenses from './components/CompanyExpenses';
 import Login from './components/Login';
 import AdjustmentsManagement from './components/AdjustmentsManagement';
-import { MigrationTool } from './components/MigrationTool';
 import { supabase } from './supabase';
 import { Customer, Vendor, Invoice, CompanyInfo, User, Expense, AdjustmentNote } from './types';
 import { COMPANY_INFO as DEFAULT_COMPANY_INFO } from './constants';
@@ -413,6 +412,24 @@ const App: React.FC = () => {
     setEditingVendor(v);
     setNewVendor(v);
     setIsAddingVendor(true);
+  };
+
+  const handleDataRestored = (restored: {
+    invoices: Invoice[];
+    customers: Customer[];
+    vendors: Vendor[];
+    expenses: Expense[];
+    adjustmentNotes: AdjustmentNote[];
+    companyInfo?: CompanyInfo;
+    users?: User[];
+  }) => {
+    setInvoices(restored.invoices);
+    setCustomers(restored.customers);
+    setVendors(restored.vendors);
+    setExpenses(restored.expenses);
+    setAdjustmentNotes(restored.adjustmentNotes);
+    if (restored.companyInfo) setCompanyInfo(restored.companyInfo);
+    if (restored.users && restored.users.length > 0) setUsers(restored.users);
   };
 
   const renderContent = () => {
@@ -1122,6 +1139,7 @@ const App: React.FC = () => {
             onDeleteUser={handleDeleteUser}
             onUpdateUser={handleUpdateUser}
             currentUser={currentUser}
+            onDataRestored={handleDataRestored}
           />
         );
       default:

@@ -21,6 +21,7 @@ import {
 import { CompanyInfo, Invoice, Customer, Vendor, User, Expense, AdjustmentNote } from '../types';
 import Logo from './Logo';
 import { downloadSystemZip, downloadExcelOnly, generateId } from '../utils';
+import { SmartBackupRestore } from './SmartBackupRestore';
 
 interface SettingsProps {
   companyInfo: CompanyInfo;
@@ -35,10 +36,19 @@ interface SettingsProps {
   onDeleteUser: (id: string) => void;
   onUpdateUser: (user: User) => void;
   currentUser: User | null;
+  onDataRestored?: (data: {
+    invoices: Invoice[];
+    customers: Customer[];
+    vendors: Vendor[];
+    expenses: Expense[];
+    adjustmentNotes: AdjustmentNote[];
+    companyInfo?: CompanyInfo;
+    users?: User[];
+  }) => void;
 }
 
 const Settings: React.FC<SettingsProps> = ({
-  companyInfo, onUpdate, invoices, customers, vendors, users, expenses, adjustmentNotes, onAddUser, onDeleteUser, onUpdateUser, currentUser
+  companyInfo, onUpdate, invoices, customers, vendors, users, expenses, adjustmentNotes, onAddUser, onDeleteUser, onUpdateUser, currentUser, onDataRestored
 }) => {
   const [formData, setFormData] = useState<CompanyInfo>(companyInfo);
   const [isSaved, setIsSaved] = useState(false);
@@ -105,7 +115,8 @@ const Settings: React.FC<SettingsProps> = ({
       vendors,
       expenses,
       adjustmentNotes,
-      companyInfo
+      companyInfo,
+      users
     };
     await downloadSystemZip(fullData);
     setIsExporting(false);
@@ -135,6 +146,22 @@ const Settings: React.FC<SettingsProps> = ({
         )}
       </div>
 
+      {/* Smart Backup Restore & Data Recovery Tool */}
+      <SmartBackupRestore
+        currentInvoices={invoices}
+        currentCustomers={customers}
+        currentVendors={vendors}
+        currentExpenses={expenses}
+        currentAdjustmentNotes={adjustmentNotes}
+        currentCompanyInfo={companyInfo}
+        currentUsers={users}
+        onDataRestored={(restored) => {
+          if (onDataRestored) {
+            onDataRestored(restored);
+          }
+        }}
+      />
+
       {/* Data Management Section */}
       <div className="bg-slate-900 p-8 rounded-2xl text-white shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 p-4 opacity-10">
@@ -146,7 +173,7 @@ const Settings: React.FC<SettingsProps> = ({
             Data Management & Backups
           </h3>
           <p className="text-slate-400 text-sm mb-6 max-w-lg">
-            All system data is securely stored in your browser. Download copies regularly to ensure you have offline backups of your invoices, client lists, and financial logs.
+            Download full system snapshots and spreadsheet exports to keep offline copies of your CRM records.
           </p>
           <div className="flex flex-wrap gap-4">
             <button
