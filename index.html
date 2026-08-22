@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Carryint CRM & Invoicing v1.2.2</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,12 +12,24 @@
   <style>
     html {
       font-size: 14.5px;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
     }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       overflow-x: hidden;
+      touch-action: manipulation;
+    }
+
+    /* Prevent mobile browser & iOS Safari auto-zoom on input focus / typing */
+    @media screen and (max-width: 768px) {
+      input,
+      select,
+      textarea {
+        font-size: 16px !important;
+      }
     }
 
     /* Sleek Custom Scrollbar */
@@ -120,12 +132,37 @@
         text-align: right !important;
       }
 
+      .print-text-left {
+        text-align: left !important;
+      }
+
+      .print-text-center {
+        text-align: center !important;
+      }
+
+      .print-ml-auto {
+        margin-left: auto !important;
+        margin-right: 0 !important;
+      }
+
+      .print-items-end {
+        align-items: flex-end !important;
+      }
+
+      .print-items-start {
+        align-items: flex-start !important;
+      }
+
       .print-w-auto {
         width: auto !important;
       }
 
       .print-w-64 {
         width: 16rem !important;
+      }
+
+      .print-h-14 {
+        height: 3.5rem !important;
       }
 
       .print-overflow-visible {
@@ -148,7 +185,7 @@
     }
   </style>
 
-  <script type="module" crossorigin src="./assets/index-D1x2IFHE.js"></script>
+  <script type="module" crossorigin src="./assets/index-D_UvXSlN.js"></script>
 </head>
 
 <body class="bg-gray-50 text-gray-900">
