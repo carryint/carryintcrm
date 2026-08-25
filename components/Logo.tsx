@@ -12,7 +12,7 @@ const Logo: React.FC<LogoProps> = ({ className = "h-16", src }) => {
     return (
       <img 
         src={src} 
-        className={`${className} object-contain`} 
+        className={`block w-auto max-w-full ${className} object-contain`} 
         alt="Company Logo" 
         onError={(e) => {
           // Fallback if image fails to load
@@ -26,7 +26,7 @@ const Logo: React.FC<LogoProps> = ({ className = "h-16", src }) => {
   return (
     <svg 
       viewBox="0 0 1000 300" 
-      className={className} 
+      className={`block w-auto max-w-full ${className}`} 
       fill="none" 
       xmlns="http://www.w3.org/2000/svg"
     >

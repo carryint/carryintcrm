@@ -13,8 +13,13 @@ import AdjustmentsManagement from './components/AdjustmentsManagement';
 import QuotationManagement from './components/QuotationManagement';
 import QuotationForm from './components/QuotationForm';
 import QuotationPreview from './components/QuotationPreview';
+import StaffDashboard from './components/StaffDashboard';
+import AccountantDashboard from './components/AccountantDashboard';
+import UserAnalyticsDashboard from './components/UserAnalyticsDashboard';
+import CarrierAwbModal from './components/CarrierAwbModal';
+import TrackingManagement from './components/TrackingManagement';
 import { supabase } from './supabase';
-import { Customer, Vendor, Invoice, CompanyInfo, User, Expense, AdjustmentNote, Quotation } from './types';
+import { Customer, Vendor, Invoice, CompanyInfo, User, Expense, AdjustmentNote, Quotation, PaymentStatus } from './types';
 import { COMPANY_INFO as DEFAULT_COMPANY_INFO } from './constants';
 import {
   Bell, Search,
@@ -29,9 +34,11 @@ import {
   Truck,
   FileText,
   Edit,
-  Wallet
+  Wallet,
+  ExternalLink,
+  Navigation
 } from 'lucide-react';
-import { generateId } from './utils';
+import { generateId, generateAwbNumber, getCarrierTrackingUrl, prepareInvoiceForSupabase, hydrateInvoiceFromStorage } from './utils';
 
 const getInvoiceAging = (dateStr: string, isPaid: boolean, paidDateStr?: string) => {
   const invDate = new Date(dateStr);
@@ -65,17 +72,19 @@ const App: React.FC = () => {
   const [isAppLoading, setIsAppLoading] = useState(true);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(DEFAULT_COMPANY_INFO as any);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [carrierModalInvoice, setCarrierModalInvoice] = useState<Invoice | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [invoiceFilterStatus, setInvoiceFilterStatus] = useState<'ALL' | 'PAID' | 'UNPAID'>('ALL');
   const [invoiceFilterDate, setInvoiceFilterDate] = useState('');
   const [invoiceFilterMonth, setInvoiceFilterMonth] = useState('');
+  const [invoiceFilterCreator, setInvoiceFilterCreator] = useState('ALL');
 
-  // Load initial data from Supabase Cloud
+  // Load initial data from Supabase Cloud with reliable LocalStorage fallback
   useEffect(() => {
     const loadData = async () => {
       try {
         const [
-          { data: savedUsers, error: usersErr },
+          { data: savedUsers },
           { data: savedCompanyInfo },
           { data: savedCustomers },
           { data: savedVendors },
@@ -94,9 +103,15 @@ const App: React.FC = () => {
 
         if (savedCompanyInfo && savedCompanyInfo.length > 0) {
           setCompanyInfo(savedCompanyInfo[0] as any);
+          localStorage.setItem('carryint_company_info', JSON.stringify(savedCompanyInfo[0]));
         } else {
-          const initial = { ...DEFAULT_COMPANY_INFO, trn: '100456209800003' };
-          setCompanyInfo(initial as any);
+          const localComp = localStorage.getItem('carryint_company_info');
+          if (localComp) {
+            setCompanyInfo(JSON.parse(localComp));
+          } else {
+            const initial = { ...DEFAULT_COMPANY_INFO, trn: '100456209800003' };
+            setCompanyInfo(initial as any);
+          }
         }
 
         const defaultAdmin: User = {
@@ -109,29 +124,63 @@ const App: React.FC = () => {
 
         if (savedUsers && savedUsers.length > 0) {
           setUsers(savedUsers);
+          localStorage.setItem('carryint_users', JSON.stringify(savedUsers));
         } else {
-          setUsers([defaultAdmin]);
-          try {
-            await supabase.from('users').upsert([defaultAdmin]);
-          } catch (e) {
-            console.error('Error seeding default admin:', e);
+          const localUsers = localStorage.getItem('carryint_users');
+          if (localUsers) {
+            setUsers(JSON.parse(localUsers));
+          } else {
+            setUsers([defaultAdmin]);
+            try {
+              await supabase.from('users').upsert([defaultAdmin]);
+            } catch (e) {
+              console.error('Error seeding default admin:', e);
+            }
           }
         }
 
-        if (savedCustomers && savedCustomers.length > 0) {
+        if (savedCustomers !== null && savedCustomers !== undefined) {
           setCustomers(savedCustomers);
+          localStorage.setItem('carryint_customers', JSON.stringify(savedCustomers));
+        } else {
+          const localCust = localStorage.getItem('carryint_customers');
+          if (localCust) setCustomers(JSON.parse(localCust));
         }
-        if (savedVendors && savedVendors.length > 0) {
+
+        if (savedVendors !== null && savedVendors !== undefined) {
           setVendors(savedVendors);
+          localStorage.setItem('carryint_vendors', JSON.stringify(savedVendors));
+        } else {
+          const localVen = localStorage.getItem('carryint_vendors');
+          if (localVen) setVendors(JSON.parse(localVen));
         }
-        if (savedInvoices && savedInvoices.length > 0) {
-          setInvoices(savedInvoices);
+
+        if (savedInvoices !== null && savedInvoices !== undefined) {
+          const normalized = savedInvoices.map(hydrateInvoiceFromStorage);
+          setInvoices(normalized);
+          localStorage.setItem('carryint_invoices', JSON.stringify(normalized));
+        } else {
+          const localInv = localStorage.getItem('carryint_invoices');
+          if (localInv) {
+            const parsed = JSON.parse(localInv).map(hydrateInvoiceFromStorage);
+            setInvoices(parsed);
+          }
         }
-        if (savedExpenses && savedExpenses.length > 0) {
+
+        if (savedExpenses !== null && savedExpenses !== undefined) {
           setExpenses(savedExpenses);
+          localStorage.setItem('carryint_expenses', JSON.stringify(savedExpenses));
+        } else {
+          const localExp = localStorage.getItem('carryint_expenses');
+          if (localExp) setExpenses(JSON.parse(localExp));
         }
-        if (savedAdjustments && savedAdjustments.length > 0) {
+
+        if (savedAdjustments !== null && savedAdjustments !== undefined) {
           setAdjustmentNotes(savedAdjustments);
+          localStorage.setItem('carryint_adjustment_notes', JSON.stringify(savedAdjustments));
+        } else {
+          const localAdj = localStorage.getItem('carryint_adjustment_notes');
+          if (localAdj) setAdjustmentNotes(JSON.parse(localAdj));
         }
 
         // Load Quotations (Local Storage first, then Supabase if table exists)
@@ -166,54 +215,54 @@ const App: React.FC = () => {
     loadData();
   }, []);
 
-  const handleLogin = async (email: string, pass: string) => {
-    const trimmedEmail = email.trim().toLowerCase();
-    const trimmedPass = pass.trim();
+  const handleLogin = async (emailInput: string, passInput: string) => {
+    setAuthError('');
+    const trimmedEmail = emailInput.trim().toLowerCase();
+    const trimmedPass = passInput.trim();
 
-    // Check live database directly to guarantee newest user accounts can log in immediately
-    let userList = users;
+    // Check currently loaded state first
+    const user = users.find(u => u.email?.toLowerCase().trim() === trimmedEmail && u.password?.trim() === trimmedPass);
+    if (user) {
+      setCurrentUser(user);
+      localStorage.setItem('carryint_current_user', JSON.stringify(user));
+      return;
+    }
+
+    // Check live cloud database directly
     try {
       const { data: dbUsers } = await supabase.from('users').select('*');
       if (dbUsers && dbUsers.length > 0) {
-        userList = dbUsers;
         setUsers(dbUsers);
         localStorage.setItem('carryint_users', JSON.stringify(dbUsers));
+        const match = dbUsers.find(u => u.email?.toLowerCase().trim() === trimmedEmail && u.password?.trim() === trimmedPass);
+        if (match) {
+          setCurrentUser(match);
+          localStorage.setItem('carryint_current_user', JSON.stringify(match));
+          return;
+        }
       }
-    } catch (e) {
-      console.warn("Could not query live users on login, using local state", e);
+    } catch (err) {
+      console.error('Cloud login check failed:', err);
     }
 
-    // Primary check: Search in users list
-    let user = userList.find(u =>
-      (u.email?.toLowerCase().trim() === trimmedEmail) &&
-      (u.password?.trim() === trimmedPass)
-    );
-
-    // Bulletproof Fallback: Hardcoded check for default admin
-    if (!user && trimmedEmail === 'info@carryint.com' && trimmedPass === 'intCC3#0') {
-      user = {
+    if (trimmedEmail === 'info@carryint.com' && trimmedPass === 'intCC3#0') {
+      const adminUser: User = {
         id: 'admin-1',
         name: 'Super Admin',
         email: 'info@carryint.com',
         password: 'intCC3#0',
         role: 'ADMIN'
       };
-      const updated = userList.some(u => u.id === 'admin-1')
-        ? userList.map(u => u.id === 'admin-1' ? user! : u)
-        : [...userList, user];
-
+      setCurrentUser(adminUser);
+      localStorage.setItem('carryint_current_user', JSON.stringify(adminUser));
+      const updated = [...users.filter(u => u.id !== 'admin-1'), adminUser];
       setUsers(updated);
       localStorage.setItem('carryint_users', JSON.stringify(updated));
-      await supabase.from('users').upsert([user]);
+      await supabase.from('users').upsert([adminUser]);
+      return;
     }
 
-    if (user) {
-      setCurrentUser(user);
-      localStorage.setItem('carryint_current_user', JSON.stringify(user));
-      setAuthError('');
-    } else {
-      setAuthError('Invalid credentials. Access Denied.');
-    }
+    setAuthError('Invalid credentials. Access Denied.');
   };
 
   const handleLogout = () => {
@@ -222,53 +271,67 @@ const App: React.FC = () => {
   };
 
   const handleAddUser = async (user: User) => {
-    if (currentUser?.role !== 'ADMIN') return;
-    const cleanUser: User = {
-      ...user,
-      email: user.email.trim().toLowerCase(),
-      password: user.password?.trim() || ''
+    const cleanUser = {
+      id: user.id || generateId(),
+      name: user.name,
+      email: user.email.toLowerCase().trim(),
+      password: user.password,
+      role: user.role
     };
-    const updated = [...users.filter(u => u.id !== user.id), cleanUser];
+
+    const updated = [...users.filter(u => u.id !== cleanUser.id), cleanUser];
     setUsers(updated);
     localStorage.setItem('carryint_users', JSON.stringify(updated));
-    const { error } = await supabase.from('users').upsert([cleanUser]);
-    if (error) {
-      console.error("Error saving user to Supabase:", error);
-      alert("Failed to sync user to cloud: " + error.message);
+
+    try {
+      const { error } = await supabase.from('users').upsert([cleanUser]);
+      if (error) {
+        console.error("Error syncing user to Supabase:", error);
+      }
+    } catch (err) {
+      console.error("Error creating user:", err);
     }
   };
 
   const handleDeleteUser = async (id: string) => {
-    if (currentUser?.role !== 'ADMIN') return;
-    if (users.find(u => u.id === id)?.role === 'ADMIN' && users.filter(u => u.role === 'ADMIN').length === 1) {
-      alert("Cannot delete the last administrator.");
+    if (users.length <= 1) {
+      alert("Cannot delete the only remaining user.");
       return;
     }
-    if (confirm('Are you sure you want to remove this user?')) {
-      const updated = users.filter(u => u.id !== id);
-      setUsers(updated);
-      localStorage.setItem('carryint_users', JSON.stringify(updated));
+    const updated = users.filter(u => u.id !== id);
+    setUsers(updated);
+    localStorage.setItem('carryint_users', JSON.stringify(updated));
+
+    try {
       const { error } = await supabase.from('users').delete().eq('id', id);
       if (error) {
         console.error("Error deleting user from Supabase:", error);
       }
+    } catch (err) {
+      console.error("Error deleting user:", err);
     }
   };
 
   const handleUpdateUser = async (updatedUser: User) => {
-    if (currentUser?.role !== 'ADMIN') return;
-    const cleanUser: User = {
-      ...updatedUser,
-      email: updatedUser.email.trim().toLowerCase(),
-      password: updatedUser.password?.trim() || ''
+    const cleanUser = {
+      id: updatedUser.id,
+      name: updatedUser.name,
+      email: updatedUser.email.toLowerCase().trim(),
+      password: updatedUser.password,
+      role: updatedUser.role
     };
+
     const updated = users.map(u => u.id === cleanUser.id ? cleanUser : u);
     setUsers(updated);
     localStorage.setItem('carryint_users', JSON.stringify(updated));
-    const { error } = await supabase.from('users').upsert([cleanUser]);
-    if (error) {
-      console.error("Error updating user in Supabase:", error);
-      alert("Failed to sync user update to cloud: " + error.message);
+
+    try {
+      const { error } = await supabase.from('users').upsert([cleanUser]);
+      if (error) {
+        console.error("Error updating user in Supabase:", error);
+      }
+    } catch (err) {
+      console.error("Error updating user:", err);
     }
   };
 
@@ -288,45 +351,89 @@ const App: React.FC = () => {
     setInvoices(updated);
     localStorage.setItem('carryint_invoices', JSON.stringify(updated));
     const target = updated.find(i => i.id === invoiceId);
-    if (target) await supabase.from('invoices').upsert([target]);
+    if (target) {
+      try {
+        await supabase.from('invoices').upsert([prepareInvoiceForSupabase(target)]);
+      } catch (err) {
+        console.error('Error updating invoice status in Supabase:', err);
+      }
+    }
   };
-  const handleUpdateVendorStatus = async (invoiceId: string, vendorStatus: 'PAID' | 'UNPAID', vendorPaymentDate?: string, vendorTransactionReference?: string) => {
+  const handleUpdateVendorStatus = async (
+    invoiceId: string, 
+    vendorStatus: PaymentStatus, 
+    vendorPaymentDate?: string, 
+    vendorTransactionReference?: string,
+    vendorPaidAmount?: number
+  ) => {
     const updated = invoices.map(inv => {
       if (inv.id === invoiceId) {
+        const finalPaid = vendorStatus === 'PAID' 
+          ? inv.vendorCost 
+          : (vendorStatus === 'PARTIAL' ? (vendorPaidAmount !== undefined ? vendorPaidAmount : (inv.vendorPaidAmount || 0)) : 0);
         return {
           ...inv,
           vendorStatus,
-          vendorPaymentDate: vendorStatus === 'PAID' ? (vendorPaymentDate || inv.vendorPaymentDate || new Date().toISOString().split('T')[0]) : undefined,
-          vendorTransactionReference: vendorStatus === 'PAID' ? (vendorTransactionReference !== undefined ? vendorTransactionReference : inv.vendorTransactionReference) : undefined
+          vendorPaidAmount: finalPaid,
+          vendorPaymentDate: vendorStatus !== 'UNPAID' ? (vendorPaymentDate || inv.vendorPaymentDate || new Date().toISOString().split('T')[0]) : undefined,
+          vendorTransactionReference: vendorStatus !== 'UNPAID' ? (vendorTransactionReference !== undefined ? vendorTransactionReference : inv.vendorTransactionReference) : undefined
         };
       }
       return inv;
     });
     setInvoices(updated);
     localStorage.setItem('carryint_invoices', JSON.stringify(updated));
+    const target = updated.find(i => i.id === invoiceId);
+    if (target) {
+      try {
+        await supabase.from('invoices').upsert([prepareInvoiceForSupabase(target)]);
+      } catch (err) {
+        console.error('Error updating vendor status in Supabase:', err);
+      }
+    }
   };
 
   const handleAddExpense = async (expense: Expense) => {
     const updated = [...expenses, expense];
     setExpenses(updated);
     localStorage.setItem('carryint_expenses', JSON.stringify(updated));
+    try {
+      await supabase.from('expenses').upsert([expense]);
+    } catch (err) {
+      console.error('Error adding expense to Supabase:', err);
+    }
   };
   const handleUpdateExpense = async (updatedExpense: Expense) => {
     const updated = expenses.map(e => e.id === updatedExpense.id ? updatedExpense : e);
     setExpenses(updated);
     localStorage.setItem('carryint_expenses', JSON.stringify(updated));
+    try {
+      await supabase.from('expenses').upsert([updatedExpense]);
+    } catch (err) {
+      console.error('Error updating expense in Supabase:', err);
+    }
   };
 
   const handleDeleteExpense = async (id: string) => {
     const updated = expenses.filter(e => e.id !== id);
     setExpenses(updated);
     localStorage.setItem('carryint_expenses', JSON.stringify(updated));
+    try {
+      await supabase.from('expenses').delete().eq('id', id);
+    } catch (err) {
+      console.error('Error deleting expense from Supabase:', err);
+    }
   };
 
   const handleAddAdjustmentNote = async (note: AdjustmentNote) => {
-    const updated = [...adjustmentNotes, note];
-    setAdjustmentNotes(updated);
-    localStorage.setItem('carryint_adjustment_notes', JSON.stringify(updated));
+    const updatedNotes = [...adjustmentNotes, note];
+    setAdjustmentNotes(updatedNotes);
+    localStorage.setItem('carryint_adjustment_notes', JSON.stringify(updatedNotes));
+    try {
+      await supabase.from('adjustment_notes').upsert([note]);
+    } catch (err) {
+      console.error('Error adding adjustment note to Supabase:', err);
+    }
 
     const updatedInvoices = invoices.map(inv => {
       if (inv.id === note.originalInvoiceId) {
@@ -348,6 +455,14 @@ const App: React.FC = () => {
     });
     setInvoices(updatedInvoices);
     localStorage.setItem('carryint_invoices', JSON.stringify(updatedInvoices));
+    const invTarget = updatedInvoices.find(i => i.id === note.originalInvoiceId);
+    if (invTarget) {
+      try {
+        await supabase.from('invoices').upsert([prepareInvoiceForSupabase(invTarget)]);
+      } catch (err) {
+        console.error('Error updating invoice audit in Supabase:', err);
+      }
+    }
   };
 
   const handleDeleteAdjustmentNote = async (id: string) => {
@@ -357,6 +472,11 @@ const App: React.FC = () => {
     const updated = adjustmentNotes.filter(n => n.id !== id);
     setAdjustmentNotes(updated);
     localStorage.setItem('carryint_adjustment_notes', JSON.stringify(updated));
+    try {
+      await supabase.from('adjustment_notes').delete().eq('id', id);
+    } catch (err) {
+      console.error('Error deleting adjustment note from Supabase:', err);
+    }
 
     const updatedInvoices = invoices.map(inv => {
       if (inv.id === noteToDelete.originalInvoiceId) {
@@ -378,6 +498,14 @@ const App: React.FC = () => {
     });
     setInvoices(updatedInvoices);
     localStorage.setItem('carryint_invoices', JSON.stringify(updatedInvoices));
+    const invTarget = updatedInvoices.find(i => i.id === noteToDelete.originalInvoiceId);
+    if (invTarget) {
+      try {
+        await supabase.from('invoices').upsert([prepareInvoiceForSupabase(invTarget)]);
+      } catch (err) {
+        console.error('Error updating invoice audit in Supabase:', err);
+      }
+    }
   };
 
   const handleSaveInvoice = async (invoice: Invoice) => {
@@ -390,19 +518,54 @@ const App: React.FC = () => {
     }
     setInvoices(updatedInvoices);
     localStorage.setItem('carryint_invoices', JSON.stringify(updatedInvoices));
+    try {
+      await supabase.from('invoices').upsert([prepareInvoiceForSupabase(invoice)]);
+    } catch (err) {
+      console.error('Error saving invoice to Supabase:', err);
+    }
     setSelectedInvoice(invoice);
     setActiveTab('view-invoice');
   };
 
+  const handleQuickUpdateCarrier = async (updatedInvoice: Invoice) => {
+    const updated = invoices.map(inv => inv.id === updatedInvoice.id ? updatedInvoice : inv);
+    setInvoices(updated);
+    localStorage.setItem('carryint_invoices', JSON.stringify(updated));
+    try {
+      await supabase.from('invoices').upsert([prepareInvoiceForSupabase(updatedInvoice)]);
+    } catch (err) {
+      console.error('Error updating carrier AWB in Supabase:', err);
+    }
+    if (selectedInvoice && selectedInvoice.id === updatedInvoice.id) {
+      setSelectedInvoice(updatedInvoice);
+    }
+  };
+
   const handleDeleteInvoice = async (id: string) => {
+    if (currentUser?.role === 'STAFF') {
+      alert('Access Denied: Standard Staff cannot delete tax invoices. Please contact your Manager or System Administrator.');
+      return;
+    }
     if (confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
       const updated = invoices.filter(inv => inv.id !== id);
       setInvoices(updated);
       localStorage.setItem('carryint_invoices', JSON.stringify(updated));
+      try {
+        await supabase.from('invoices').delete().eq('id', id);
+      } catch (err) {
+        console.error('Error deleting invoice from Supabase:', err);
+      }
     }
   };
 
   const handleEditInvoice = (inv: Invoice) => {
+    if (currentUser?.role === 'STAFF') {
+      const isOwner = inv.createdBy === currentUser.id || inv.createdBy === currentUser.email || inv.createdByName === currentUser.name;
+      if (!isOwner) {
+        alert('Access Restricted: Standard Staff can only edit invoices they personally generated.');
+        return;
+      }
+    }
     setSelectedInvoice(inv);
     setActiveTab('create-invoice');
   };
@@ -411,12 +574,22 @@ const App: React.FC = () => {
     const updated = [...customers, customer];
     setCustomers(updated);
     localStorage.setItem('carryint_customers', JSON.stringify(updated));
+    try {
+      await supabase.from('customers').upsert([customer]);
+    } catch (err) {
+      console.error('Error saving customer to Supabase:', err);
+    }
   };
 
   const handleEditCustomer = async (updatedCustomer: Customer) => {
     const updated = customers.map(c => c.id === updatedCustomer.id ? updatedCustomer : c);
     setCustomers(updated);
     localStorage.setItem('carryint_customers', JSON.stringify(updated));
+    try {
+      await supabase.from('customers').upsert([updatedCustomer]);
+    } catch (err) {
+      console.error('Error updating customer in Supabase:', err);
+    }
   };
 
   const handleDeleteCustomer = async (id: string) => {
@@ -424,12 +597,22 @@ const App: React.FC = () => {
       const updated = customers.filter(c => c.id !== id);
       setCustomers(updated);
       localStorage.setItem('carryint_customers', JSON.stringify(updated));
+      try {
+        await supabase.from('customers').delete().eq('id', id);
+      } catch (err) {
+        console.error('Error deleting customer from Supabase:', err);
+      }
     }
   };
 
   const handleUpdateCompanyInfo = async (info: CompanyInfo) => {
     setCompanyInfo(info);
     localStorage.setItem('carryint_company_info', JSON.stringify(info));
+    try {
+      await supabase.from('company_info').upsert([{ id: '1', ...info }]);
+    } catch (err) {
+      console.error('Error updating company info in Supabase:', err);
+    }
   };
 
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
@@ -439,15 +622,53 @@ const App: React.FC = () => {
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [newVendor, setNewVendor] = useState<Partial<Vendor>>({});
   const [selectedVendorInvoiceIds, setSelectedVendorInvoiceIds] = useState<string[]>([]);
+  const [vendorPaymentModalInvoice, setVendorPaymentModalInvoice] = useState<Invoice | null>(null);
+  const [modalVendorStatus, setModalVendorStatus] = useState<PaymentStatus>('PAID');
+  const [modalVendorPaidAmount, setModalVendorPaidAmount] = useState<number>(0);
+  const [modalVendorPaymentDate, setModalVendorPaymentDate] = useState<string>('');
+  const [modalVendorPaymentRef, setModalVendorPaymentRef] = useState<string>('');
+
+  const openVendorPaymentModal = (inv: Invoice) => {
+    setVendorPaymentModalInvoice(inv);
+    const currStatus = inv.vendorStatus || 'UNPAID';
+    setModalVendorStatus(currStatus);
+    setModalVendorPaidAmount(currStatus === 'PAID' ? inv.vendorCost : (inv.vendorPaidAmount || 0));
+    setModalVendorPaymentDate(inv.vendorPaymentDate || new Date().toISOString().split('T')[0]);
+    setModalVendorPaymentRef(inv.vendorTransactionReference || '');
+  };
+
+  // Automatically update document title based on the active preview (Invoice, Receipt, Quotation, Vendor Statement)
+  // Ensures mobile and desktop browsers save PDFs with the exact reference number as file name
+  useEffect(() => {
+    const defaultTitle = 'Carryint CRM & Invoicing';
+    if (activeTab === 'view-invoice' && selectedInvoice) {
+      document.title = selectedInvoice.invoiceNumber;
+    } else if (activeTab === 'view-receipt' && selectedInvoice) {
+      const receiptNo = `RCP-${selectedInvoice.invoiceNumber.split('-')[1] || selectedInvoice.invoiceNumber}`;
+      document.title = receiptNo;
+    } else if (activeTab === 'view-quotation' && selectedQuotation) {
+      document.title = selectedQuotation.quotationNumber;
+    } else if (activeTab === 'vendors' && selectedVendor) {
+      document.title = `Vendor_Statement_${selectedVendor.name.replace(/[^a-zA-Z0-9_-]/g, '_')}_${new Date().toISOString().split('T')[0]}`;
+    } else {
+      document.title = defaultTitle;
+    }
+  }, [activeTab, selectedInvoice, selectedQuotation, selectedVendor]);
 
   const handleAddVendorSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newVendor.name && newVendor.contact && newVendor.address) {
       if (editingVendor) {
-        const updatedVendors = vendors.map(v => v.id === editingVendor.id ? { ...editingVendor, ...newVendor } as Vendor : v);
+        const updatedVendorObj: Vendor = { ...editingVendor, ...newVendor } as Vendor;
+        const updatedVendors = vendors.map(v => v.id === editingVendor.id ? updatedVendorObj : v);
         setVendors(updatedVendors);
         localStorage.setItem('carryint_vendors', JSON.stringify(updatedVendors));
         setEditingVendor(null);
+        try {
+          await supabase.from('vendors').upsert([updatedVendorObj]);
+        } catch (err) {
+          console.error('Error updating vendor in Supabase:', err);
+        }
       } else {
         const vendorToAdd: Vendor = {
           ...(newVendor as Vendor),
@@ -456,6 +677,11 @@ const App: React.FC = () => {
         const updated = [...vendors, vendorToAdd];
         setVendors(updated);
         localStorage.setItem('carryint_vendors', JSON.stringify(updated));
+        try {
+          await supabase.from('vendors').upsert([vendorToAdd]);
+        } catch (err) {
+          console.error('Error adding vendor to Supabase:', err);
+        }
       }
       setIsAddingVendor(false);
       setNewVendor({});
@@ -468,6 +694,11 @@ const App: React.FC = () => {
       const updated = vendors.filter(v => v.id !== id);
       setVendors(updated);
       localStorage.setItem('carryint_vendors', JSON.stringify(updated));
+      try {
+        await supabase.from('vendors').delete().eq('id', id);
+      } catch (err) {
+        console.error('Error deleting vendor from Supabase:', err);
+      }
     }
   };
 
@@ -653,11 +884,81 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
+        if (currentUser?.role === 'STAFF') {
+          return (
+            <StaffDashboard
+              currentUser={currentUser}
+              invoices={invoices}
+              quotations={quotations}
+              onNavigate={setActiveTab}
+              onInvoiceClick={(inv) => {
+                setSelectedInvoice(inv);
+                setActiveTab('view-invoice');
+              }}
+              onQuotationClick={(q) => {
+                setSelectedQuotation(q);
+                setActiveTab('view-quotation');
+              }}
+            />
+          );
+        }
+        if (currentUser?.role === 'ACCOUNTANT') {
+          return (
+            <AccountantDashboard
+              invoices={invoices}
+              customers={customers}
+              vendors={vendors}
+              companyInfo={companyInfo}
+              expenses={expenses}
+              adjustmentNotes={adjustmentNotes}
+              currentUser={currentUser}
+              onNavigate={setActiveTab}
+              onInvoiceClick={(inv) => {
+                setSelectedInvoice(inv);
+                setActiveTab('view-invoice');
+              }}
+            />
+          );
+        }
         return (
           <Dashboard 
             invoices={invoices} 
             expenses={expenses} 
             adjustmentNotes={adjustmentNotes}
+            users={users}
+            onInvoiceClick={(inv) => {
+              setSelectedInvoice(inv);
+              setActiveTab('view-invoice');
+            }}
+          />
+        );
+      case 'user-analytics':
+        return (
+          <UserAnalyticsDashboard
+            users={users}
+            invoices={invoices}
+            quotations={quotations}
+            expenses={expenses}
+            adjustmentNotes={adjustmentNotes}
+            currentUser={currentUser!}
+            onNavigate={setActiveTab}
+            onViewInvoice={(inv) => {
+              setSelectedInvoice(inv);
+              setActiveTab('view-invoice');
+            }}
+          />
+        );
+      case 'accounting-suite':
+        return (
+          <AccountantDashboard
+            invoices={invoices}
+            customers={customers}
+            vendors={vendors}
+            companyInfo={companyInfo}
+            expenses={expenses}
+            adjustmentNotes={adjustmentNotes}
+            currentUser={currentUser!}
+            onNavigate={setActiveTab}
             onInvoiceClick={(inv) => {
               setSelectedInvoice(inv);
               setActiveTab('view-invoice');
@@ -737,108 +1038,178 @@ const App: React.FC = () => {
         );
       case 'view-invoice':
         return selectedInvoice ? (
-          <div>
-            <div className="flex justify-end gap-2 mb-4 no-print">
-              <button
-                onClick={() => {
-                  const originalTitle = document.title;
-                  document.title = selectedInvoice.invoiceNumber;
-                  window.print();
-                  document.title = originalTitle;
-                }}
-                className="bg-orange-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg"
-              >
-                Print / Save PDF
-              </button>
-              {selectedInvoice.status === 'PAID' && (
-                <button
-                  onClick={() => setActiveTab('view-receipt')}
-                  className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg"
-                >
-                  View Receipt
-                </button>
-              )}
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 mb-2 sm:mb-4 no-print bg-white sm:bg-transparent p-2 sm:p-0 rounded-xl border sm:border-0 border-gray-100 shadow-sm sm:shadow-none">
               <button
                 onClick={() => setActiveTab('invoices')}
-                className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg font-bold"
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-colors flex items-center gap-1"
               >
-                Back to List
+                <ArrowLeft size={14} />
+                <span>Back to Invoices</span>
               </button>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <button
+                  onClick={() => setCarrierModalInvoice(selectedInvoice)}
+                  className="bg-slate-900 hover:bg-slate-800 text-white px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-bold shadow-sm transition-all flex items-center gap-1.5"
+                >
+                  <Truck size={14} />
+                  <span>Update Carrier / AWB</span>
+                </button>
+                {selectedInvoice.status === 'PAID' && (
+                  <button
+                    onClick={() => setActiveTab('view-receipt')}
+                    className="bg-green-600 hover:bg-green-700 text-white px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-bold shadow-sm transition-all"
+                  >
+                    View Receipt
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    document.title = selectedInvoice.invoiceNumber;
+                    setTimeout(() => {
+                      window.print();
+                    }, 50);
+                  }}
+                  className="bg-orange-600 hover:bg-orange-700 text-white px-3.5 sm:px-5 py-1.5 rounded-lg text-xs sm:text-sm font-black shadow-md transition-all flex items-center gap-1.5"
+                >
+                  <Printer size={14} />
+                  <span>Print / Save PDF</span>
+                </button>
+              </div>
             </div>
             <InvoicePreview 
               invoice={selectedInvoice} 
               companyInfo={companyInfo} 
               adjustmentNotes={adjustmentNotes}
+              onOpenCarrierModal={(inv) => setCarrierModalInvoice(inv)}
             />
           </div>
         ) : <p>No invoice selected</p>;
       case 'view-receipt':
         return selectedInvoice ? (
-          <div>
-            <div className="flex justify-end gap-2 mb-4 no-print">
-              <button
-                onClick={() => {
-                  const originalTitle = document.title;
-                  const receiptNo = `RCP-${selectedInvoice.invoiceNumber.split('-')[1] || selectedInvoice.invoiceNumber}`;
-                  document.title = receiptNo;
-                  window.print();
-                  document.title = originalTitle;
-                }}
-                className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg"
-              >
-                Print Receipt
-              </button>
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 mb-2 sm:mb-4 no-print bg-white sm:bg-transparent p-2 sm:p-0 rounded-xl border sm:border-0 border-gray-100 shadow-sm sm:shadow-none">
               <button
                 onClick={() => setActiveTab('invoices')}
-                className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg font-bold"
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-colors flex items-center gap-1"
               >
-                Back to List
+                <ArrowLeft size={14} />
+                <span>Back to Invoices</span>
               </button>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <button
+                  onClick={() => setActiveTab('view-invoice')}
+                  className="bg-orange-600 hover:bg-orange-700 text-white px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-bold shadow-sm transition-all"
+                >
+                  View Invoice
+                </button>
+                <button
+                  onClick={() => {
+                    const receiptNo = `RCP-${selectedInvoice.invoiceNumber.split('-')[1] || selectedInvoice.invoiceNumber}`;
+                    document.title = receiptNo;
+                    setTimeout(() => {
+                      window.print();
+                    }, 50);
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white px-3.5 sm:px-5 py-1.5 rounded-lg text-xs sm:text-sm font-black shadow-md transition-all flex items-center gap-1.5"
+                >
+                  <Printer size={14} />
+                  <span>Print Receipt</span>
+                </button>
+              </div>
             </div>
             <PaymentReceipt invoice={selectedInvoice} companyInfo={companyInfo} />
           </div>
         ) : <p>No receipt available</p>;
+      case 'tracking':
+        return (
+          <TrackingManagement
+            invoices={invoices}
+            companyInfo={companyInfo}
+            currentUser={currentUser}
+            onOpenCarrierModal={(inv) => setCarrierModalInvoice(inv)}
+            onViewInvoice={(inv) => {
+              setSelectedInvoice(inv);
+              setActiveTab('view-invoice');
+            }}
+            onViewReceipt={(inv) => {
+              setSelectedInvoice(inv);
+              setActiveTab('view-receipt');
+            }}
+          />
+        );
       case 'invoices':
         const filteredInvoices = invoices.filter(inv => {
           const matchesSearch = inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            inv.customerName.toLowerCase().includes(searchQuery.toLowerCase());
+            inv.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (inv.awbNumber && inv.awbNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (inv.carrierTrackingNumber && inv.carrierTrackingNumber.toLowerCase().includes(searchQuery.toLowerCase()));
           
           const matchesCustomer = !searchQuery || inv.customerName.toLowerCase().includes(searchQuery.toLowerCase());
           const matchesStatus = invoiceFilterStatus === 'ALL' || inv.status === invoiceFilterStatus;
           const matchesDate = !invoiceFilterDate || inv.date.startsWith(invoiceFilterDate);
           const matchesMonth = !invoiceFilterMonth || inv.date.startsWith(invoiceFilterMonth);
+          const matchesCreator = invoiceFilterCreator === 'ALL' || 
+            inv.createdBy === invoiceFilterCreator || 
+            inv.createdByName?.toLowerCase() === invoiceFilterCreator.toLowerCase();
 
-          return matchesSearch && matchesStatus && matchesDate && matchesMonth;
+          return matchesSearch && matchesStatus && matchesDate && matchesMonth && matchesCreator;
         });
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="p-6 border-b border-gray-50 flex flex-col gap-4">
+            <div className="p-4 sm:p-5 border-b border-gray-50 flex flex-col gap-3">
               <div className="flex justify-between items-center">
-                <h3 className="text-xl font-bold text-gray-900">All Tax Invoices</h3>
-                <button
-                  onClick={() => { setActiveTab('create-invoice'); setSearchQuery(''); setSelectedInvoice(null); }}
-                  className="bg-orange-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"
-                >
-                  Create New
-                </button>
+                <div>
+                  <h3 className="text-lg font-black text-gray-900">All Tax Invoices & Logistics</h3>
+                  <p className="text-xs text-gray-500">View invoices, track Air Waybill numbers, and assign carrier logistics post-payment.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setActiveTab('tracking')}
+                    className="bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-1.5 rounded-lg text-xs font-black shadow-sm transition-all flex items-center gap-1.5"
+                  >
+                    <Truck size={14} />
+                    <span>Tracking Portal</span>
+                  </button>
+                  <button
+                    onClick={() => { setActiveTab('create-invoice'); setSearchQuery(''); setSelectedInvoice(null); }}
+                    className="bg-orange-600 hover:bg-orange-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-black shadow-md transition-all flex items-center gap-1.5"
+                  >
+                    <PlusCircle size={15} />
+                    <span>Create New</span>
+                  </button>
+                </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-xl">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 bg-gray-50 p-3 rounded-xl">
                 <div>
-                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Customer / Invoice #</label>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Customer / AWB / Inv #</label>
                   <input
                     type="text"
-                    placeholder="Search..."
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-orange-500"
+                    placeholder="Search AWB or invoice..."
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs outline-none focus:ring-2 focus:ring-orange-500 bg-white"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
                 <div>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Created By Staff</label>
+                  <select
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs outline-none focus:ring-2 focus:ring-orange-500 font-bold bg-white"
+                    value={invoiceFilterCreator}
+                    onChange={(e) => setInvoiceFilterCreator(e.target.value)}
+                  >
+                    <option value="ALL">All Staff Members</option>
+                    {users.map(u => (
+                      <option key={u.id} value={u.name}>👤 {u.name} ({u.role})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Specific Date</label>
                   <input
                     type="date"
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-orange-500"
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs outline-none focus:ring-2 focus:ring-orange-500 bg-white"
                     value={invoiceFilterDate}
                     onChange={(e) => setInvoiceFilterDate(e.target.value)}
                   />
@@ -847,7 +1218,7 @@ const App: React.FC = () => {
                   <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Filter by Month</label>
                   <input
                     type="month"
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-orange-500"
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs outline-none focus:ring-2 focus:ring-orange-500 bg-white"
                     value={invoiceFilterMonth}
                     onChange={(e) => setInvoiceFilterMonth(e.target.value)}
                   />
@@ -855,7 +1226,7 @@ const App: React.FC = () => {
                 <div>
                   <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Payment Status</label>
                   <select
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-orange-500 font-bold"
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs outline-none focus:ring-2 focus:ring-orange-500 font-bold bg-white"
                     value={invoiceFilterStatus}
                     onChange={(e) => setInvoiceFilterStatus(e.target.value as any)}
                   >
@@ -866,99 +1237,157 @@ const App: React.FC = () => {
                 </div>
               </div>
             </div>
-            <table className="w-full text-left">
-              <thead className="bg-gray-50 text-xs font-black text-gray-500 uppercase tracking-widest">
-                <tr>
-                  <th className="px-6 py-4">Invoice No</th>
-                  <th className="px-6 py-4">Customer</th>
-                  <th className="px-6 py-4">From</th>
-                  <th className="px-6 py-4">To</th>
-                  <th className="px-6 py-4">Date</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Total Amount</th>
-                  <th className="px-6 py-4"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredInvoices.length === 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">
                   <tr>
-                    <td colSpan={6} className="text-center py-20 text-gray-400 font-medium">
-                      {searchQuery ? `No invoices matching "${searchQuery}"` : "No invoices generated yet."}
-                    </td>
+                    <th className="px-4 py-2.5">Invoice No</th>
+                    <th className="px-4 py-2.5">Created By</th>
+                    <th className="px-4 py-2.5">Customer</th>
+                    <th className="px-4 py-2.5">Carrier / AWB</th>
+                    <th className="px-4 py-2.5">From</th>
+                    <th className="px-4 py-2.5">To</th>
+                    <th className="px-4 py-2.5">Date</th>
+                    <th className="px-4 py-2.5">Status</th>
+                    <th className="px-4 py-2.5 text-right">Total Amount</th>
+                    <th className="px-4 py-2.5 text-right">Action</th>
                   </tr>
-                ) : (
-                  filteredInvoices.slice().reverse().map(inv => (
-                    <tr key={inv.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 font-bold text-gray-900">{inv.invoiceNumber}</td>
-                      <td className="px-6 py-4 text-gray-600 font-medium">{inv.customerName}</td>
-                      <td className="px-6 py-4">
-                        <span className="text-[10px] font-black px-2 py-1 rounded bg-orange-50 text-orange-700 border border-orange-100 uppercase">
-                          {inv.items[0]?.coo || 'N/A'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-[10px] font-black px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-100 uppercase">
-                          {inv.destinationCountry}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-gray-500 font-bold">{new Date(inv.date).toLocaleDateString()}</td>
-                      <td className="px-6 py-4">
-                        <span className={`text-[10px] font-black px-2 py-1 rounded-full ${inv.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                          {inv.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="font-black text-gray-900">{inv.totalAmount.toFixed(2)} AED</div>
-                        {(() => {
-                          const linked = adjustmentNotes.filter(n => n.originalInvoiceId === inv.id);
-                          if (linked.length > 0) {
-                            const credits = linked.filter(n => n.type === 'CREDIT').reduce((sum, n) => sum + n.amount, 0);
-                            const debits = linked.filter(n => n.type === 'DEBIT').reduce((sum, n) => sum + n.amount, 0);
-                            const adjusted = inv.totalAmount + debits - credits;
-                            return (
-                              <div className="text-[10px] font-black text-blue-600 mt-0.5 whitespace-nowrap">
-                                Adjusted: {adjusted.toFixed(2)} AED
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-3">
-                          <button
-                            onClick={() => { setSelectedInvoice(inv); setActiveTab('view-invoice'); setSearchQuery(''); }}
-                            className="text-orange-600 font-bold hover:underline"
-                          >
-                            View
-                          </button>
-                          {inv.status === 'PAID' && (
-                            <button
-                              onClick={() => { setSelectedInvoice(inv); setActiveTab('view-receipt'); setSearchQuery(''); }}
-                              className="text-green-600 font-bold hover:underline"
-                            >
-                              Receipt
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleEditInvoice(inv)}
-                            className="text-blue-600 font-bold hover:underline"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteInvoice(inv.id)}
-                            className="text-red-600 font-bold hover:underline"
-                          >
-                            Delete
-                          </button>
-                        </div>
+                </thead>
+                <tbody className="divide-y divide-gray-100 font-medium">
+                  {filteredInvoices.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="text-center py-16 text-gray-400">
+                        {searchQuery ? `No invoices matching "${searchQuery}"` : "No invoices found for this selection."}
                       </td>
                     </tr>
-                  ))
+                  ) : (
+                    filteredInvoices.slice().reverse().map(inv => {
+                      const carrierTrkUrl = getCarrierTrackingUrl(inv.carrier, inv.carrierTrackingNumber);
+                      return (
+                        <tr key={inv.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3 font-black text-gray-900">{inv.invoiceNumber}</td>
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200">
+                              👤 {inv.createdByName || 'Admin'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-gray-700 font-bold">{inv.customerName}</td>
+                          <td className="px-4 py-3">
+                            {inv.carrierTrackingNumber ? (
+                              <div className="flex flex-col">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-slate-800 text-white">
+                                    {inv.carrier || 'CARRIER'}
+                                  </span>
+                                  {carrierTrkUrl ? (
+                                    <a
+                                      href={carrierTrkUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-[11px] font-mono font-bold text-orange-600 hover:underline inline-flex items-center gap-0.5"
+                                      title="Open Carrier Live Tracking"
+                                    >
+                                      {inv.carrierTrackingNumber} <ExternalLink size={10} />
+                                    </a>
+                                  ) : (
+                                    <span className="text-[11px] font-mono font-bold text-slate-800">{inv.carrierTrackingNumber}</span>
+                                  )}
+                                </div>
+                                <span className="text-[9px] font-mono text-gray-400 mt-0.5">
+                                  {inv.awbNumber || 'PENDING'}
+                                </span>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setCarrierModalInvoice(inv)}
+                                className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg border flex items-center gap-1 transition-all ${
+                                  inv.status === 'PAID'
+                                    ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200 shadow-sm'
+                                    : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
+                                }`}
+                              >
+                                <Truck size={12} className={inv.status === 'PAID' ? 'text-amber-700' : 'text-gray-500'} />
+                                <span>{inv.status === 'PAID' ? '⚡ Assign AWB' : '+ Add AWB'}</span>
+                              </button>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-100 uppercase">
+                              {inv.items[0]?.coo || 'N/A'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 uppercase">
+                              {inv.destinationCountry}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-gray-500 font-bold">{new Date(inv.date).toLocaleDateString()}</td>
+                          <td className="px-4 py-3">
+                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${inv.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {inv.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="font-black text-gray-900">{inv.totalAmount.toFixed(2)} AED</div>
+                            {(() => {
+                              const linked = adjustmentNotes.filter(n => n.originalInvoiceId === inv.id);
+                              if (linked.length > 0) {
+                                const credits = linked.filter(n => n.type === 'CREDIT').reduce((sum, n) => sum + n.amount, 0);
+                                const debits = linked.filter(n => n.type === 'DEBIT').reduce((sum, n) => sum + n.amount, 0);
+                                const adjusted = inv.totalAmount + debits - credits;
+                                return (
+                                  <div className="text-[10px] font-black text-blue-600 mt-0.5 whitespace-nowrap">
+                                    Adjusted: {adjusted.toFixed(2)} AED
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-2.5 items-center">
+                            <button
+                              onClick={() => { setSelectedInvoice(inv); setActiveTab('view-invoice'); setSearchQuery(''); }}
+                              className="text-orange-600 font-bold hover:underline"
+                            >
+                              View
+                            </button>
+                            {inv.status === 'PAID' && (
+                              <button
+                                onClick={() => { setSelectedInvoice(inv); setActiveTab('view-receipt'); setSearchQuery(''); }}
+                                className="text-green-600 font-bold hover:underline"
+                              >
+                                Receipt
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setCarrierModalInvoice(inv)}
+                              className="text-indigo-600 font-bold hover:underline"
+                              title="Update Carrier AWB / Milestones"
+                            >
+                              {inv.carrierTrackingNumber ? 'Tracking' : 'AWB'}
+                            </button>
+                            <button
+                              onClick={() => handleEditInvoice(inv)}
+                              className="text-blue-600 font-bold hover:underline"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteInvoice(inv.id)}
+                              className="text-red-600 font-bold hover:underline"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         );
       case 'customers':
@@ -1006,13 +1435,13 @@ const App: React.FC = () => {
               .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
           }
           
-          const totalPayable = selectedVendorInvoiceIds.length > 0
-            ? displayedInvoices.filter(inv => selectedVendorInvoiceIds.includes(inv.id)).reduce((s, i) => s + i.vendorCost, 0)
-            : displayedInvoices.filter(inv => inv.vendorStatus !== 'PAID').reduce((s, i) => s + i.vendorCost, 0);
+          const filteredSet = selectedVendorInvoiceIds.length > 0
+            ? displayedInvoices.filter(inv => selectedVendorInvoiceIds.includes(inv.id))
+            : displayedInvoices;
 
-          const totalPaid = selectedVendorInvoiceIds.length > 0
-            ? displayedInvoices.filter(inv => selectedVendorInvoiceIds.includes(inv.id)).reduce((s, i) => s + i.vendorCost, 0)
-            : displayedInvoices.reduce((s, i) => s + i.vendorCost, 0);
+          const totalBilled = filteredSet.reduce((s, i) => s + (i.vendorCost || 0), 0);
+          const totalPaid = filteredSet.reduce((s, i) => s + (i.vendorStatus === 'PAID' ? (i.vendorCost || 0) : (i.vendorStatus === 'PARTIAL' ? (i.vendorPaidAmount || 0) : 0)), 0);
+          const totalPayable = filteredSet.reduce((s, i) => s + (i.vendorStatus === 'PAID' ? 0 : (i.vendorStatus === 'PARTIAL' ? Math.max(0, (i.vendorCost || 0) - (i.vendorPaidAmount || 0)) : (i.vendorCost || 0))), 0);
 
           const handleSelectAllVendors = (e: React.ChangeEvent<HTMLInputElement>) => {
             if (e.target.checked) {
@@ -1038,7 +1467,14 @@ const App: React.FC = () => {
                   <ArrowLeft size={20} /> Back to Vendors
                 </button>
                 <button
-                  onClick={() => window.print()}
+                  onClick={() => {
+                    if (selectedVendor) {
+                      document.title = `Vendor_Statement_${selectedVendor.name.replace(/[^a-zA-Z0-9_-]/g, '_')}_${new Date().toISOString().split('T')[0]}`;
+                    }
+                    setTimeout(() => {
+                      window.print();
+                    }, 50);
+                  }}
                   className="bg-slate-900 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"
                 >
                   <Printer size={18} /> Print Statement
@@ -1046,18 +1482,28 @@ const App: React.FC = () => {
               </div>
 
               <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 invoice-container">
-                <div className="flex justify-between items-start mb-10 pb-8 border-b border-gray-100">
+                <div className="flex justify-between items-start mb-8 pb-6 border-b border-gray-100">
                   <div>
-                    <h2 className="text-3xl font-black text-gray-900 mb-2">Vendor Statement</h2>
-                    <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Accounts Payable</p>
+                    <h2 className="text-3xl font-black text-gray-900 mb-1">Vendor Statement</h2>
+                    <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Accounts Payable Ledger</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-black text-red-600">{totalPayable.toFixed(2)} AED</p>
-                    <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Total Outstanding Payable</p>
+                  <div className="flex gap-6 text-right">
+                    <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                      <p className="text-xs text-gray-400 font-black uppercase tracking-widest">Total Billed</p>
+                      <p className="text-lg font-black text-gray-800">{totalBilled.toFixed(2)} AED</p>
+                    </div>
+                    <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100">
+                      <p className="text-xs text-emerald-600 font-black uppercase tracking-widest">Paid Amount</p>
+                      <p className="text-lg font-black text-emerald-700">{totalPaid.toFixed(2)} AED</p>
+                    </div>
+                    <div className="bg-red-50 p-3 rounded-xl border border-red-100">
+                      <p className="text-xs text-red-500 font-black uppercase tracking-widest">Outstanding Payable</p>
+                      <p className="text-xl font-black text-red-600">{totalPayable.toFixed(2)} AED</p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-10 mb-10">
+                <div className="grid grid-cols-2 gap-10 mb-8">
                   <div>
                     <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Vendor Details</h4>
                     <p className="font-bold text-lg text-gray-900">{selectedVendor.name}</p>
@@ -1094,7 +1540,7 @@ const App: React.FC = () => {
                         className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs outline-none focus:ring-2 focus:ring-orange-500 font-bold bg-white text-gray-700 cursor-pointer shadow-sm"
                       >
                         <option value="ALL">All Invoices</option>
-                        <option value="UNPAID">Unpaid Only</option>
+                        <option value="UNPAID">Unpaid & Partial Only</option>
                         <option value="PAID_LATEST">Latest Paid</option>
                       </select>
                     </div>
@@ -1104,7 +1550,7 @@ const App: React.FC = () => {
                 <table className="w-full text-left">
                   <thead>
                     <tr className="bg-slate-900 text-white">
-                      <th className="px-6 py-4 no-print w-10">
+                      <th className="px-4 py-4 no-print w-10">
                         <input
                           type="checkbox"
                           checked={displayedInvoices.length > 0 && selectedVendorInvoiceIds.length === displayedInvoices.length}
@@ -1112,130 +1558,278 @@ const App: React.FC = () => {
                           className="w-4 h-4 accent-orange-500 cursor-pointer"
                         />
                       </th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase">Invoice No</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase">From</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase">To</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase">Date</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase">Status</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase text-right">Vendor Cost</th>
+                      <th className="px-4 py-4 text-[10px] font-black uppercase">Invoice No</th>
+                      <th className="px-4 py-4 text-[10px] font-black uppercase">From</th>
+                      <th className="px-4 py-4 text-[10px] font-black uppercase">To</th>
+                      <th className="px-4 py-4 text-[10px] font-black uppercase">Date & Aging</th>
+                      <th className="px-4 py-4 text-[10px] font-black uppercase text-right">Vendor Cost</th>
+                      <th className="px-4 py-4 text-[10px] font-black uppercase text-right">Paid Amount</th>
+                      <th className="px-4 py-4 text-[10px] font-black uppercase text-right">Balance Due</th>
+                      <th className="px-4 py-4 text-[10px] font-black uppercase text-center">Status / Payment Ref</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 border-b border-gray-100">
                     {displayedInvoices.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="text-center py-20 text-gray-400 font-medium">No records found for this selection.</td>
+                        <td colSpan={9} className="text-center py-20 text-gray-400 font-medium">No records found for this selection.</td>
                       </tr>
                     ) : (
-                      displayedInvoices.map(inv => (
-                        <tr 
-                          key={inv.id}
-                          className={`${selectedVendorInvoiceIds.length > 0 && !selectedVendorInvoiceIds.includes(inv.id) ? 'no-print opacity-40' : ''} hover:bg-gray-50 transition-colors`}
-                        >
-                          <td className="px-6 py-5 no-print">
-                            <input
-                              type="checkbox"
-                              checked={selectedVendorInvoiceIds.includes(inv.id)}
-                              onChange={() => toggleVendorInvoiceSelection(inv.id)}
-                              className="w-4 h-4 accent-orange-500 cursor-pointer"
-                            />
-                          </td>
-                          <td className="px-6 py-5 font-bold text-gray-900">
-                            <div>{inv.invoiceNumber}</div>
-                            {showVendorDescriptions && inv.items && inv.items.length > 0 && (
-                              <div className="text-xs text-gray-500 font-normal mt-1 space-y-0.5 max-w-xs">
-                                {inv.items.map((item, idx) => (
-                                  <div key={idx} className="border-l-2 border-orange-200 pl-2">
-                                    {item.description}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-6 py-5">
-                            <span className="text-[10px] font-black px-2 py-1 rounded bg-orange-50 text-orange-700 border border-orange-100 uppercase">
-                              {inv.items[0]?.coo || 'N/A'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-5">
-                            <span className="text-[10px] font-black px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-100 uppercase">
-                              {inv.destinationCountry}
-                            </span>
-                          </td>
-                          <td className="px-6 py-5 text-gray-600 text-sm">
-                            <div className="font-bold text-gray-800">{new Date(inv.date).toLocaleDateString()}</div>
-                            <div className="text-[11px] font-medium text-orange-600 mt-0.5 whitespace-nowrap">
-                              {getInvoiceAging(inv.date, inv.vendorStatus === 'PAID', inv.vendorPaymentDate)}
-                            </div>
-                          </td>
-                          <td className="px-6 py-5">
-                            <div className="flex flex-col gap-1">
-                              <button
-                                onClick={() => {
-                                  if (inv.vendorStatus === 'UNPAID') {
-                                    const dateStr = prompt('Enter vendor payment date (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
-                                    if (dateStr === null) return;
-                                    const refStr = prompt('Enter vendor transaction reference (optional):', '');
-                                    if (refStr === null) return;
-                                    handleUpdateVendorStatus(inv.id, 'PAID', dateStr || undefined, refStr);
-                                  } else {
-                                    handleUpdateVendorStatus(inv.id, 'UNPAID');
-                                  }
-                                }}
-                                className={`text-[10px] font-black px-3 py-1.5 rounded-full transition-all hover:scale-105 active:scale-95 no-print w-fit ${inv.vendorStatus === 'PAID' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'
-                                  }`}
-                              >
-                                {inv.vendorStatus}
-                              </button>
-                              <span className={`print-only text-[10px] font-black px-3 py-1.5 rounded-full ${inv.vendorStatus === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                {inv.vendorStatus}
-                              </span>
-                              {inv.vendorStatus === 'PAID' && (
-                                <div
-                                  className="text-[10px] text-gray-500 font-bold cursor-pointer hover:text-orange-600 no-print space-y-0.5"
-                                  onClick={() => {
-                                    const dateStr = prompt('Update vendor payment date (YYYY-MM-DD):', inv.vendorPaymentDate || new Date().toISOString().split('T')[0]);
-                                    if (dateStr === null) return;
-                                    const refStr = prompt('Update vendor transaction reference:', inv.vendorTransactionReference || '');
-                                    if (refStr === null) return;
-                                    handleUpdateVendorStatus(inv.id, 'PAID', dateStr || undefined, refStr);
-                                  }}
-                                  title="Click to update payment details"
-                                >
-                                  <div className="underline decoration-dashed">
-                                    📅 {inv.vendorPaymentDate ? new Date(inv.vendorPaymentDate).toLocaleDateString() : 'N/A'}
-                                  </div>
-                                  {inv.vendorTransactionReference && (
-                                    <div className="underline decoration-dashed text-blue-500">
-                                      🔖 {inv.vendorTransactionReference}
+                      displayedInvoices.map(inv => {
+                        const paid = inv.vendorStatus === 'PAID' ? inv.vendorCost : (inv.vendorStatus === 'PARTIAL' ? (inv.vendorPaidAmount || 0) : 0);
+                        const balance = inv.vendorStatus === 'PAID' ? 0 : (inv.vendorStatus === 'PARTIAL' ? Math.max(0, inv.vendorCost - (inv.vendorPaidAmount || 0)) : inv.vendorCost);
+                        const statusColor = inv.vendorStatus === 'PAID'
+                          ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-300'
+                          : inv.vendorStatus === 'PARTIAL'
+                            ? 'bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-300'
+                            : 'bg-red-100 text-red-700 hover:bg-red-200 border-red-300';
+
+                        return (
+                          <tr 
+                            key={inv.id}
+                            className={`${selectedVendorInvoiceIds.length > 0 && !selectedVendorInvoiceIds.includes(inv.id) ? 'no-print opacity-40' : ''} hover:bg-gray-50 transition-colors`}
+                          >
+                            <td className="px-4 py-5 no-print">
+                              <input
+                                type="checkbox"
+                                checked={selectedVendorInvoiceIds.includes(inv.id)}
+                                onChange={() => toggleVendorInvoiceSelection(inv.id)}
+                                className="w-4 h-4 accent-orange-500 cursor-pointer"
+                              />
+                            </td>
+                            <td className="px-4 py-5 font-bold text-gray-900">
+                              <div>{inv.invoiceNumber}</div>
+                              {showVendorDescriptions && inv.items && inv.items.length > 0 && (
+                                <div className="text-xs text-gray-500 font-normal mt-1 space-y-0.5 max-w-xs">
+                                  {inv.items.map((item, idx) => (
+                                    <div key={idx} className="border-l-2 border-orange-200 pl-2">
+                                      {item.description}
                                     </div>
-                                  )}
+                                  ))}
                                 </div>
                               )}
-                              {inv.vendorStatus === 'PAID' && (
-                                <div className="text-[10px] text-gray-500 font-bold print-only space-y-0.5">
-                                  {inv.vendorPaymentDate && <div>Paid: {new Date(inv.vendorPaymentDate).toLocaleDateString()}</div>}
-                                  {inv.vendorTransactionReference && <div>Ref: {inv.vendorTransactionReference}</div>}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-5 text-right font-black text-gray-900">{inv.vendorCost.toFixed(2)} AED</td>
-                        </tr>
-                      ))
+                            </td>
+                            <td className="px-4 py-5">
+                              <span className="text-[10px] font-black px-2 py-1 rounded bg-orange-50 text-orange-700 border border-orange-100 uppercase">
+                                {inv.items[0]?.coo || 'N/A'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-5">
+                              <span className="text-[10px] font-black px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-100 uppercase">
+                                {inv.destinationCountry}
+                              </span>
+                            </td>
+                            <td className="px-4 py-5 text-gray-600 text-sm">
+                              <div className="font-bold text-gray-800">{new Date(inv.date).toLocaleDateString()}</div>
+                              <div className="text-[11px] font-medium text-orange-600 mt-0.5 whitespace-nowrap">
+                                {getInvoiceAging(inv.date, inv.vendorStatus === 'PAID', inv.vendorPaymentDate)}
+                              </div>
+                            </td>
+                            <td className="px-4 py-5 text-right font-black text-gray-900">{inv.vendorCost.toFixed(2)} AED</td>
+                            <td className="px-4 py-5 text-right font-bold text-emerald-600">{paid.toFixed(2)} AED</td>
+                            <td className="px-4 py-5 text-right font-black text-red-600">{balance.toFixed(2)} AED</td>
+                            <td className="px-4 py-5 text-center">
+                              <div className="flex flex-col items-center gap-1">
+                                <button
+                                  onClick={() => openVendorPaymentModal(inv)}
+                                  className={`text-[10px] font-black px-3 py-1.5 rounded-full transition-all hover:scale-105 active:scale-95 no-print border w-fit shadow-sm ${statusColor}`}
+                                  title="Click to update vendor payment amount, date & ref"
+                                >
+                                  {inv.vendorStatus || 'UNPAID'} ✏️
+                                </button>
+                                <span className={`print-only text-[10px] font-black px-3 py-1.5 rounded-full border ${statusColor}`}>
+                                  {inv.vendorStatus || 'UNPAID'}
+                                </span>
+                                {inv.vendorPaymentDate && (
+                                  <div className="text-[10px] text-gray-500 font-bold space-y-0.5">
+                                    <div className="underline decoration-dashed">
+                                      📅 {new Date(inv.vendorPaymentDate).toLocaleDateString()}
+                                    </div>
+                                    {inv.vendorTransactionReference && (
+                                      <div className="text-blue-600">
+                                        🔖 {inv.vendorTransactionReference}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                   <tfoot>
                     <tr className="bg-gray-50">
-                      <td colSpan={3} className="px-6 py-5 text-right text-xs font-black text-gray-500 uppercase">
-                        {vendorInvoiceFilter === 'PAID_LATEST' ? 'Total Paid' : 'Total Payable'}
+                      <td colSpan={5} className="px-4 py-5 text-right text-xs font-black text-gray-500 uppercase">
+                        Summary Totals
                       </td>
-                      <td className={`px-6 py-5 text-right font-black text-lg ${vendorInvoiceFilter === 'PAID_LATEST' ? 'text-green-600' : 'text-red-600'}`}>
-                        {(vendorInvoiceFilter === 'PAID_LATEST' ? totalPaid : totalPayable).toFixed(2)} AED
+                      <td className="px-4 py-5 text-right font-black text-base text-gray-900">
+                        {totalBilled.toFixed(2)} AED
                       </td>
+                      <td className="px-4 py-5 text-right font-black text-base text-emerald-600">
+                        {totalPaid.toFixed(2)} AED
+                      </td>
+                      <td className="px-4 py-5 text-right font-black text-base text-red-600">
+                        {totalPayable.toFixed(2)} AED
+                      </td>
+                      <td></td>
                     </tr>
                   </tfoot>
                 </table>
               </div>
+
+              {/* Vendor Payment Edit Modal */}
+              {vendorPaymentModalInvoice && (
+                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in">
+                  <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-gray-100 space-y-6">
+                    <div className="flex justify-between items-start border-b border-gray-100 pb-4">
+                      <div>
+                        <h3 className="text-xl font-black text-gray-900">Update Vendor Payment</h3>
+                        <p className="text-xs text-gray-500 font-bold mt-0.5">
+                          Invoice #{vendorPaymentModalInvoice.invoiceNumber} • Vendor: {vendorPaymentModalInvoice.vendorName || selectedVendor.name}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setVendorPaymentModalInvoice(null)}
+                        className="text-gray-400 hover:text-gray-600 text-xl font-bold"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <div className="bg-gray-50 p-4 rounded-xl flex justify-between items-center">
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Total Vendor Freight Bill</span>
+                      <span className="text-lg font-black text-gray-900">{vendorPaymentModalInvoice.vendorCost.toFixed(2)} AED</span>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-black text-gray-700 uppercase tracking-widest mb-2">Select Payment Status</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalVendorStatus('UNPAID');
+                              setModalVendorPaidAmount(0);
+                            }}
+                            className={`py-2.5 px-3 rounded-xl text-xs font-black border transition-all ${
+                              modalVendorStatus === 'UNPAID'
+                                ? 'bg-red-500 text-white border-red-600 shadow-md'
+                                : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                            }`}
+                          >
+                            🔴 UNPAID
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalVendorStatus('PARTIAL');
+                              if (modalVendorPaidAmount === 0 || modalVendorPaidAmount >= vendorPaymentModalInvoice.vendorCost) {
+                                setModalVendorPaidAmount(Math.round(vendorPaymentModalInvoice.vendorCost / 2));
+                              }
+                            }}
+                            className={`py-2.5 px-3 rounded-xl text-xs font-black border transition-all ${
+                              modalVendorStatus === 'PARTIAL'
+                                ? 'bg-amber-500 text-white border-amber-600 shadow-md'
+                                : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                            }`}
+                          >
+                            🟡 PARTIAL
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalVendorStatus('PAID');
+                              setModalVendorPaidAmount(vendorPaymentModalInvoice.vendorCost);
+                            }}
+                            className={`py-2.5 px-3 rounded-xl text-xs font-black border transition-all ${
+                              modalVendorStatus === 'PAID'
+                                ? 'bg-emerald-600 text-white border-emerald-700 shadow-md'
+                                : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                            }`}
+                          >
+                            🟢 FULLY PAID
+                          </button>
+                        </div>
+                      </div>
+
+                      {modalVendorStatus === 'PARTIAL' && (
+                        <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 space-y-3 animate-in fade-in">
+                          <div className="flex justify-between items-center">
+                            <label className="text-xs font-black text-amber-900 uppercase tracking-wider">Paid Amount (AED)</label>
+                            <span className="text-xs font-black text-amber-700">
+                              Remaining: {Math.max(0, vendorPaymentModalInvoice.vendorCost - modalVendorPaidAmount).toFixed(2)} AED
+                            </span>
+                          </div>
+                          <input
+                            type="number"
+                            min="0"
+                            max={vendorPaymentModalInvoice.vendorCost}
+                            step="any"
+                            value={modalVendorPaidAmount}
+                            onChange={(e) => setModalVendorPaidAmount(parseFloat(e.target.value) || 0)}
+                            className="w-full px-4 py-2.5 rounded-lg border border-amber-300 bg-white text-gray-900 font-black text-base outline-none focus:ring-2 focus:ring-amber-500"
+                            placeholder="Enter amount paid"
+                          />
+                        </div>
+                      )}
+
+                      {modalVendorStatus !== 'UNPAID' && (
+                        <>
+                          <div>
+                            <label className="block text-xs font-black text-gray-700 uppercase tracking-widest mb-1">Payment Date</label>
+                            <input
+                              type="date"
+                              value={modalVendorPaymentDate}
+                              onChange={(e) => setModalVendorPaymentDate(e.target.value)}
+                              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 font-bold text-sm outline-none focus:ring-2 focus:ring-orange-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-black text-gray-700 uppercase tracking-widest mb-1">Payment Reference / Cheque # / Bank Ref</label>
+                            <input
+                              type="text"
+                              value={modalVendorPaymentRef}
+                              onChange={(e) => setModalVendorPaymentRef(e.target.value)}
+                              placeholder="e.g. Cheque #49281, Bank Transfer Ref #92819"
+                              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 font-bold text-sm outline-none focus:ring-2 focus:ring-orange-500"
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await handleUpdateVendorStatus(
+                            vendorPaymentModalInvoice.id,
+                            modalVendorStatus,
+                            modalVendorStatus !== 'UNPAID' ? modalVendorPaymentDate : undefined,
+                            modalVendorStatus !== 'UNPAID' ? modalVendorPaymentRef : undefined,
+                            modalVendorStatus === 'PAID' 
+                              ? vendorPaymentModalInvoice.vendorCost 
+                              : (modalVendorStatus === 'PARTIAL' ? modalVendorPaidAmount : 0)
+                          );
+                          setVendorPaymentModalInvoice(null);
+                        }}
+                        className="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-black py-3 rounded-xl transition-all shadow-lg text-sm"
+                      >
+                        Save Payment
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVendorPaymentModalInvoice(null)}
+                        className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3 rounded-xl transition-all text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           );
         }
@@ -1328,7 +1922,7 @@ const App: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredVendors.map(v => {
-                    const payable = invoices.filter(inv => inv.vendorId === v.id && inv.vendorStatus !== 'PAID').reduce((s, i) => s + i.vendorCost, 0);
+                    const payable = invoices.filter(inv => inv.vendorId === v.id).reduce((s, i) => s + (i.vendorStatus === 'PAID' ? 0 : (i.vendorStatus === 'PARTIAL' ? Math.max(0, i.vendorCost - (i.vendorPaidAmount || 0)) : i.vendorCost)), 0);
                     return (
                       <tr key={v.id} className="group">
                         <td className="px-6 py-4 font-bold">{v.name}</td>
@@ -1452,53 +2046,74 @@ const App: React.FC = () => {
         setActiveTab={setActiveTab}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
+        currentUser={currentUser}
       />
 
       <main className={`lg:pl-64 min-h-screen bg-gray-50 ${activeTab === 'view-invoice' ? 'bg-white' : ''}`}>
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-8 sticky top-0 z-10 no-print">
-          <div className="flex items-center gap-4">
+        <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-3 sm:px-6 sticky top-0 z-10 no-print">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
+              className="lg:hidden p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg"
             >
-              <Menu size={24} />
+              <Menu size={20} />
             </button>
-            <div className="relative w-48 lg:w-96">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <div className="relative w-44 sm:w-72 lg:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
               <input
                 placeholder={`Search in ${activeTab.replace('-', ' ')}...`}
-                className="w-full bg-gray-50 border border-gray-100 rounded-lg pl-10 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-500 transition-all font-medium"
+                className="w-full bg-gray-50 border border-gray-100 rounded-lg pl-9 pr-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-orange-500 transition-all font-medium"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
           </div>
-          <div className="flex items-center gap-2 lg:gap-6">
-            <div className="relative cursor-pointer text-gray-500 hover:text-orange-600 p-2">
-              <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-orange-500 rounded-full border-2 border-white"></span>
+          <div className="flex items-center gap-2 lg:gap-5">
+            <div className="relative cursor-pointer text-gray-500 hover:text-orange-600 p-1.5">
+              <Bell size={18} />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full border-2 border-white"></span>
             </div>
-            <div className="flex items-center gap-3 lg:pl-6 lg:border-l border-gray-200">
+            <div className="flex items-center gap-2.5 lg:pl-5 lg:border-l border-gray-200">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-gray-900 leading-none">{currentUser.name}</p>
-                <p className="text-[10px] text-orange-600 font-bold mt-1 uppercase">{companyInfo.name}</p>
+                <div className="flex items-center justify-end gap-1.5">
+                  <p className="text-xs font-bold text-gray-900 leading-none">{currentUser.name}</p>
+                  <span className={`text-[8.5px] font-black uppercase px-1.5 py-0.5 rounded-full border ${
+                    currentUser.role === 'ADMIN' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                    currentUser.role === 'MANAGER' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                    currentUser.role === 'ACCOUNTANT' ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                    'bg-emerald-100 text-emerald-800 border-emerald-200'
+                  }`}>
+                    {currentUser.role}
+                  </span>
+                </div>
+                <p className="text-[9px] text-orange-600 font-bold mt-0.5 uppercase">{companyInfo.name}</p>
               </div>
               <button
                 onClick={handleLogout}
-                className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
                 title="Logout"
               >
-                <LogOut size={20} />
+                <LogOut size={18} />
               </button>
-              <UserCircle size={32} className="text-gray-300" />
+              <UserCircle size={28} className="text-gray-300" />
             </div>
           </div>
         </header>
 
-        <div className="p-4 lg:p-8">
+        <div className="p-3 sm:p-4 lg:p-6 max-w-full">
           {renderContent()}
         </div>
       </main>
+
+      {/* Quick Carrier & AWB Assignment Modal */}
+      {carrierModalInvoice && (
+        <CarrierAwbModal
+          invoice={carrierModalInvoice}
+          currentUser={currentUser}
+          onClose={() => setCarrierModalInvoice(null)}
+          onSave={handleQuickUpdateCarrier}
+        />
+      )}
     </div>
   );
 };

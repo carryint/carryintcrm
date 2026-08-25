@@ -79,6 +79,15 @@ const AdjustmentsManagement: React.FC<AdjustmentsManagementProps> = ({
     }
   }, [preSelectedInvoice, preSelectedType, onClearPreSelections]);
 
+  React.useEffect(() => {
+    if (activeView === 'VIEW' && selectedNote?.noteNumber) {
+      document.title = selectedNote.noteNumber;
+    }
+    return () => {
+      document.title = 'Carryint CRM & Invoicing';
+    };
+  }, [activeView, selectedNote?.noteNumber]);
+
   const generateNextNoteNumber = (type: 'CREDIT' | 'DEBIT', originalInvoiceNumber?: string) => {
     const prefix = type === 'CREDIT' ? 'CN' : 'DN';
     if (!originalInvoiceNumber) return `${prefix}-PENDING`;
@@ -240,10 +249,12 @@ const AdjustmentsManagement: React.FC<AdjustmentsManagementProps> = ({
           <div className="flex gap-2">
             <button
               onClick={() => {
-                const originalTitle = document.title;
-                document.title = selectedNote.noteNumber;
-                window.print();
-                document.title = originalTitle;
+                if (selectedNote?.noteNumber) {
+                  document.title = selectedNote.noteNumber;
+                }
+                setTimeout(() => {
+                  window.print();
+                }, 50);
               }}
               className="bg-orange-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg flex items-center gap-2 hover:bg-orange-700 transition-all"
             >
@@ -254,7 +265,7 @@ const AdjustmentsManagement: React.FC<AdjustmentsManagementProps> = ({
 
         <div className="bg-white p-8 max-w-4xl mx-auto shadow-2xl border border-gray-200 my-4 invoice-container">
           {/* Header */}
-          <div className="flex justify-between items-end mb-6 border-b-2 border-orange-500 pb-4">
+          <div className="flex flex-col sm:flex-row print-flex-row justify-between items-start sm:items-end mb-6 border-b-2 border-orange-500 pb-4">
             <div>
               <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">
                 {selectedNote.type === 'CREDIT' ? 'Credit Note' : 'Debit Note'}
@@ -264,10 +275,10 @@ const AdjustmentsManagement: React.FC<AdjustmentsManagementProps> = ({
               </p>
               <p className="text-xs font-bold text-orange-600">TRN: {companyInfo.trn}</p>
             </div>
-            <div className="text-right">
-              <Logo src={companyInfo.logoUrl} className="h-14 mb-1 ml-auto" />
+            <div className="sm:text-right print-text-right text-left w-full sm:w-auto print-w-auto flex flex-col items-start sm:items-end print-items-end">
+              <Logo src={companyInfo.logoUrl} className="h-10 sm:h-14 print-h-14 mb-1 sm:ml-auto print-ml-auto" />
               <p className="font-black text-base text-gray-800">{companyInfo.name}</p>
-              <p className="text-[10px] text-gray-600 max-w-xs ml-auto leading-tight">{companyInfo.address}</p>
+              <p className="text-[10px] text-gray-600 max-w-xs sm:ml-auto print-ml-auto leading-tight">{companyInfo.address}</p>
               <p className="text-[10px] text-gray-600">Tel: {companyInfo.contact}</p>
               <p className="text-[10px] text-gray-600">Email: {companyInfo.email}</p>
               <p className="text-[10px] text-gray-600 font-bold">{companyInfo.website}</p>
@@ -547,14 +558,22 @@ const AdjustmentsManagement: React.FC<AdjustmentsManagementProps> = ({
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                   <label className="text-xs font-black text-gray-500 uppercase tracking-widest block mb-3">Adjustment Amount (AED)</label>
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
+                    type="text"
+                    inputMode="decimal"
                     required
                     placeholder="0.00"
                     className="w-full px-4 py-3 border border-amber-200 bg-amber-50 text-slate-900 rounded-lg outline-none focus:ring-2 focus:ring-orange-500 transition-all font-bold"
                     value={noteAmount}
-                    onChange={e => setNoteAmount(e.target.value)}
+                    onFocus={(e) => {
+                      if (noteAmount === '0' || noteAmount === '0.00') setNoteAmount('');
+                      else e.target.select();
+                    }}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(',', '.');
+                      if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                        setNoteAmount(raw);
+                      }
+                    }}
                   />
                 </div>
               </div>

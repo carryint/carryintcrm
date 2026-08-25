@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabase';
+import { prepareInvoiceForSupabase } from '../utils';
 
 export const MigrationTool: React.FC = () => {
   const [status, setStatus] = useState<string>('Ready to migrate');
@@ -48,11 +49,11 @@ export const MigrationTool: React.FC = () => {
           const { error } = await supabase.from('vendors').upsert(data.vendors);
           if (error) throw error;
         }
-
         // 4. Invoices
         if (data.invoices && data.invoices.length > 0) {
           setStatus('Migrating invoices...');
-          const { error } = await supabase.from('invoices').upsert(data.invoices);
+          const preparedInvoices = data.invoices.map(prepareInvoiceForSupabase);
+          const { error } = await supabase.from('invoices').upsert(preparedInvoices);
           if (error) throw error;
         }
 

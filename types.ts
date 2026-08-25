@@ -1,7 +1,7 @@
 
 export type PaymentStatus = 'PAID' | 'UNPAID' | 'PARTIAL';
 export type CustomerType = 'ONE_TIME' | 'CREDIT';
-export type UserRole = 'ADMIN' | 'STAFF';
+export type UserRole = 'ADMIN' | 'MANAGER' | 'STAFF' | 'ACCOUNTANT';
 
 export interface User {
   id: string;
@@ -9,14 +9,171 @@ export interface User {
   email: string;
   password?: string;
   role: UserRole;
+  phone?: string;
+  department?: string;
+  createdAt?: string;
 }
 
 export interface AuditLog {
-  action: 'CREATE' | 'EDIT' | 'DELETE';
+  action: 'CREATE' | 'EDIT' | 'DELETE' | 'APPROVE' | 'REJECT' | 'CLOSE_PERIOD' | 'POST_JOURNAL';
   userId: string;
   userName: string;
+  userRole?: UserRole;
   timestamp: string;
+  module?: string;
   details?: string;
+}
+
+export interface AccountLedger {
+  id: string;
+  code: string;
+  name: string;
+  category: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+  type: string; // e.g. 'Bank Account', 'Accounts Receivable', 'Cost of Sales', etc.
+  openingBalance: number;
+  currentBalance: number;
+  currency: string;
+  description?: string;
+  createdAt: string;
+}
+
+export interface JournalEntryLine {
+  ledgerId: string;
+  ledgerName: string;
+  description: string;
+  debit: number;
+  credit: number;
+}
+
+export interface JournalEntry {
+  id: string;
+  entryNumber: string;
+  date: string;
+  reference: string;
+  memo: string;
+  lines: JournalEntryLine[];
+  totalDebit: number;
+  totalCredit: number;
+  status: 'DRAFT' | 'POSTED' | 'VOID';
+  createdBy: string;
+  createdByName: string;
+  approvedBy?: string;
+  createdAt: string;
+}
+
+export interface BankReconciliation {
+  id: string;
+  bankAccount: string;
+  statementDate: string;
+  statementEndingBalance: number;
+  bookBalance: number;
+  clearedDeposits: number;
+  clearedWithdrawals: number;
+  difference: number;
+  status: 'IN_PROGRESS' | 'RECONCILED';
+  reconciledBy: string;
+  reconciledAt?: string;
+  notes?: string;
+}
+
+export interface VATFiling {
+  id: string;
+  taxPeriod: string; // e.g. '2026-Q1'
+  startDate: string;
+  endDate: string;
+  standardRatedSupplies: number; // Box 1a
+  standardRatedVat: number;      // Box 1b
+  zeroRatedSupplies: number;     // Box 4
+  exemptSupplies: number;        // Box 5
+  standardRatedExpenses: number; // Box 8
+  recoverableVat: number;        // Box 9
+  netVatDue: number;             // Box 12
+  status: 'DRAFT' | 'PREPARED' | 'FILED' | 'PAID';
+  ftaFilingReference?: string;
+  filedDate?: string;
+  paymentDeadline?: string;
+  preparedBy: string;
+}
+
+export interface CorporateTaxRecord {
+  id: string;
+  taxYear: string; // e.g. '2026'
+  accountingNetProfit: number;
+  exemptIncome: number;
+  nonDeductibleExpenses: number;
+  netTaxAdjustments: number;
+  taxableIncome: number;
+  smallBusinessReliefEligible: boolean; // Up to 3,000,000 AED threshold
+  taxRate: number; // 0% up to 375k, 9% above
+  taxLiability: number;
+  status: 'PROVISIONAL' | 'CALCULATED' | 'FILED' | 'PAID';
+  filingDeadline: string;
+  paymentDeadline: string;
+  filingReference?: string;
+  notes?: string;
+  preparedBy: string;
+}
+
+export interface TaxDeadlineItem {
+  id: string;
+  title: string;
+  category: 'VAT' | 'CORPORATE_TAX' | 'AUDIT' | 'CLOSING';
+  dueDate: string;
+  type: 'FILING' | 'PAYMENT' | 'INTERNAL';
+  status: 'PENDING' | 'COMPLETED' | 'OVERDUE';
+  amount?: number;
+  notes?: string;
+}
+
+export interface FixedAsset {
+  id: string;
+  assetCode: string;
+  name: string;
+  category: 'VEHICLE' | 'OFFICE_EQUIPMENT' | 'FURNITURE' | 'IT_HARDWARE' | 'MACHINERY';
+  purchaseDate: string;
+  purchasePrice: number;
+  salvageValue: number;
+  usefulLifeYears: number;
+  depreciationMethod: 'STRAIGHT_LINE' | 'DECLINING_BALANCE';
+  accumulatedDepreciation: number;
+  netBookValue: number;
+  location?: string;
+  assignedTo?: string;
+}
+
+export interface PeriodClosing {
+  id: string;
+  periodName: string; // e.g. 'January 2026', 'FY 2025'
+  periodType: 'MONTH' | 'YEAR';
+  startDate: string;
+  endDate: string;
+  isLocked: boolean;
+  closedBy?: string;
+  closedAt?: string;
+  checklist: {
+    bankReconciled: boolean;
+    vatReconciled: boolean;
+    depreciationPosted: boolean;
+    journalsVerified: boolean;
+    managementApproved: boolean;
+  };
+}
+
+export interface AccountingApproval {
+  id: string;
+  type: 'INVOICE_EDIT' | 'EXPENSE_CLAIM' | 'ADJUSTMENT_NOTE' | 'JOURNAL_ENTRY' | 'PERIOD_CLOSING';
+  referenceNumber: string;
+  amount: number;
+  requestedBy: string;
+  requestedByName: string;
+  requestedRole: UserRole;
+  requestedDate: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  approverRole: 'MANAGER' | 'ADMIN' | 'ACCOUNTANT';
+  reviewedBy?: string;
+  reviewedByName?: string;
+  reviewedDate?: string;
+  comments?: string;
 }
 
 export interface CompanyInfo {
@@ -65,9 +222,29 @@ export interface InvoiceItem {
   isAdditionalCharge?: boolean;
 }
 
+export type CarrierName = 'DHL' | 'FedEx' | 'UPS' | 'DPD' | 'Aramex' | 'Direct Freight' | 'Other';
+export type ShipmentStatus = 'BOOKED' | 'PICKED_UP' | 'IN_TRANSIT' | 'CUSTOMS_CLEARANCE' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'ON_HOLD';
+
+export interface TrackingEvent {
+  id: string;
+  date: string;
+  status: ShipmentStatus | string;
+  location: string;
+  description: string;
+  updatedBy?: string;
+}
+
 export interface Invoice {
   id: string;
   invoiceNumber: string;
+  awbNumber?: string;          // Master Carryint AWB (e.g. CARY-104829104)
+  carrier?: CarrierName | string; // Carrier Name: DHL, FedEx, UPS, DPD, etc.
+  carrierTrackingNumber?: string; // Carrier's own AWB / BL / Tracking Number
+  shipmentStatus?: ShipmentStatus; // Current logistics status
+  estimatedDeliveryDate?: string; // Estimated arrival date
+  carrierAssignedAt?: string;  // Timestamp when carrier AWB was updated
+  carrierAssignedBy?: string;  // Staff who updated carrier details
+  trackingEvents?: TrackingEvent[]; // Milestone timeline events
   date: string;
   customerId: string;
   customerName: string;
@@ -91,6 +268,7 @@ export interface Invoice {
   profit: number;
   paymentDate?: string;    // Date when customer paid
   vendorPaymentDate?: string; // Date when vendor was paid
+  vendorPaidAmount?: number; // Amount paid to vendor so far (for partial payments)
   vendorTransactionReference?: string; // Transaction reference for vendor payment
   paymentMethod?: string;  // e.g. Cash, Bank Transfer, Cheque
   transactionReference?: string; // Transaction reference for bank transfers

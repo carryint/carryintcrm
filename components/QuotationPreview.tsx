@@ -35,6 +35,15 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
 }) => {
   const displayTrn = companyInfo.trn;
 
+  React.useEffect(() => {
+    if (quotation?.quotationNumber) {
+      document.title = quotation.quotationNumber;
+    }
+    return () => {
+      document.title = 'Carryint CRM & Invoicing';
+    };
+  }, [quotation?.quotationNumber]);
+
   const getCountryDisplay = (name?: string) => {
     if (!name) return 'N/A';
     return COUNTRY_SHORT_NAMES[name] || name;
@@ -80,7 +89,14 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
           )}
 
           <button
-            onClick={() => window.print()}
+            onClick={() => {
+              if (quotation?.quotationNumber) {
+                document.title = quotation.quotationNumber;
+              }
+              setTimeout(() => {
+                window.print();
+              }, 50);
+            }}
             className="flex items-center gap-2 bg-orange-600 text-white px-5 py-2 rounded-lg font-black hover:bg-orange-700 transition-all shadow-md"
           >
             <Printer size={18} />
@@ -90,29 +106,28 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
       </div>
 
       {/* Printable Quotation Document Container */}
-      <div className="bg-white p-8 max-w-4xl mx-auto shadow-2xl border border-gray-200 my-4 invoice-container rounded-sm">
+      <div className="bg-white p-3.5 sm:p-6 sm:p-8 max-w-4xl mx-auto shadow-xl border border-gray-200 my-2 sm:my-4 invoice-container rounded-xl sm:rounded-none">
         {/* Header */}
-        <div className="flex justify-between items-end mb-6 border-b-2 border-orange-500 pb-5">
+        <div className="flex flex-col sm:flex-row print-flex-row justify-between items-start sm:items-end gap-3 mb-4 sm:mb-6 border-b-2 border-orange-500 pb-4 sm:pb-5">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-100 text-orange-800 rounded-md text-xs font-black uppercase tracking-wider mb-2">
-              <FileCheck size={14} />
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-orange-100 text-orange-800 rounded-md text-[10px] sm:text-xs font-black uppercase tracking-wider mb-1.5">
+              <FileCheck size={13} />
               Official Price Quotation
             </div>
-            <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tight">Price Quotation</h1>
+            <h1 className="text-2xl sm:text-3xl font-black text-gray-900 uppercase tracking-tight">Price Quotation</h1>
             <p className="text-xs font-bold text-orange-600">TRN: {displayTrn}</p>
           </div>
-          <div className="text-right">
-            <Logo src={companyInfo.logoUrl} className="h-14 mb-1 ml-auto" />
-            <p className="font-black text-base text-gray-800">{companyInfo.name}</p>
-            <p className="text-[10px] text-gray-600 max-w-xs ml-auto leading-tight">{companyInfo.address}</p>
-            <p className="text-[10px] text-gray-600">Tel: {companyInfo.contact}</p>
-            <p className="text-[10px] text-gray-600">Email: {companyInfo.email}</p>
+          <div className="sm:text-right print-text-right text-left w-full sm:w-auto print-w-auto flex flex-col items-start sm:items-end print-items-end">
+            <Logo src={companyInfo.logoUrl} className="h-10 sm:h-14 print-h-14 mb-1 sm:ml-auto print-ml-auto" />
+            <p className="font-black text-sm sm:text-base text-gray-800">{companyInfo.name}</p>
+            <p className="text-[10px] text-gray-600 max-w-xs sm:ml-auto print-ml-auto leading-tight">{companyInfo.address}</p>
+            <p className="text-[10px] text-gray-600">Tel: {companyInfo.contact} | Email: {companyInfo.email}</p>
             <p className="text-[10px] text-gray-600 font-bold">{companyInfo.website}</p>
           </div>
         </div>
 
         {/* Validity & Meta Strip */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 print-grid-3 gap-3 mb-6">
           <div className="bg-slate-900 text-white p-3 rounded-xl flex items-center justify-between">
             <div>
               <span className="text-[10px] text-slate-400 uppercase font-black tracking-widest block">Quotation Code</span>
@@ -149,7 +164,7 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
         </div>
 
         {/* Customer & Route Details */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 print-grid-2 gap-6 mb-6">
           {/* Customer Card */}
           <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
             <div className="flex items-center justify-between mb-2">
@@ -210,8 +225,8 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
         </div>
 
         {/* Quotation Items Table */}
-        <div className="mb-6">
-          <table className="w-full text-left border-collapse">
+        <div className="mb-6 overflow-x-auto -mx-1 sm:mx-0">
+          <table className="w-full text-left border-collapse min-w-[560px] sm:min-w-full">
             <thead>
               <tr className="bg-gray-100 text-gray-700 border-b border-gray-200">
                 <th className="py-2.5 px-4 text-[10px] font-black uppercase tracking-wider">Commodity / Service Details</th>
@@ -223,7 +238,7 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
                 <th className="py-2.5 px-4 text-[10px] font-black uppercase tracking-wider text-right">Total (AED)</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 border-b border-gray-200">
+            <tbody className="divide-y divide-gray-100 border-b border-gray-200 text-xs">
               {quotation.items.map((item, idx) => {
                 const lineTotal = item.price;
                 const lineVat = lineTotal * ((item.vatPercent || 0) / 100);
@@ -245,13 +260,13 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
                     <td className="py-3 px-3 text-center text-xs font-medium text-gray-600">
                       {item.cbm ? `${item.cbm} CBM` : '-'}
                     </td>
-                    <td className="py-3 px-4 text-right text-xs font-semibold text-gray-800">
+                    <td className="py-3 px-4 text-right text-xs font-semibold text-gray-800 whitespace-nowrap">
                       {item.price.toFixed(2)}
                     </td>
-                    <td className="py-3 px-3 text-right text-xs font-medium text-gray-600">
+                    <td className="py-3 px-3 text-right text-xs font-medium text-gray-600 whitespace-nowrap">
                       {lineVat > 0 ? `${lineVat.toFixed(2)} (${item.vatPercent}%)` : '0.00'}
                     </td>
-                    <td className="py-3 px-4 text-right text-xs font-black text-gray-900">
+                    <td className="py-3 px-4 text-right text-xs font-black text-gray-900 whitespace-nowrap">
                       {grandLine.toFixed(2)}
                     </td>
                   </tr>
@@ -262,8 +277,8 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
         </div>
 
         {/* Pricing Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col justify-center">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6">
+          <div className="bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-100 flex flex-col justify-center">
             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">
               Quotation Amount in Words
             </span>
@@ -272,7 +287,7 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
             </p>
           </div>
 
-          <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-2">
+          <div className="bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-100 space-y-1.5">
             <div className="flex justify-between text-xs text-gray-600 font-medium">
               <span>Subtotal (Excl. VAT):</span>
               <span className="font-bold text-gray-900">{formatCurrency(quotation.subtotal)}</span>
@@ -292,8 +307,8 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
 
         {/* Terms and Conditions / Notes Section */}
         {quotation.notesAndTerms && (
-          <div className="mb-6 bg-slate-50 border border-slate-200 p-4 rounded-xl">
-            <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+          <div className="mb-6 bg-slate-50 border border-slate-200 p-3 sm:p-4 rounded-xl">
+            <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
               <ShieldAlert size={14} className="text-orange-500" />
               Terms & Conditions / Important Notes
             </h4>
@@ -304,18 +319,18 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
         )}
 
         {/* Signatures & Acceptance Block */}
-        <div className="grid grid-cols-2 gap-10 pt-6 border-t border-gray-200 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 print-grid-2 gap-6 sm:gap-10 pt-4 sm:pt-6 border-t border-gray-200 text-xs">
           <div>
             <p className="font-black text-gray-900 uppercase text-[11px] mb-1">For Carryint Shipping Services L.L.C</p>
-            <p className="text-[10px] text-gray-500 mb-8">Authorized Signatory / Operations Dept</p>
+            <p className="text-[10px] text-gray-500 mb-6 sm:mb-8">Authorized Signatory / Operations Dept</p>
             <div className="w-44 border-b border-gray-400"></div>
             <p className="text-[10px] text-gray-400 mt-1">Authorized Signature & Stamp</p>
           </div>
 
-          <div className="text-right">
+          <div className="sm:text-right print-text-right">
             <p className="font-black text-gray-900 uppercase text-[11px] mb-1">Customer Acceptance & Confirmation</p>
-            <p className="text-[10px] text-gray-500 mb-8">Sign & stamp to approve quotation</p>
-            <div className="w-44 border-b border-gray-400 ml-auto"></div>
+            <p className="text-[10px] text-gray-500 mb-6 sm:mb-8">Sign & stamp to approve quotation</p>
+            <div className="w-44 border-b border-gray-400 sm:ml-auto"></div>
             <p className="text-[10px] text-gray-400 mt-1">Client Signature & Date</p>
           </div>
         </div>

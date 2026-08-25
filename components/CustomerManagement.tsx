@@ -205,7 +205,14 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
           </button>
           <div className="flex gap-2">
             <button
-              onClick={() => window.print()}
+              onClick={() => {
+                if (selectedCustomer) {
+                  document.title = `Customer_Statement_${selectedCustomer.name.replace(/[^a-zA-Z0-9_-]/g, '_')}_${new Date().toISOString().split('T')[0]}`;
+                }
+                setTimeout(() => {
+                  window.print();
+                }, 50);
+              }}
               className="bg-slate-900 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"
             >
               <Printer size={18} /> Print Statement

@@ -1,6 +1,7 @@
 
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
+import { Invoice } from './types';
 
 export const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-AE', {
@@ -158,3 +159,130 @@ export const downloadExcelOnly = (data: { invoices: any[], customers: any[], ven
   link.click();
   URL.revokeObjectURL(url);
 };
+
+/**
+ * Generates an internal Carryint Master Air Waybill (AWB) number
+ * Format: CARY-000000000 (starting with CARY followed by 9 random digits)
+ */
+export const generateAwbNumber = (): string => {
+  const random9Digits = Math.floor(100000000 + Math.random() * 900000000);
+  return `CARY-${random9Digits}`;
+};
+
+/**
+ * Builds the official live direct tracking URL for supported carriers (DHL, FedEx, UPS, DPD, Aramex)
+ */
+export const getCarrierTrackingUrl = (carrier?: string, trackingNumber?: string): string => {
+  if (!trackingNumber || !trackingNumber.trim()) return '';
+  const cleanTrk = trackingNumber.trim();
+  const carrierUpper = (carrier || '').toUpperCase();
+
+  if (carrierUpper.includes('DHL')) {
+    return `https://www.dhl.com/en/express/tracking.html?AWB=${encodeURIComponent(cleanTrk)}`;
+  }
+  if (carrierUpper.includes('FEDEX') || carrierUpper.includes('FDX')) {
+    return `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(cleanTrk)}`;
+  }
+  if (carrierUpper.includes('UPS')) {
+    return `https://www.ups.com/track?tracknum=${encodeURIComponent(cleanTrk)}`;
+  }
+  if (carrierUpper.includes('DPD')) {
+    return `https://tracking.dpd.de/status/en_US/parcel/${encodeURIComponent(cleanTrk)}`;
+  }
+  if (carrierUpper.includes('ARAMEX')) {
+    return `https://www.aramex.com/track/results?mode=0&ShipmentNumber=${encodeURIComponent(cleanTrk)}`;
+  }
+  return `https://www.google.com/search?q=${encodeURIComponent((carrier ? carrier + ' ' : '') + cleanTrk + ' tracking')}`;
+};
+
+const ALLOWED_INVOICE_DB_KEYS = [
+  'id',
+  'invoiceNumber',
+  'date',
+  'customerId',
+  'customerName',
+  'customerAddress',
+  'customerContact',
+  'customerEmail',
+  'customerVat',
+  'destinationCountry',
+  'items',
+  'vendorId',
+  'vendorName',
+  'vendorCost',
+  'agentCommission',
+  'pickupCost',
+  'agentStatus',
+  'status',
+  'vendorStatus',
+  'totalAmount',
+  'totalVat',
+  'netAmount',
+  'profit',
+  'paymentDate',
+  'vendorPaymentDate',
+  'vendorTransactionReference',
+  'paymentMethod',
+  'transactionReference',
+  'companyTrn',
+  'createdBy',
+  'createdByName',
+  'auditLogs'
+];
+
+/**
+ * Prepares an Invoice for Supabase persistence by embedding logistics fields
+ * into items[0]._logistics and stripping top-level unsupported columns.
+ */
+export const prepareInvoiceForSupabase = (inv: Invoice): any => {
+  const logistics = {
+    awbNumber: inv.awbNumber,
+    carrier: inv.carrier,
+    carrierTrackingNumber: inv.carrierTrackingNumber,
+    shipmentStatus: inv.shipmentStatus,
+    estimatedDeliveryDate: inv.estimatedDeliveryDate,
+    carrierAssignedAt: inv.carrierAssignedAt,
+    carrierAssignedBy: inv.carrierAssignedBy,
+    trackingEvents: inv.trackingEvents,
+    vendorPaidAmount: inv.vendorPaidAmount
+  };
+
+  const rawItems = Array.isArray(inv.items) && inv.items.length > 0
+    ? inv.items.map((item, idx) => idx === 0 ? { ...item, _logistics: logistics } : item)
+    : [{ description: 'Shipment Item', quantity: 1, price: inv.totalAmount || 0, vatPercent: 0, _logistics: logistics }];
+
+  const dbObj: any = {};
+  ALLOWED_INVOICE_DB_KEYS.forEach(key => {
+    if (key === 'items') {
+      dbObj.items = rawItems;
+    } else if ((inv as any)[key] !== undefined) {
+      dbObj[key] = (inv as any)[key];
+    }
+  });
+
+  return dbObj;
+};
+
+/**
+ * Hydrates an invoice loaded from Supabase or LocalStorage, restoring
+ * top-level carrier, AWB, tracking milestone, and vendor partial payment fields.
+ */
+export const hydrateInvoiceFromStorage = (raw: any): Invoice => {
+  const firstItemLogistics = raw.items && raw.items[0] && raw.items[0]._logistics ? raw.items[0]._logistics : {};
+  
+  return {
+    ...raw,
+    awbNumber: raw.awbNumber || firstItemLogistics.awbNumber || generateAwbNumber(),
+    carrier: raw.carrier || firstItemLogistics.carrier || undefined,
+    carrierTrackingNumber: raw.carrierTrackingNumber || firstItemLogistics.carrierTrackingNumber || undefined,
+    shipmentStatus: raw.shipmentStatus || firstItemLogistics.shipmentStatus || 'BOOKED',
+    estimatedDeliveryDate: raw.estimatedDeliveryDate || firstItemLogistics.estimatedDeliveryDate || undefined,
+    carrierAssignedAt: raw.carrierAssignedAt || firstItemLogistics.carrierAssignedAt || undefined,
+    carrierAssignedBy: raw.carrierAssignedBy || firstItemLogistics.carrierAssignedBy || undefined,
+    trackingEvents: raw.trackingEvents || firstItemLogistics.trackingEvents || [],
+    vendorPaidAmount: raw.vendorPaidAmount !== undefined ? Number(raw.vendorPaidAmount) : (firstItemLogistics.vendorPaidAmount !== undefined ? Number(firstItemLogistics.vendorPaidAmount) : (raw.vendorStatus === 'PAID' ? Number(raw.vendorCost || 0) : 0))
+  };
+};
+
+
+

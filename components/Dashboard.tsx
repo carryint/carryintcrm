@@ -3,16 +3,17 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, AreaChart, Area, ComposedChart
 } from 'recharts';
-import { TrendingUp, DollarSign, Clock, AlertCircle, CheckCircle, CreditCard, Wallet, X, FileText, ExternalLink, Calendar, Download } from 'lucide-react';
+import { TrendingUp, DollarSign, Clock, AlertCircle, CheckCircle, CreditCard, Wallet, X, FileText, ExternalLink, Calendar, Download, UserCheck, Users } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatCurrency } from '../utils';
-import { Invoice, Expense, AdjustmentNote } from '../types';
+import { Invoice, Expense, AdjustmentNote, User } from '../types';
 
 interface DashboardProps {
   invoices: Invoice[];
   expenses: Expense[];
   adjustmentNotes: AdjustmentNote[];
+  users?: User[];
   onInvoiceClick: (invoice: Invoice) => void;
 }
 
@@ -34,14 +35,21 @@ const RatioIndicator = ({ label, value, color, tooltip }: { label: string, value
   );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNotes, onInvoiceClick }) => {
+const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNotes, users = [], onInvoiceClick }) => {
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [dateFilter, setDateFilter] = useState<'all' | '7days' | '30days' | '60days' | '90days' | 'custom'>('all');
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
+  const [selectedCreatorFilter, setSelectedCreatorFilter] = useState<string>('all');
 
   const filteredInvoices = invoices.filter(inv => {
+    if (selectedCreatorFilter !== 'all') {
+      const matchCreator = inv.createdBy === selectedCreatorFilter || 
+        inv.createdByName?.toLowerCase() === selectedCreatorFilter.toLowerCase();
+      if (!matchCreator) return false;
+    }
+
     if (dateFilter === 'all') return true;
     const itemDate = new Date(inv.date);
     itemDate.setHours(0, 0, 0, 0);
@@ -69,11 +77,7 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
       return itemDate >= limit;
     }
     if (dateFilter === 'custom') {
-      if (customStartDate) {
-        const start = new Date(customStartDate);
-        start.setHours(0, 0, 0, 0);
-        if (itemDate < start) return false;
-      }
+      if (customStartDate && itemDate < new Date(customStartDate)) return false;
       if (customEndDate) {
         const end = new Date(customEndDate);
         end.setHours(23, 59, 59, 999);
@@ -85,6 +89,12 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
   });
 
   const filteredExpenses = expenses.filter(exp => {
+    if (selectedCreatorFilter !== 'all') {
+      const matchCreator = exp.createdBy === selectedCreatorFilter ||
+        exp.createdByName?.toLowerCase() === selectedCreatorFilter.toLowerCase();
+      if (!matchCreator) return false;
+    }
+
     if (dateFilter === 'all') return true;
     const itemDate = new Date(exp.date);
     itemDate.setHours(0, 0, 0, 0);
@@ -112,11 +122,7 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
       return itemDate >= limit;
     }
     if (dateFilter === 'custom') {
-      if (customStartDate) {
-        const start = new Date(customStartDate);
-        start.setHours(0, 0, 0, 0);
-        if (itemDate < start) return false;
-      }
+      if (customStartDate && itemDate < new Date(customStartDate)) return false;
       if (customEndDate) {
         const end = new Date(customEndDate);
         end.setHours(23, 59, 59, 999);
@@ -190,12 +196,10 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
     - filteredAdjustments.filter(n => n.type === 'CREDIT' && n.creditAction !== 'REFUND').reduce((sum, n) => sum + n.amount, 0);
 
   const paidAmount = filteredInvoices
-    .filter(inv => inv.vendorStatus === 'PAID')
-    .reduce((sum, inv) => sum + (inv.vendorCost || 0), 0);
+    .reduce((sum, inv) => sum + (inv.vendorStatus === 'PAID' ? (inv.vendorCost || 0) : (inv.vendorStatus === 'PARTIAL' ? (inv.vendorPaidAmount || 0) : 0)), 0);
 
   const outstandingPayables = filteredInvoices
-    .filter(inv => inv.vendorStatus !== 'PAID')
-    .reduce((sum, inv) => sum + (inv.vendorCost || 0), 0);
+    .reduce((sum, inv) => sum + (inv.vendorStatus === 'PAID' ? 0 : (inv.vendorStatus === 'PARTIAL' ? Math.max(0, (inv.vendorCost || 0) - (inv.vendorPaidAmount || 0)) : (inv.vendorCost || 0))), 0);
 
   const paidAgentCommission = filteredInvoices
     .filter(inv => inv.agentStatus === 'PAID')
@@ -426,16 +430,16 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Date Filter & Export Row */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col lg:flex-row gap-4 items-center justify-between no-print">
-        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-          <span className="text-xs font-black text-gray-500 uppercase tracking-wider mr-2 flex items-center gap-1.5">
-            <Calendar size={14} className="text-orange-500" /> Period:
+      <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col lg:flex-row gap-3 items-center justify-between no-print">
+        <div className="flex flex-wrap items-center gap-1.5 w-full lg:w-auto">
+          <span className="text-[11px] font-black text-gray-500 uppercase tracking-wider mr-1 flex items-center gap-1">
+            <Calendar size={13} className="text-orange-500" /> Period:
           </span>
           <button
             onClick={() => setDateFilter('all')}
-            className={`text-xs font-black px-4 py-2 rounded-full transition-all ${
+            className={`text-xs font-black px-3 py-1.5 rounded-full transition-all ${
               dateFilter === 'all' ? 'bg-slate-900 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
@@ -443,7 +447,7 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
           </button>
           <button
             onClick={() => setDateFilter('7days')}
-            className={`text-xs font-black px-4 py-2 rounded-full transition-all ${
+            className={`text-xs font-black px-3 py-1.5 rounded-full transition-all ${
               dateFilter === '7days' ? 'bg-slate-900 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
@@ -451,7 +455,7 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
           </button>
           <button
             onClick={() => setDateFilter('30days')}
-            className={`text-xs font-black px-4 py-2 rounded-full transition-all ${
+            className={`text-xs font-black px-3 py-1.5 rounded-full transition-all ${
               dateFilter === '30days' ? 'bg-slate-900 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
@@ -459,7 +463,7 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
           </button>
           <button
             onClick={() => setDateFilter('60days')}
-            className={`text-xs font-black px-4 py-2 rounded-full transition-all ${
+            className={`text-xs font-black px-3 py-1.5 rounded-full transition-all ${
               dateFilter === '60days' ? 'bg-slate-900 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
@@ -467,7 +471,7 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
           </button>
           <button
             onClick={() => setDateFilter('90days')}
-            className={`text-xs font-black px-4 py-2 rounded-full transition-all ${
+            className={`text-xs font-black px-3 py-1.5 rounded-full transition-all ${
               dateFilter === '90days' ? 'bg-slate-900 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
@@ -475,7 +479,7 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
           </button>
           <button
             onClick={() => setDateFilter('custom')}
-            className={`text-xs font-black px-4 py-2 rounded-full transition-all ${
+            className={`text-xs font-black px-3 py-1.5 rounded-full transition-all ${
               dateFilter === 'custom' ? 'bg-orange-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
@@ -483,42 +487,59 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
           </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-end">
+        <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto justify-end">
+          {/* Creator Filter for Admins and Managers */}
+          {users.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-lg">
+              <Users size={13} className="text-gray-500" />
+              <select
+                value={selectedCreatorFilter}
+                onChange={(e) => setSelectedCreatorFilter(e.target.value)}
+                className="bg-transparent text-xs font-bold text-gray-700 outline-none cursor-pointer"
+              >
+                <option value="all">All Invoices & Staff</option>
+                {users.map(u => (
+                  <option key={u.id} value={u.name}>👤 {u.name} ({u.role})</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {dateFilter === 'custom' && (
-            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2">
+            <div className="flex items-center gap-1.5 animate-in fade-in slide-in-from-left-2">
               <input
                 type="date"
                 value={customStartDate}
                 onChange={(e) => setCustomStartDate(e.target.value)}
-                className="px-3 py-1.5 border border-amber-200 bg-amber-50 text-xs font-bold text-slate-800 rounded-lg outline-none focus:ring-2 focus:ring-orange-500"
+                className="px-2.5 py-1 border border-amber-200 bg-amber-50 text-xs font-bold text-slate-800 rounded-lg outline-none focus:ring-2 focus:ring-orange-500"
               />
               <span className="text-gray-400 text-xs font-bold">to</span>
               <input
                 type="date"
                 value={customEndDate}
                 onChange={(e) => setCustomEndDate(e.target.value)}
-                className="px-3 py-1.5 border border-amber-200 bg-amber-50 text-xs font-bold text-slate-800 rounded-lg outline-none focus:ring-2 focus:ring-orange-500"
+                className="px-2.5 py-1 border border-amber-200 bg-amber-50 text-xs font-bold text-slate-800 rounded-lg outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
           )}
 
           <button
             onClick={handleDownloadPDF}
-            className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-lg text-xs font-black shadow-md hover:bg-orange-700 active:scale-95 transition-all"
+            className="flex items-center gap-1.5 bg-orange-600 text-white px-3.5 py-1.5 rounded-lg text-xs font-black shadow-md hover:bg-orange-700 active:scale-95 transition-all"
             title="Download PDF Snapshot"
           >
-            <Download size={14} />
+            <Download size={13} />
             Export PDF Snapshot
           </button>
         </div>
       </div>
 
       {/* Primary KPI Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard 
           title="Net Profit" 
           value={formatCurrency(netProfit)} 
-          icon={<TrendingUp />} 
+          icon={<TrendingUp size={18} />} 
           trend={`Margin: ${netMargin.toFixed(1)}%`}
           bgColor="bg-orange-500/10"
           isHero={true}
@@ -526,7 +547,7 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
         <StatCard 
           title="Total Revenue" 
           value={formatCurrency(totalRevenue)} 
-          icon={<DollarSign className="text-blue-600" />} 
+          icon={<DollarSign size={18} className="text-blue-600" />} 
           trend="Total Sales" 
           bgColor="bg-blue-50"
           onClick={() => handleCardClick('Total Revenue')}
@@ -534,30 +555,30 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
         <StatCard 
           title="Gross Profit" 
           value={formatCurrency(grossProfit)} 
-          icon={<TrendingUp className="text-emerald-600" />} 
+          icon={<TrendingUp size={18} className="text-emerald-600" />} 
           trend={`Margin: ${grossMargin.toFixed(1)}%`} 
           bgColor="bg-emerald-50"
         />
         <StatCard 
           title="Company Expenses" 
           value={formatCurrency(totalExpenses)} 
-          icon={<Wallet className="text-red-600" />} 
+          icon={<Wallet size={18} className="text-red-600" />} 
           trend={`Ratio: ${expenseRatio.toFixed(1)}%`} 
           bgColor="bg-red-50"
           onClick={() => handleCardClick('Company Expenses')}
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
         {/* Cash Flow & Payables Breakdown */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Cash flow & Receivables (Inflow)</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-3 sm:space-y-4">
+          <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-gray-100">
+            <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-3">Cash flow & Receivables (Inflow)</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <StatCard 
                 title="Received Amount" 
                 value={formatCurrency(receivedAmount)} 
-                icon={<CheckCircle className="text-emerald-600" />} 
+                icon={<CheckCircle size={18} className="text-emerald-600" />} 
                 trend={`${cashCollectionRate.toFixed(1)}% Collected`} 
                 bgColor="bg-emerald-50"
                 onClick={() => handleCardClick('Received Amount')}
@@ -565,16 +586,16 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
               <StatCard 
                 title="Outstanding Receivables" 
                 value={formatCurrency(outstandingReceivables)} 
-                icon={<Clock className="text-orange-600" />} 
+                icon={<Clock size={18} className="text-orange-600" />} 
                 trend="A/R Pending" 
                 bgColor="bg-orange-50"
                 onClick={() => handleCardClick('Outstanding Receivables')}
               />
-              <div className="p-5 rounded-xl border border-gray-100 bg-gray-50/50 flex flex-col justify-between">
-                <p className="text-gray-500 text-xs font-bold uppercase tracking-wider">Collection Rate</p>
-                <div className="mt-2">
-                  <span className="text-xl font-black text-gray-900">{cashCollectionRate.toFixed(1)}%</span>
-                  <div className="w-full bg-gray-200 h-1.5 rounded-full mt-1.5 overflow-hidden">
+              <div className="p-4 rounded-xl border border-gray-100 bg-gray-50/50 flex flex-col justify-between">
+                <p className="text-gray-500 text-[11px] font-bold uppercase tracking-wider">Collection Rate</p>
+                <div className="mt-1.5">
+                  <span className="text-lg font-black text-gray-900">{cashCollectionRate.toFixed(1)}%</span>
+                  <div className="w-full bg-gray-200 h-1.5 rounded-full mt-1 overflow-hidden">
                     <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: `${Math.min(cashCollectionRate, 100)}%` }}></div>
                   </div>
                 </div>
@@ -582,13 +603,13 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Payables & Outlays (Outflow)</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-gray-100">
+            <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-3">Payables & Outlays (Outflow)</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <StatCard 
                 title="Paid to Vendors" 
                 value={formatCurrency(paidAmount)} 
-                icon={<CreditCard className="text-purple-600" />} 
+                icon={<CreditCard size={18} className="text-purple-600" />} 
                 trend="Settled Cost" 
                 bgColor="bg-purple-50"
                 onClick={() => handleCardClick('Paid Amount (Vendors)')}
@@ -596,7 +617,7 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
               <StatCard 
                 title="Outstanding Payables" 
                 value={formatCurrency(outstandingPayables)} 
-                icon={<AlertCircle className="text-red-600" />} 
+                icon={<AlertCircle size={18} className="text-red-600" />} 
                 trend="A/P Due" 
                 bgColor="bg-red-50"
                 onClick={() => handleCardClick('Outstanding Payables')}
@@ -604,7 +625,7 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
               <StatCard 
                 title="Paid Broker Comm." 
                 value={formatCurrency(paidAgentCommission)} 
-                icon={<CreditCard className="text-teal-600" />} 
+                icon={<CreditCard size={18} className="text-teal-600" />} 
                 trend="Paid" 
                 bgColor="bg-teal-50"
                 onClick={() => handleCardClick('Paid Broker Comm.')}
@@ -612,7 +633,7 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
               <StatCard 
                 title="Unpaid Broker Comm." 
                 value={formatCurrency(unpaidAgentCommission)} 
-                icon={<Clock className="text-pink-600" />} 
+                icon={<Clock size={18} className="text-pink-600" />} 
                 trend="Pending" 
                 bgColor="bg-pink-50"
                 onClick={() => handleCardClick('Unpaid Broker Comm.')}
@@ -622,10 +643,10 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
         </div>
 
         {/* Financial Ratios & Performance Snapshot Card */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between">
+        <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between">
           <div>
-            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-6">Financial Health Snapshot</h3>
-            <div className="space-y-5">
+            <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-4">Financial Health Snapshot</h3>
+            <div className="space-y-4">
               <RatioIndicator 
                 label="Gross Profit Margin" 
                 value={grossMargin} 
@@ -764,6 +785,7 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
                         {filteredResults.type === 'invoice' ? (
                           <>
                             <th className="px-4 py-3 border-b">Inv No</th>
+                            <th className="px-4 py-3 border-b">Created By</th>
                             <th className="px-4 py-3 border-b">Date</th>
                             <th className="px-4 py-3 border-b">Customer</th>
                             <th className="px-4 py-3 border-b">From</th>
@@ -806,6 +828,11 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
                           {filteredResults.type === 'invoice' ? (
                             <>
                               <td className="px-4 py-4 font-bold text-gray-900">{item.invoiceNumber}</td>
+                              <td className="px-4 py-4">
+                                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200">
+                                  👤 {item.createdByName || 'Admin'}
+                                </span>
+                              </td>
                               <td className="px-4 py-4 text-sm text-gray-500">{new Date(item.date).toLocaleDateString()}</td>
                               <td className="px-4 py-4 text-sm font-medium">{item.customerName}</td>
                               <td className="px-4 py-4">
@@ -886,18 +913,18 @@ const StatCard = ({ title, value, icon, trend, bgColor, onClick, isHero = false 
   
   if (isHero) {
     return (
-      <div className="p-6 rounded-xl shadow-lg border border-orange-500/20 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white text-left transition-all relative overflow-hidden">
-        <div className="absolute top-0 right-0 -mt-6 -mr-6 w-24 h-24 rounded-full bg-orange-500/10 blur-xl"></div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="p-3 rounded-lg bg-orange-500/25 text-orange-400">
+      <div className="p-4 rounded-xl shadow-md border border-orange-500/20 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white text-left transition-all relative overflow-hidden">
+        <div className="absolute top-0 right-0 -mt-6 -mr-6 w-20 h-20 rounded-full bg-orange-500/10 blur-xl"></div>
+        <div className="flex items-center justify-between mb-2.5">
+          <div className="p-2 rounded-lg bg-orange-500/25 text-orange-400">
             {icon}
           </div>
-          <span className="text-xs font-bold px-2 py-1 rounded-full text-orange-400 bg-orange-500/15">
+          <span className="text-[10px] font-black px-2 py-0.5 rounded-full text-orange-400 bg-orange-500/15">
             {trend}
           </span>
         </div>
-        <p className="text-slate-400 text-sm font-medium">{title}</p>
-        <h3 className="text-xl sm:text-2xl font-black text-orange-500 mt-1 truncate" title={value}>{value}</h3>
+        <p className="text-slate-400 text-xs font-semibold">{title}</p>
+        <h3 className="text-lg sm:text-xl font-black text-orange-500 mt-0.5 truncate" title={value}>{value}</h3>
       </div>
     );
   }
@@ -905,17 +932,17 @@ const StatCard = ({ title, value, icon, trend, bgColor, onClick, isHero = false 
   return (
     <CardWrapper 
       onClick={onClick}
-      className={`p-6 rounded-xl shadow-sm border border-gray-100 bg-white text-left transition-all ${
+      className={`p-4 rounded-xl shadow-sm border border-gray-100 bg-white text-left transition-all ${
         isClickable 
           ? 'hover:border-orange-200 hover:shadow-md active:scale-95 group cursor-pointer' 
           : ''
       } relative overflow-hidden`}
     >
-      <div className="flex items-center justify-between mb-4">
-        <div className={`p-3 rounded-lg ${bgColor}`}>
+      <div className="flex items-center justify-between mb-2.5">
+        <div className={`p-2 rounded-lg ${bgColor}`}>
           {icon}
         </div>
-        <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
           trend.includes('+') || trend.includes('%') || trend === 'Secured' || trend === 'Settled' || trend === 'Final' || trend === 'Invoices' || trend.includes('Total') || trend.includes('Paid') || trend.includes('A/R') || trend.includes('A/P') 
             ? 'text-green-600 bg-green-50' 
             : 'text-orange-600 bg-orange-50'
@@ -923,10 +950,10 @@ const StatCard = ({ title, value, icon, trend, bgColor, onClick, isHero = false 
           {trend}
         </span>
       </div>
-      <p className="text-gray-500 text-sm font-medium">{title}</p>
+      <p className="text-gray-500 text-xs font-semibold">{title}</p>
       <div className="flex items-end justify-between">
-        <h3 className="text-lg sm:text-xl font-bold text-gray-900 mt-1 truncate" title={value}>{value}</h3>
-        {isClickable && <ExternalLink size={14} className="text-gray-300 group-hover:text-orange-500 transition-colors mb-1" />}
+        <h3 className="text-base sm:text-lg font-black text-gray-900 mt-0.5 truncate" title={value}>{value}</h3>
+        {isClickable && <ExternalLink size={13} className="text-gray-300 group-hover:text-orange-500 transition-colors mb-0.5" />}
       </div>
     </CardWrapper>
   );

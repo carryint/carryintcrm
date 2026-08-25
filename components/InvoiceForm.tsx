@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, Save, Send, Search, ChevronDown, X } from 'lucide-react';
+import { Plus, Trash2, Save, Send, Search, ChevronDown, X, Truck, ExternalLink } from 'lucide-react';
 
 // ── Reusable Searchable Dropdown ─────────────────────────────────────────────
 interface SearchableSelectProps {
@@ -144,6 +144,94 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     </div>
   );
 };
+
+// ── Reusable Smart Decimal & Numeric Input ─────────────────────────────────────
+interface DecimalInputProps {
+  value: number;
+  onChange: (value: number) => void;
+  placeholder?: string;
+  className?: string;
+  id?: string;
+  defaultValue?: number;
+  allowDecimal?: boolean;
+}
+
+const DecimalInput: React.FC<DecimalInputProps> = ({
+  value,
+  onChange,
+  placeholder = '0.00',
+  className = '',
+  id,
+  defaultValue = 0,
+  allowDecimal = true
+}) => {
+  const [isFocused, setIsFocused] = useState(false);
+  const [text, setText] = useState<string>(() => {
+    if (value === undefined || value === null) return String(defaultValue);
+    return String(value);
+  });
+
+  useEffect(() => {
+    if (!isFocused) {
+      if (value === undefined || value === null) {
+        setText(String(defaultValue));
+      } else {
+        setText(String(value));
+      }
+    }
+  }, [value, isFocused, defaultValue]);
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    setIsFocused(true);
+    if (value === 0 || text === '0' || text === '0.00' || text === '0.0') {
+      setText('');
+    } else {
+      e.target.select();
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(',', '.');
+    const regex = allowDecimal ? /^\d*\.?\d*$/ : /^\d*$/;
+    if (raw === '' || regex.test(raw)) {
+      setText(raw);
+      if (raw === '' || raw === '.') {
+        onChange(defaultValue);
+      } else {
+        const parsed = parseFloat(raw);
+        if (!isNaN(parsed)) {
+          onChange(parsed);
+        }
+      }
+    }
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    if (text.trim() === '' || text === '.' || isNaN(parseFloat(text))) {
+      setText(String(defaultValue));
+      onChange(defaultValue);
+    } else {
+      const parsed = parseFloat(text);
+      setText(String(parsed));
+      onChange(parsed);
+    }
+  };
+
+  return (
+    <input
+      id={id}
+      type="text"
+      inputMode="decimal"
+      value={text}
+      onFocus={handleFocus}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      placeholder={placeholder}
+      className={className}
+    />
+  );
+};
 // ─────────────────────────────────────────────────────────────────────────────
 import {
   Invoice,
@@ -153,14 +241,18 @@ import {
   CompanyInfo,
   User,
   AuditLog,
-  PaymentStatus
+  PaymentStatus,
+  CarrierName,
+  ShipmentStatus
 } from '../types';
 import {
   DESTINATION_COUNTRIES,
   ALL_COUNTRIES,
-  COMMODITY_TYPES
+  COMMODITY_TYPES,
+  MAJOR_CARRIERS,
+  SHIPMENT_STATUSES
 } from '../constants';
-import { generateId } from '../utils';
+import { generateId, generateAwbNumber, getCarrierTrackingUrl } from '../utils';
 
 interface InvoiceFormProps {
   onSave: (invoice: Invoice) => void;
@@ -186,6 +278,14 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     }
     return 'United Arab Emirates';
   });
+  
+  // Carrier & Tracking fields (can be set initially or updated post-payment)
+  const [awbNumber, setAwbNumber] = useState<string>(editingInvoice?.awbNumber || generateAwbNumber());
+  const [carrier, setCarrier] = useState<CarrierName | string>(editingInvoice?.carrier || 'DHL');
+  const [carrierTrackingNumber, setCarrierTrackingNumber] = useState<string>(editingInvoice?.carrierTrackingNumber || '');
+  const [shipmentStatus, setShipmentStatus] = useState<ShipmentStatus>(editingInvoice?.shipmentStatus || 'BOOKED');
+  const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState<string>(editingInvoice?.estimatedDeliveryDate || '');
+
   const [items, setItems] = useState<InvoiceItem[]>(editingInvoice?.items || [{
     commodityType: COMMODITY_TYPES[0],
     description: '',
@@ -204,6 +304,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   });
   const [status, setStatus] = useState<PaymentStatus>(editingInvoice?.status || 'UNPAID');
   const [vendorStatus, setVendorStatus] = useState<PaymentStatus>(editingInvoice?.vendorStatus || 'UNPAID');
+  const [vendorPaidAmount, setVendorPaidAmount] = useState<number>(editingInvoice?.vendorPaidAmount !== undefined ? editingInvoice.vendorPaidAmount : (editingInvoice?.vendorStatus === 'PAID' ? (editingInvoice?.vendorCost || 0) : 0));
   const [vendorPaymentDate, setVendorPaymentDate] = useState<string>(editingInvoice?.vendorPaymentDate || new Date().toISOString().split('T')[0]);
   const [vendorTransactionReference, setVendorTransactionReference] = useState<string>(editingInvoice?.vendorTransactionReference || '');
   const [agentStatus, setAgentStatus] = useState<PaymentStatus>(editingInvoice?.agentStatus || 'UNPAID');
@@ -289,6 +390,21 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
     const invoiceData: Invoice = {
       id: editingInvoice?.id || generateId(),
       invoiceNumber: editingInvoice?.invoiceNumber || `INV-${Date.now().toString().slice(-6)}`,
+      awbNumber: awbNumber.trim() || generateAwbNumber(),
+      carrier,
+      carrierTrackingNumber: carrierTrackingNumber.trim(),
+      shipmentStatus,
+      estimatedDeliveryDate: estimatedDeliveryDate || undefined,
+      carrierAssignedAt: editingInvoice?.carrierAssignedAt || (carrierTrackingNumber.trim() ? new Date().toISOString() : undefined),
+      carrierAssignedBy: editingInvoice?.carrierAssignedBy || currentUser?.name,
+      trackingEvents: editingInvoice?.trackingEvents || (carrierTrackingNumber.trim() ? [{
+        id: generateId(),
+        date: new Date().toISOString(),
+        status: shipmentStatus,
+        location: `${globalCoo}`,
+        description: `Shipment created with ${carrier} (AWB: ${carrierTrackingNumber.trim()})`,
+        updatedBy: currentUser?.name || 'Staff'
+      }] : []),
       date: editingInvoice?.date || new Date().toISOString(),
       customerId: customer.id,
       customerName: customer.name,
@@ -305,6 +421,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       pickupCost,
       status: status,
       vendorStatus: vendorStatus,
+      vendorPaidAmount: vendorStatus === 'PAID' ? vendorCost : (vendorStatus === 'PARTIAL' ? vendorPaidAmount : 0),
       agentStatus: agentStatus,
       totalAmount,
       totalVat,
@@ -313,8 +430,8 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       paymentDate: status === 'PAID' ? paymentDate : undefined,
       paymentMethod: status === 'PAID' ? paymentMethod : undefined,
       transactionReference: status === 'PAID' ? transactionReference : undefined,
-      vendorPaymentDate: vendorStatus === 'PAID' ? vendorPaymentDate : undefined,
-      vendorTransactionReference: vendorStatus === 'PAID' ? vendorTransactionReference : undefined,
+      vendorPaymentDate: vendorStatus !== 'UNPAID' ? vendorPaymentDate : undefined,
+      vendorTransactionReference: vendorStatus !== 'UNPAID' ? vendorTransactionReference : undefined,
       companyTrn: companyInfo.trn,
       createdBy: editingInvoice?.createdBy || currentUser?.id || 'system',
       createdByName: editingInvoice?.createdByName || currentUser?.name || 'System',
@@ -412,13 +529,11 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 <>
                   <div>
                     <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">Weight (kg)</label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={item.weight === 0 && !editingInvoice ? '' : item.weight}
-                      onChange={(e) => updateItem(idx, 'weight', e.target.value === '' ? 0 : Number(e.target.value))}
-                      placeholder="0"
-                      className="w-full px-2 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold"
+                    <DecimalInput
+                      value={item.weight}
+                      onChange={(val) => updateItem(idx, 'weight', val)}
+                      placeholder="0.00"
+                      className="w-full px-2.5 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold text-left"
                     />
                   </div>
                   <div>
@@ -427,8 +542,15 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                       type="text"
                       inputMode="decimal"
                       value={item.cbm !== undefined ? String(item.cbm) : ''}
+                      onFocus={(e) => {
+                        if (item.cbm === 0) {
+                          updateItem(idx, 'cbm', undefined);
+                        } else if (item.cbm !== undefined) {
+                          e.target.select();
+                        }
+                      }}
                       onChange={(e) => {
-                        const raw = e.target.value;
+                        const raw = e.target.value.replace(',', '.');
                         if (raw === '' || raw === '-') {
                           updateItem(idx, 'cbm', undefined);
                         } else if (/^-?\d*\.?\d*$/.test(raw)) {
@@ -437,31 +559,29 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                         }
                       }}
                       placeholder="e.g. 1.263"
-                      className="w-full px-2 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold"
+                      className="w-full px-2.5 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold text-left"
                     />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">Qty</label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={item.quantity === 1 && !editingInvoice ? '' : item.quantity}
-                      onChange={(e) => updateItem(idx, 'quantity', e.target.value === '' ? 1 : Number(e.target.value))}
+                    <DecimalInput
+                      value={item.quantity}
+                      defaultValue={1}
+                      allowDecimal={false}
+                      onChange={(val) => updateItem(idx, 'quantity', val <= 0 ? 1 : Math.round(val))}
                       placeholder="1"
-                      className="w-full px-2 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold"
+                      className="w-full px-2.5 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold text-left"
                     />
                   </div>
                 </>
               )}
               <div>
                 <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">Price (Total)</label>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={item.price === 0 && !editingInvoice ? '' : item.price}
-                  onChange={(e) => updateItem(idx, 'price', e.target.value === '' ? 0 : Number(e.target.value))}
+                <DecimalInput
+                  value={item.price}
+                  onChange={(val) => updateItem(idx, 'price', val)}
                   placeholder="0.00"
-                  className="w-full px-2 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold"
+                  className="w-full px-2.5 py-2 text-sm rounded border border-amber-300 bg-amber-100 text-slate-900 font-bold text-left"
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -494,6 +614,135 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
         </div>
       </div>
 
+      {/* Carrier & Logistics AWB Section */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-orange-600 flex items-center justify-center text-white">
+              <Truck size={20} />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-slate-900">Carrier Logistics & Tracking Details</h3>
+              <p className="text-xs text-gray-500">Auto-assigned Master AWB. Carrier & tracking number can be set now or updated post-payment.</p>
+            </div>
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 bg-amber-100 text-amber-900 rounded-full border border-amber-200 w-fit">
+            Post-Payment Updatable
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Master AWB Number */}
+          <div className="bg-amber-50/60 p-4 rounded-xl border border-amber-200 space-y-2">
+            <label className="block text-xs font-black text-amber-900 uppercase tracking-widest">
+              Carryint Master AWB Number
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={awbNumber}
+                onChange={(e) => setAwbNumber(e.target.value)}
+                placeholder="e.g. CARY-104829104"
+                className="flex-1 px-3 py-2 rounded-lg border border-amber-300 font-mono font-black text-slate-950 text-sm bg-amber-100 focus:ring-2 focus:ring-orange-500 outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setAwbNumber(generateAwbNumber())}
+                className="px-2.5 py-2 bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs rounded-lg transition-colors whitespace-nowrap"
+              >
+                Regenerate
+              </button>
+            </div>
+            <p className="text-[10px] text-amber-800 font-medium italic">
+              Unique Master Air Waybill code for your customer to track on your website.
+            </p>
+          </div>
+
+          {/* Initial Logistics Status & Estimated Delivery */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-black text-gray-700 uppercase tracking-widest mb-1">Shipment Status</label>
+              <select
+                value={shipmentStatus}
+                onChange={(e) => setShipmentStatus(e.target.value as ShipmentStatus)}
+                className="w-full px-3 py-2.5 rounded-lg border border-amber-300 bg-amber-100 text-slate-950 font-bold text-xs outline-none"
+              >
+                {SHIPMENT_STATUSES.map(s => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-black text-gray-700 uppercase tracking-widest mb-1">Estimated Delivery</label>
+              <input
+                type="date"
+                value={estimatedDeliveryDate}
+                onChange={(e) => setEstimatedDeliveryDate(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-amber-300 bg-amber-100 text-slate-950 font-semibold text-xs outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Carrier Selection & Tracking Number */}
+        <div className="space-y-4 pt-2">
+          <div>
+            <label className="block text-xs font-black text-gray-700 uppercase tracking-widest mb-2">
+              Logistics Carrier (Major Carriers: DHL, FedEx, UPS, DPD)
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+              {MAJOR_CARRIERS.map(c => {
+                const isSelected = carrier === c.id || carrier === c.name;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setCarrier(c.id as CarrierName)}
+                    className={`p-2.5 rounded-lg border-2 text-left transition-all flex flex-col justify-between ${
+                      isSelected
+                        ? 'border-orange-500 bg-orange-50/80 shadow-sm font-black'
+                        : 'border-gray-200 bg-white hover:border-gray-300 font-semibold'
+                    }`}
+                  >
+                    <span className="text-xs truncate block text-slate-900">{c.name}</span>
+                    <span className={`text-[9px] font-bold mt-1 px-1 py-0.5 rounded w-fit uppercase ${
+                      isSelected ? 'bg-orange-600 text-white' : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {c.code}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-xs font-black text-gray-700 uppercase tracking-widest">
+                Carrier AWB / BL / Tracking Number (Optional on Invoice Creation)
+              </label>
+              {carrierTrackingNumber && getCarrierTrackingUrl(carrier, carrierTrackingNumber) && (
+                <a
+                  href={getCarrierTrackingUrl(carrier, carrierTrackingNumber)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-bold text-orange-600 hover:text-orange-700 inline-flex items-center gap-1 hover:underline"
+                >
+                  <ExternalLink size={12} /> Test {carrier} Live Link
+                </a>
+              )}
+            </div>
+            <input
+              type="text"
+              value={carrierTrackingNumber}
+              onChange={(e) => setCarrierTrackingNumber(e.target.value)}
+              placeholder={`e.g. ${carrier === 'DHL' ? '10-digit DHL Waybill (e.g. 8492019482)' : carrier === 'FedEx' ? '12-digit FedEx Tracking No' : carrier === 'UPS' ? '1Z9999999999999999' : 'Carrier Tracking / BL Number'}`}
+              className="w-full px-4 py-2.5 rounded-lg border border-amber-300 bg-amber-100 text-slate-950 font-mono font-bold text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <h3 className="text-xl font-bold mb-6">Vendor & Cost Mapping</h3>
@@ -513,30 +762,30 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
             </div>
             <div>
               <label className="block text-sm font-black text-gray-600 uppercase tracking-widest mb-1">Vendor Cost (AED)</label>
-              <input
-                type="number"
+              <DecimalInput
                 value={vendorCost}
-                onChange={(e) => setVendorCost(Number(e.target.value))}
+                onChange={setVendorCost}
+                placeholder="0.00"
                 className={inputClass}
               />
               <p className="text-xs text-amber-900 mt-1 italic font-bold">Base cost for internal profit tracking.</p>
             </div>
             <div>
               <label className="block text-sm font-black text-gray-600 uppercase tracking-widest mb-1">Broker Commission (AED)</label>
-              <input
-                type="number"
+              <DecimalInput
                 value={agentCommission}
-                onChange={(e) => setAgentCommission(Number(e.target.value))}
+                onChange={setAgentCommission}
+                placeholder="0.00"
                 className={inputClass}
               />
               <p className="text-xs text-amber-900 mt-1 italic font-bold">Commission paid to the broker.</p>
             </div>
             <div>
               <label className="block text-sm font-black text-gray-600 uppercase tracking-widest mb-1">Pickup / Transportation Cost (AED)</label>
-              <input
-                type="number"
+              <DecimalInput
                 value={pickupCost}
-                onChange={(e) => setPickupCost(Number(e.target.value))}
+                onChange={setPickupCost}
+                placeholder="0.00"
                 className={inputClass}
               />
               <p className="text-xs text-amber-900 mt-1 italic font-bold">Additional transportation or pickup costs paid.</p>
@@ -598,13 +847,63 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 <label className="block text-sm font-black text-orange-800 uppercase tracking-widest mb-1 italic">Vendor Payment Status</label>
                 <select
                   value={vendorStatus}
-                  onChange={(e) => setVendorStatus(e.target.value as any)}
+                  onChange={(e) => {
+                    const newStatus = e.target.value as PaymentStatus;
+                    setVendorStatus(newStatus);
+                    if (newStatus === 'PAID') {
+                      setVendorPaidAmount(vendorCost);
+                    } else if (newStatus === 'UNPAID') {
+                      setVendorPaidAmount(0);
+                    }
+                  }}
                   className={selectClass}
                 >
                   <option value="UNPAID">UNPAID (Pending Vendor Settlement)</option>
+                  <option value="PARTIAL">PARTIALLY PAID (Partial Settlement)</option>
                   <option value="PAID">PAID (Closed Vendor Bill)</option>
                 </select>
               </div>
+              {vendorStatus === 'PARTIAL' && (
+                <div className="space-y-4 pt-2">
+                  <div className="bg-amber-50 p-4 rounded-xl border-2 border-amber-300">
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block text-xs font-black text-amber-900 uppercase tracking-widest">Partial Amount Paid to Vendor (AED)</label>
+                      <span className="text-xs font-bold text-amber-800">
+                        Remaining: {Math.max(0, vendorCost - vendorPaidAmount).toFixed(2)} AED
+                      </span>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      max={vendorCost}
+                      step="any"
+                      value={vendorPaidAmount || ''}
+                      onChange={(e) => setVendorPaidAmount(parseFloat(e.target.value) || 0)}
+                      placeholder={`Enter paid amount (Max ${vendorCost} AED)`}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div className="bg-amber-50 p-4 rounded-xl border-2 border-amber-300">
+                    <label className="block text-xs font-black text-amber-900 uppercase tracking-widest mb-1">Payment Date</label>
+                    <input
+                      type="date"
+                      value={vendorPaymentDate}
+                      onChange={(e) => setVendorPaymentDate(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div className="bg-amber-50 p-4 rounded-xl border-2 border-amber-300">
+                    <label className="block text-xs font-black text-amber-900 uppercase tracking-widest mb-1">Payment Reference / Cheque # / Bank Ref</label>
+                    <input
+                      type="text"
+                      placeholder="Enter Bank Ref, Cheque No, etc. for Vendor..."
+                      value={vendorTransactionReference}
+                      onChange={(e) => setVendorTransactionReference(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+              )}
               {vendorStatus === 'PAID' && (
                 <div className="space-y-4 pt-2">
                   <div className="bg-green-50 p-4 rounded-xl border-2 border-green-200">
@@ -617,7 +916,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                     />
                   </div>
                   <div className="bg-green-50 p-4 rounded-xl border-2 border-green-200">
-                    <label className="block text-xs font-black text-green-700 uppercase tracking-widest mb-1">Vendor Transaction Reference</label>
+                    <label className="block text-xs font-black text-green-700 uppercase tracking-widest mb-1">Vendor Transaction Reference / Cheque #</label>
                     <input
                       type="text"
                       placeholder="Enter Bank Ref, Cheque No, etc. for Vendor..."
@@ -650,14 +949,11 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
             <div>
               <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Total Amount (AED)</label>
               <div className="flex items-center bg-slate-800 rounded-lg px-3 border border-slate-600 focus-within:border-orange-500 transition-colors">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
+                <DecimalInput
                   value={manualTotal}
-                  onChange={(e) => setManualTotal(Number(e.target.value))}
+                  onChange={setManualTotal}
+                  placeholder="0.00"
                   className="flex-1 bg-transparent text-white font-black outline-none text-right py-2 text-lg"
-                  placeholder="Enter amount"
                 />
                 <span className="text-slate-400 font-bold ml-2 text-sm">AED</span>
               </div>
@@ -667,10 +963,10 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
               <div className="flex items-center gap-2">
                 <span className="font-bold">VAT:</span>
                 <div className="flex items-center bg-slate-800 rounded px-2 border border-slate-700">
-                  <input
-                    type="number"
+                  <DecimalInput
                     value={globalVatPercent}
-                    onChange={(e) => handleGlobalVatChange(Number(e.target.value))}
+                    onChange={handleGlobalVatChange}
+                    placeholder="0"
                     className="w-12 bg-transparent text-white font-black outline-none text-right py-1"
                   />
                   <span className="text-xs font-bold text-slate-500 ml-1">%</span>

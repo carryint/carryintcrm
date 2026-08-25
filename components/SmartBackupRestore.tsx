@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Invoice, Customer, Vendor, Expense, AdjustmentNote, CompanyInfo, User, Quotation } from '../types';
 import { supabase } from '../supabase';
+import { prepareInvoiceForSupabase } from '../utils';
 
 interface SmartBackupRestoreProps {
   currentInvoices: Invoice[];
@@ -276,7 +277,8 @@ export const SmartBackupRestore: React.FC<SmartBackupRestoreProps> = ({
 
       setRestoreProgress('Syncing invoices, adjustments & quotations...');
       if (finalInvoices.length > 0) {
-        const { error: invErr } = await supabase.from('invoices').upsert(finalInvoices);
+        const preparedInvoices = finalInvoices.map(prepareInvoiceForSupabase);
+        const { error: invErr } = await supabase.from('invoices').upsert(preparedInvoices);
         if (invErr) throw new Error(`Invoices sync: ${invErr.message}`);
         localStorage.setItem('carryint_invoices', JSON.stringify(finalInvoices));
       }

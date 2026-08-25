@@ -253,8 +253,10 @@ const Settings: React.FC<SettingsProps> = ({
                   value={newUser.role}
                   onChange={e => setNewUser({ ...newUser, role: e.target.value as any })}
                 >
-                  <option value="STAFF">Standard Staff Access</option>
-                  <option value="ADMIN">System Administrator</option>
+                  <option value="ADMIN">System Administrator (Full Control & Users)</option>
+                  <option value="MANAGER">Manager Access (Edit Invoices, Reports & Exports)</option>
+                  <option value="STAFF">Standard Staff Access (Enter Invoices & Sales Dashboard)</option>
+                  <option value="ACCOUNTANT">Accountant Access (Full Accounting & VAT Suite)</option>
                 </select>
                 <div className="md:col-span-2 flex gap-2 pt-2">
                   <button type="submit" className="flex-1 bg-slate-900 text-white font-black py-3 rounded-xl hover:bg-slate-800 transition-colors">
@@ -266,13 +268,13 @@ const Settings: React.FC<SettingsProps> = ({
             </div>
           )}
 
-          <div className="overflow-hidden border border-gray-50 rounded-xl">
+          <div className="overflow-hidden border border-gray-100 rounded-xl">
             <table className="w-full text-left">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
                   <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">User Details</th>
                   <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">Access Role</th>
-                  <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">Permissions Scope</th>
                   <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
                 </tr>
               </thead>
@@ -291,16 +293,22 @@ const Settings: React.FC<SettingsProps> = ({
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`text-[10px] font-black px-2 py-1 rounded-full uppercase ${u.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                        }`}>
-                        {u.role}
+                      <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase border ${
+                        u.role === 'ADMIN' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                        u.role === 'MANAGER' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                        u.role === 'ACCOUNTANT' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                        'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      }`}>
+                        {u.role === 'ADMIN' ? 'System Administrator' :
+                         u.role === 'MANAGER' ? 'Manager Access' :
+                         u.role === 'ACCOUNTANT' ? 'Chief Accountant' : 'Standard Staff'}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-1.5 text-xs text-green-600 font-bold uppercase">
-                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                        <span>Active</span>
-                      </div>
+                    <td className="px-6 py-4 text-xs text-gray-500 font-medium">
+                      {u.role === 'ADMIN' ? 'All tools, user mgmt, backups & backend' :
+                       u.role === 'MANAGER' ? 'Edit invoices, accounting analysis & exports' :
+                       u.role === 'ACCOUNTANT' ? 'General ledger, VAT, CT, AR/AP, closings' :
+                       'Enter invoices & quotations, personal sales KPI'}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">

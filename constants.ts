@@ -547,3 +547,87 @@ export const DESTINATION_COUNTRIES = ALL_COUNTRIES;
 export const COMMODITY_TYPES = [
   'General Cargo', 'Commercial', 'Electronics', 'Textiles', 'Perishables', 'Auto Parts', 'Hazardous', 'Personal Effects', 'Documents', 'Sample'
 ];
+
+export const MAJOR_CARRIERS = [
+  {
+    id: 'DHL',
+    name: 'DHL Express',
+    code: 'DHL',
+    color: '#D40511',
+    bgColor: '#FFCC00',
+    textColor: '#D40511',
+    trackingUrlTemplate: 'https://www.dhl.com/en/express/tracking.html?AWB={TRACKING_NUMBER}',
+    website: 'https://www.dhl.com'
+  },
+  {
+    id: 'FedEx',
+    name: 'FedEx',
+    code: 'FDX',
+    color: '#4D148C',
+    bgColor: '#FF6600',
+    textColor: '#ffffff',
+    trackingUrlTemplate: 'https://www.fedex.com/fedextrack/?trknbr={TRACKING_NUMBER}',
+    website: 'https://www.fedex.com'
+  },
+  {
+    id: 'UPS',
+    name: 'UPS (United Parcel Service)',
+    code: 'UPS',
+    color: '#351C15',
+    bgColor: '#FFB500',
+    textColor: '#351C15',
+    trackingUrlTemplate: 'https://www.ups.com/track?tracknum={TRACKING_NUMBER}',
+    website: 'https://www.ups.com'
+  },
+  {
+    id: 'DPD',
+    name: 'DPD Group',
+    code: 'DPD',
+    color: '#DC0032',
+    bgColor: '#DC0032',
+    textColor: '#ffffff',
+    trackingUrlTemplate: 'https://tracking.dpd.de/status/en_US/parcel/{TRACKING_NUMBER}',
+    website: 'https://www.dpd.com'
+  },
+  {
+    id: 'Aramex',
+    name: 'Aramex',
+    code: 'ARX',
+    color: '#E31B23',
+    bgColor: '#E31B23',
+    textColor: '#ffffff',
+    trackingUrlTemplate: 'https://www.aramex.com/track/results?mode=0&ShipmentNumber={TRACKING_NUMBER}',
+    website: 'https://www.aramex.com'
+  },
+  {
+    id: 'Direct Freight',
+    name: 'Direct Sea/Air Cargo (BL / Direct)',
+    code: 'BL',
+    color: '#0284c7',
+    bgColor: '#0284c7',
+    textColor: '#ffffff',
+    trackingUrlTemplate: '',
+    website: 'https://www.carryint.com'
+  },
+  {
+    id: 'Other',
+    name: 'Other Logistics Carrier',
+    code: 'OTH',
+    color: '#475569',
+    bgColor: '#475569',
+    textColor: '#ffffff',
+    trackingUrlTemplate: '',
+    website: 'https://www.carryint.com'
+  }
+];
+
+export const SHIPMENT_STATUSES = [
+  { value: 'BOOKED', label: 'Shipment Booked / Registered', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+  { value: 'PICKED_UP', label: 'Picked Up / Received at Hub', color: 'bg-indigo-100 text-indigo-800 border-indigo-200' },
+  { value: 'IN_TRANSIT', label: 'In Transit / International Flight', color: 'bg-amber-100 text-amber-800 border-amber-200' },
+  { value: 'CUSTOMS_CLEARANCE', label: 'Customs Clearance in Progress', color: 'bg-purple-100 text-purple-800 border-purple-200' },
+  { value: 'OUT_FOR_DELIVERY', label: 'Out for Delivery', color: 'bg-cyan-100 text-cyan-800 border-cyan-200' },
+  { value: 'DELIVERED', label: 'Delivered Successfully', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+  { value: 'ON_HOLD', label: 'On Hold / Exception', color: 'bg-rose-100 text-rose-800 border-rose-200' },
+];
+

@@ -296,13 +296,22 @@ const CompanyExpenses: React.FC<CompanyExpensesProps> = ({ expenses, onAdd, onUp
               <div className="relative">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">AED</div>
                 <input
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
                   placeholder="0.00"
                   required
                   className="w-full pl-14 pr-4 py-3 border border-orange-200 bg-orange-50 text-slate-900 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 transition-all font-bold"
                   value={amountStr}
-                  onChange={e => setAmountStr(e.target.value)}
+                  onFocus={(e) => {
+                    if (amountStr === '0' || amountStr === '0.00') setAmountStr('');
+                    else e.target.select();
+                  }}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(',', '.');
+                    if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                      setAmountStr(raw);
+                    }
+                  }}
                 />
               </div>
             </div>

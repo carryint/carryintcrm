@@ -18,6 +18,94 @@ import {
   Truck
 } from 'lucide-react';
 
+// ── Reusable Smart Decimal & Numeric Input ─────────────────────────────────────
+interface DecimalInputProps {
+  value: number;
+  onChange: (value: number) => void;
+  placeholder?: string;
+  className?: string;
+  id?: string;
+  defaultValue?: number;
+  allowDecimal?: boolean;
+}
+
+const DecimalInput: React.FC<DecimalInputProps> = ({
+  value,
+  onChange,
+  placeholder = '0.00',
+  className = '',
+  id,
+  defaultValue = 0,
+  allowDecimal = true
+}) => {
+  const [isFocused, setIsFocused] = useState(false);
+  const [text, setText] = useState<string>(() => {
+    if (value === undefined || value === null) return String(defaultValue);
+    return String(value);
+  });
+
+  useEffect(() => {
+    if (!isFocused) {
+      if (value === undefined || value === null) {
+        setText(String(defaultValue));
+      } else {
+        setText(String(value));
+      }
+    }
+  }, [value, isFocused, defaultValue]);
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    setIsFocused(true);
+    if (value === 0 || text === '0' || text === '0.00' || text === '0.0') {
+      setText('');
+    } else {
+      e.target.select();
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(',', '.');
+    const regex = allowDecimal ? /^\d*\.?\d*$/ : /^\d*$/;
+    if (raw === '' || regex.test(raw)) {
+      setText(raw);
+      if (raw === '' || raw === '.') {
+        onChange(defaultValue);
+      } else {
+        const parsed = parseFloat(raw);
+        if (!isNaN(parsed)) {
+          onChange(parsed);
+        }
+      }
+    }
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    if (text.trim() === '' || text === '.' || isNaN(parseFloat(text))) {
+      setText(String(defaultValue));
+      onChange(defaultValue);
+    } else {
+      const parsed = parseFloat(text);
+      setText(String(parsed));
+      onChange(parsed);
+    }
+  };
+
+  return (
+    <input
+      id={id}
+      type="text"
+      inputMode="decimal"
+      value={text}
+      onFocus={handleFocus}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      placeholder={placeholder}
+      className={className}
+    />
+  );
+};
+
 interface QuotationFormProps {
   initialQuotation?: Quotation | null;
   existingQuotations: Quotation[];
@@ -646,50 +734,40 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
                   </td>
 
                   <td className="py-2 px-2">
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      placeholder="0 kg"
-                      value={item.weight || ''}
-                      onChange={(e) => handleItemChange(idx, 'weight', parseFloat(e.target.value) || 0)}
-                      className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-bold outline-none focus:ring-2 focus:ring-orange-500 text-center"
-                    />
-                  </td>
-
-                  <td className="py-2 px-2">
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="1"
-                      value={item.quantity || ''}
-                      onChange={(e) => handleItemChange(idx, 'quantity', parseInt(e.target.value, 10) || 1)}
-                      className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-bold outline-none focus:ring-2 focus:ring-orange-500 text-center"
-                    />
-                  </td>
-
-                  <td className="py-2 px-2">
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      placeholder="CBM"
-                      value={item.cbm || ''}
-                      onChange={(e) => handleItemChange(idx, 'cbm', parseFloat(e.target.value) || 0)}
-                      className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-medium outline-none focus:ring-2 focus:ring-orange-500 text-center"
-                    />
-                  </td>
-
-                  <td className="py-2 px-2">
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      required
+                    <DecimalInput
+                      value={item.weight}
+                      onChange={(val) => handleItemChange(idx, 'weight', val)}
                       placeholder="0.00"
-                      value={item.price || ''}
-                      onChange={(e) => handleItemChange(idx, 'price', parseFloat(e.target.value) || 0)}
-                      className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-black outline-none focus:ring-2 focus:ring-orange-500 text-right text-orange-600"
+                      className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-bold outline-none focus:ring-2 focus:ring-orange-500 text-left"
+                    />
+                  </td>
+
+                  <td className="py-2 px-2">
+                    <DecimalInput
+                      value={item.quantity}
+                      defaultValue={1}
+                      allowDecimal={false}
+                      onChange={(val) => handleItemChange(idx, 'quantity', val <= 0 ? 1 : Math.round(val))}
+                      placeholder="1"
+                      className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-bold outline-none focus:ring-2 focus:ring-orange-500 text-left"
+                    />
+                  </td>
+
+                  <td className="py-2 px-2">
+                    <DecimalInput
+                      value={item.cbm || 0}
+                      onChange={(val) => handleItemChange(idx, 'cbm', val)}
+                      placeholder="0.00"
+                      className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-medium outline-none focus:ring-2 focus:ring-orange-500 text-left"
+                    />
+                  </td>
+
+                  <td className="py-2 px-2">
+                    <DecimalInput
+                      value={item.price}
+                      onChange={(val) => handleItemChange(idx, 'price', val)}
+                      placeholder="0.00"
+                      className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-black outline-none focus:ring-2 focus:ring-orange-500 text-left text-orange-600"
                     />
                   </td>
 

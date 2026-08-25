@@ -117,10 +117,14 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
       acc.notReceived += item.totalAmount;
     }
 
-    // Paid: Vendor Price where vendorStatus is PAID
+    // Paid: Vendor Price where vendorStatus is PAID or PARTIAL
     if (item.vendorId) {
       if (item.vendorStatus === 'PAID') {
         acc.paidToVendor += item.vendorCost;
+      } else if (item.vendorStatus === 'PARTIAL') {
+        const paid = item.vendorPaidAmount || 0;
+        acc.paidToVendor += paid;
+        acc.notPaidToVendor += Math.max(0, item.vendorCost - paid);
       } else {
         acc.notPaidToVendor += item.vendorCost;
       }
@@ -169,8 +173,15 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
         if (item.status === 'PAID') acc.received += item.totalAmount;
         else acc.notReceived += item.totalAmount;
         if (item.vendorId) {
-          if (item.vendorStatus === 'PAID') acc.paidToVendor += item.vendorCost;
-          else acc.notPaidToVendor += item.vendorCost;
+          if (item.vendorStatus === 'PAID') {
+            acc.paidToVendor += item.vendorCost;
+          } else if (item.vendorStatus === 'PARTIAL') {
+            const paid = item.vendorPaidAmount || 0;
+            acc.paidToVendor += paid;
+            acc.notPaidToVendor += Math.max(0, item.vendorCost - paid);
+          } else {
+            acc.notPaidToVendor += item.vendorCost;
+          }
         }
         if (item.agentCommission) {
           if (item.agentStatus === 'PAID') acc.paidToBroker += item.agentCommission;
@@ -211,8 +222,8 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
       'Rec. (Bank)': item.status === 'PAID' && item.paymentMethod !== 'Cash' ? item.totalAmount : 0,
       'Rec. (Cash)': item.status === 'PAID' && item.paymentMethod === 'Cash' ? item.totalAmount : 0,
       'Not Received': item.status !== 'PAID' ? item.totalAmount : 0,
-      'Paid Vendor': item.vendorStatus === 'PAID' ? item.vendorCost : 0,
-      'Not Paid Vendor': item.vendorStatus !== 'PAID' ? item.vendorCost : 0,
+      'Paid Vendor': item.vendorStatus === 'PAID' ? item.vendorCost : (item.vendorStatus === 'PARTIAL' ? (item.vendorPaidAmount || 0) : 0),
+      'Not Paid Vendor': item.vendorStatus === 'PAID' ? 0 : (item.vendorStatus === 'PARTIAL' ? Math.max(0, item.vendorCost - (item.vendorPaidAmount || 0)) : item.vendorCost),
       'Paid Broker': item.agentStatus === 'PAID' ? (item.agentCommission || 0) : 0,
       'Not Paid Broker': item.agentStatus !== 'PAID' ? (item.agentCommission || 0) : 0,
       'Pickup Cost': item.pickupCost || 0,
@@ -267,8 +278,8 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
       item.status === 'PAID' && item.paymentMethod !== 'Cash' ? item.totalAmount.toFixed(2) : '0.00',
       item.status === 'PAID' && item.paymentMethod === 'Cash' ? item.totalAmount.toFixed(2) : '0.00',
       item.status !== 'PAID' ? item.totalAmount.toFixed(2) : '0.00',
-      item.vendorStatus === 'PAID' ? item.vendorCost.toFixed(2) : '0.00',
-      item.vendorStatus !== 'PAID' ? item.vendorCost.toFixed(2) : '0.00',
+      (item.vendorStatus === 'PAID' ? item.vendorCost : (item.vendorStatus === 'PARTIAL' ? (item.vendorPaidAmount || 0) : 0)).toFixed(2),
+      (item.vendorStatus === 'PAID' ? 0 : (item.vendorStatus === 'PARTIAL' ? Math.max(0, item.vendorCost - (item.vendorPaidAmount || 0)) : item.vendorCost)).toFixed(2),
       (item.pickupCost || 0).toFixed(2),
       item.agentStatus === 'PAID' ? (item.agentCommission || 0).toFixed(2) : '0.00',
       item.agentStatus !== 'PAID' ? (item.agentCommission || 0).toFixed(2) : '0.00',
@@ -567,15 +578,19 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
 
                           {/* Paid (to vendor) */}
                           <td className="px-6 py-4 text-right">
-                            {item.vendorId && item.vendorStatus === 'PAID' ? (
-                              <span className="font-black text-blue-600">{formatCurrency(item.vendorCost)}</span>
+                            {item.vendorId && (item.vendorStatus === 'PAID' || item.vendorStatus === 'PARTIAL') ? (
+                              <span className="font-black text-blue-600">
+                                {formatCurrency(item.vendorStatus === 'PAID' ? item.vendorCost : (item.vendorPaidAmount || 0))}
+                              </span>
                             ) : '-'}
                           </td>
 
                           {/* Not Paid (to vendor) */}
                           <td className="px-6 py-4 text-right">
                             {item.vendorId && item.vendorStatus !== 'PAID' ? (
-                              <span className="font-black text-amber-600">{formatCurrency(item.vendorCost)}</span>
+                              <span className="font-black text-amber-600">
+                                {formatCurrency(item.vendorStatus === 'PARTIAL' ? Math.max(0, item.vendorCost - (item.vendorPaidAmount || 0)) : item.vendorCost)}
+                              </span>
                             ) : '-'}
                           </td>
 
