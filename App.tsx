@@ -38,7 +38,7 @@ import {
   ExternalLink,
   Navigation
 } from 'lucide-react';
-import { generateId, generateAwbNumber, getCarrierTrackingUrl, prepareInvoiceForSupabase, hydrateInvoiceFromStorage } from './utils';
+import { generateId, generateAwbNumber, getCarrierTrackingUrl, prepareInvoiceForSupabase, hydrateInvoiceFromStorage, sortInvoicesByNewestCreated } from './utils';
 
 const getInvoiceAging = (dateStr: string, isPaid: boolean, paidDateStr?: string) => {
   const invDate = new Date(dateStr);
@@ -157,13 +157,15 @@ const App: React.FC = () => {
 
         if (savedInvoices !== null && savedInvoices !== undefined) {
           const normalized = savedInvoices.map(hydrateInvoiceFromStorage);
-          setInvoices(normalized);
-          localStorage.setItem('carryint_invoices', JSON.stringify(normalized));
+          const sorted = sortInvoicesByNewestCreated(normalized);
+          setInvoices(sorted);
+          localStorage.setItem('carryint_invoices', JSON.stringify(sorted));
         } else {
           const localInv = localStorage.getItem('carryint_invoices');
           if (localInv) {
             const parsed = JSON.parse(localInv).map(hydrateInvoiceFromStorage);
-            setInvoices(parsed);
+            const sorted = sortInvoicesByNewestCreated(parsed);
+            setInvoices(sorted);
           }
         }
 
@@ -514,10 +516,11 @@ const App: React.FC = () => {
     if (exists) {
       updatedInvoices = invoices.map(inv => inv.id === invoice.id ? invoice : inv);
     } else {
-      updatedInvoices = [...invoices, invoice];
+      updatedInvoices = [invoice, ...invoices];
     }
-    setInvoices(updatedInvoices);
-    localStorage.setItem('carryint_invoices', JSON.stringify(updatedInvoices));
+    const sorted = sortInvoicesByNewestCreated(updatedInvoices);
+    setInvoices(sorted);
+    localStorage.setItem('carryint_invoices', JSON.stringify(sorted));
     try {
       await supabase.from('invoices').upsert([prepareInvoiceForSupabase(invoice)]);
     } catch (err) {
@@ -529,8 +532,9 @@ const App: React.FC = () => {
 
   const handleQuickUpdateCarrier = async (updatedInvoice: Invoice) => {
     const updated = invoices.map(inv => inv.id === updatedInvoice.id ? updatedInvoice : inv);
-    setInvoices(updated);
-    localStorage.setItem('carryint_invoices', JSON.stringify(updated));
+    const sorted = sortInvoicesByNewestCreated(updated);
+    setInvoices(sorted);
+    localStorage.setItem('carryint_invoices', JSON.stringify(sorted));
     try {
       await supabase.from('invoices').upsert([prepareInvoiceForSupabase(updatedInvoice)]);
     } catch (err) {
@@ -1261,7 +1265,7 @@ const App: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    filteredInvoices.slice().reverse().map(inv => {
+                    sortInvoicesByNewestCreated(filteredInvoices).map(inv => {
                       const carrierTrkUrl = getCarrierTrackingUrl(inv.carrier, inv.carrierTrackingNumber);
                       return (
                         <tr key={inv.id} className="hover:bg-gray-50 transition-colors">

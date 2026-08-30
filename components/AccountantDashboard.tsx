@@ -77,7 +77,7 @@ import {
   PeriodClosing,
   AccountingApproval
 } from '../types';
-import { formatCurrency, generateId } from '../utils';
+import { formatCurrency, generateId, sortInvoicesByNewestCreated } from '../utils';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -942,7 +942,7 @@ export const AccountantDashboard: React.FC<AccountantDashboardProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 font-medium">
-                {invoices.filter(i => i.status !== 'PAID').map(inv => {
+                {sortInvoicesByNewestCreated(invoices.filter(i => i.status !== 'PAID')).map(inv => {
                   const diff = Math.floor((now.getTime() - new Date(inv.date).getTime()) / (1000 * 3600 * 24));
                   let bracket = '0-30 Days';
                   let bracketColor = 'bg-gray-100 text-gray-700';
@@ -1009,7 +1009,7 @@ export const AccountantDashboard: React.FC<AccountantDashboardProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 font-medium">
-                {invoices.filter(i => i.vendorId && i.vendorStatus !== 'PAID').map(inv => {
+                {sortInvoicesByNewestCreated(invoices.filter(i => i.vendorId && i.vendorStatus !== 'PAID')).map(inv => {
                   const paid = inv.vendorStatus === 'PARTIAL' ? (inv.vendorPaidAmount || 0) : 0;
                   const remaining = Math.max(0, inv.vendorCost - paid);
                   return (

@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { Invoice, CompanyInfo, User, ShipmentStatus, TrackingEvent } from '../types';
 import { MAJOR_CARRIERS, SHIPMENT_STATUSES } from '../constants';
-import { getCarrierTrackingUrl, formatCurrency } from '../utils';
+import { getCarrierTrackingUrl, formatCurrency, sortInvoicesByNewestCreated } from '../utils';
 
 interface TrackingManagementProps {
   invoices: Invoice[];
@@ -1493,7 +1493,7 @@ window.handleCarryintV2Track = async function(event) {
                     <td colSpan={8} className="py-12 text-center text-gray-400">No invoices or shipments registered.</td>
                   </tr>
                 ) : (
-                  invoices.slice().reverse().map(inv => {
+                  sortInvoicesByNewestCreated(invoices).map(inv => {
                     const trkUrl = getCarrierTrackingUrl(inv.carrier, inv.carrierTrackingNumber);
                     return (
                       <tr key={inv.id} className="hover:bg-gray-50 transition-colors">

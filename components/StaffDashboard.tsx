@@ -16,7 +16,7 @@ import {
   PieChart
 } from 'lucide-react';
 import { Invoice, Quotation, User as UserType } from '../types';
-import { formatCurrency } from '../utils';
+import { formatCurrency, sortInvoicesByNewestCreated } from '../utils';
 
 interface StaffDashboardProps {
   currentUser: UserType;
@@ -430,7 +430,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                   </td>
                 </tr>
               ) : (
-                staffInvoices.slice(0, 8).map(inv => (
+                sortInvoicesByNewestCreated(staffInvoices).slice(0, 8).map(inv => (
                   <tr key={inv.id} className="hover:bg-gray-50/80 transition-colors">
                     <td className="px-6 py-3.5 font-bold text-gray-900">{inv.invoiceNumber}</td>
                     <td className="px-6 py-3.5 text-gray-700 font-medium">{inv.customerName}</td>

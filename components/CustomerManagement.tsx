@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Users, Plus, Search, PieChart, FileText, Download, Printer, Trash2, Edit, ChevronDown, Building2, UserCheck, LayoutList, TrendingUp, AlertCircle } from 'lucide-react';
 import { Customer, Invoice, AdjustmentNote } from '../types';
-import { formatCurrency, generateId } from '../utils';
+import { formatCurrency, generateId, sortInvoicesByNewestCreated } from '../utils';
 
 interface CustomerManagementProps {
   customers: Customer[];
@@ -168,9 +168,11 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
   // ── Customer Detail View ──────────────────────────────────────────────
   if (selectedCustomer) {
     const customerInvoices = invoices.filter(inv => inv.customerId === selectedCustomer.id);
-    const displayedInvoices = showUnpaidOnly
-      ? customerInvoices.filter(inv => inv.status !== 'PAID')
-      : customerInvoices;
+    const displayedInvoices = sortInvoicesByNewestCreated(
+      showUnpaidOnly
+        ? customerInvoices.filter(inv => inv.status !== 'PAID')
+        : customerInvoices
+    );
     const customerNotes = adjustmentNotes.filter(n => n.customerId === selectedCustomer.id);
     const totalDebits = customerNotes.filter(n => n.type === 'DEBIT').reduce((s, n) => s + n.amount, 0);
     const totalCredits = customerNotes.filter(n => n.type === 'CREDIT' && n.creditAction !== 'REFUND').reduce((s, n) => s + n.amount, 0);

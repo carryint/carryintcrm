@@ -6,7 +6,7 @@ import {
 import { TrendingUp, DollarSign, Clock, AlertCircle, CheckCircle, CreditCard, Wallet, X, FileText, ExternalLink, Calendar, Download, UserCheck, Users } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { formatCurrency } from '../utils';
+import { formatCurrency, sortInvoicesByNewestCreated } from '../utils';
 import { Invoice, Expense, AdjustmentNote, User } from '../types';
 
 interface DashboardProps {
@@ -279,7 +279,7 @@ const Dashboard: React.FC<DashboardProps> = ({ invoices, expenses, adjustmentNot
   };
 
   const chartData = getChartData();
-  const recentShipments = filteredInvoices.slice(-5).reverse();
+  const recentShipments = sortInvoicesByNewestCreated(filteredInvoices).slice(0, 5);
 
   const handleCardClick = (filter: string) => {
     setSelectedFilter(filter);

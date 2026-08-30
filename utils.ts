@@ -284,5 +284,72 @@ export const hydrateInvoiceFromStorage = (raw: any): Invoice => {
   };
 };
 
+/**
+ * Resolves the true original creation timestamp for an invoice.
+ * Subsequent edits do NOT alter the creation timestamp, as the original creation
+ * timestamp is preserved from the initial 'CREATE' audit log, createdAt field, or invoice date.
+ */
+export const getInvoiceCreationTimestamp = (inv: Invoice): number => {
+  if (!inv) return 0;
+
+  // 1. Audit log with 'CREATE' action (persisted and unchanged by subsequent edits)
+  if (Array.isArray(inv.auditLogs) && inv.auditLogs.length > 0) {
+    const createLog = inv.auditLogs.find(l => l.action === 'CREATE');
+    if (createLog?.timestamp) {
+      const t = new Date(createLog.timestamp).getTime();
+      if (!isNaN(t) && t > 0) return t;
+    }
+    // Fallback to the first audit log timestamp
+    const firstLog = inv.auditLogs[0];
+    if (firstLog?.timestamp) {
+      const t = new Date(firstLog.timestamp).getTime();
+      if (!isNaN(t) && t > 0) return t;
+    }
+  }
+
+  // 2. Explicit createdAt property if available
+  if ((inv as any).createdAt) {
+    const t = new Date((inv as any).createdAt).getTime();
+    if (!isNaN(t) && t > 0) return t;
+  }
+
+  // 3. Invoice date field (assigned at creation time)
+  if (inv.date) {
+    const t = new Date(inv.date).getTime();
+    if (!isNaN(t) && t > 0) return t;
+  }
+
+  // 4. Epoch milliseconds embedded in ID (e.g. inv-1740738291000)
+  if (inv.id) {
+    const match = inv.id.match(/\d{10,13}/);
+    if (match) {
+      const t = Number(match[0]);
+      if (!isNaN(t) && t > 1000000000000) return t;
+    }
+  }
+
+  return 0;
+};
+
+/**
+ * Arranges invoices with newly entered (created) invoices on top.
+ * Edited invoices retain their original creation order and will NOT jump to the top.
+ */
+export const sortInvoicesByNewestCreated = (invoicesList: Invoice[]): Invoice[] => {
+  if (!Array.isArray(invoicesList)) return [];
+  return [...invoicesList].sort((a, b) => {
+    const timeA = getInvoiceCreationTimestamp(a);
+    const timeB = getInvoiceCreationTimestamp(b);
+    if (timeB !== timeA) {
+      return timeB - timeA;
+    }
+    // Tie-breaker: sort descending by invoice number / id
+    const numA = (a.invoiceNumber || a.id || '').toString();
+    const numB = (b.invoiceNumber || b.id || '').toString();
+    return numB.localeCompare(numA, undefined, { numeric: true, sensitivity: 'base' });
+  });
+};
+
+
 
 
