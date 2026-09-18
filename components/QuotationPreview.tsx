@@ -345,23 +345,20 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
               <p className="text-[10px] text-gray-500 mb-2">Authorized Signatory / Operations Dept</p>
             </div>
 
-            <div className="min-h-[65px] sm:min-h-[75px] flex items-center relative my-1">
-              {showSeal && companyInfo.sealUrl ? (
-                <div className="relative">
+            <div className="relative min-h-[90px] sm:min-h-[105px] flex items-end pt-2 pb-1">
+              {showSeal && companyInfo.sealUrl && (
+                <div className="absolute left-2 sm:left-4 -top-3 z-10 select-none pointer-events-none">
                   <img
                     src={companyInfo.sealUrl}
                     alt="Authorized Signatory Stamp & Seal"
-                    className="h-16 sm:h-20 max-w-[170px] object-contain drop-shadow-sm select-none pointer-events-none"
+                    className="h-24 sm:h-28 max-w-[210px] object-contain drop-shadow-sm transform -rotate-1 opacity-95"
                   />
                 </div>
-              ) : (
-                <div className="h-12 sm:h-14"></div>
               )}
-            </div>
-
-            <div>
-              <div className="w-44 border-b border-gray-400"></div>
-              <p className="text-[10px] text-gray-400 mt-1">Authorized Signature & Stamp</p>
+              <div className="relative z-0">
+                <div className="w-48 border-b border-gray-400"></div>
+                <p className="text-[10px] text-gray-400 mt-1 font-medium">Authorized Signature & Stamp</p>
+              </div>
             </div>
           </div>
 
@@ -371,13 +368,11 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
               <p className="text-[10px] text-gray-500 mb-2">Sign & stamp to approve quotation</p>
             </div>
 
-            <div className="min-h-[65px] sm:min-h-[75px] flex items-center sm:justify-end print-justify-end my-1">
-              <div className="h-12 sm:h-14"></div>
-            </div>
-
-            <div>
-              <div className="w-44 border-b border-gray-400 sm:ml-auto"></div>
-              <p className="text-[10px] text-gray-400 mt-1">Client Signature & Date</p>
+            <div className="relative min-h-[90px] sm:min-h-[105px] flex items-end sm:justify-end print-justify-end pt-2 pb-1">
+              <div>
+                <div className="w-48 border-b border-gray-400 sm:ml-auto"></div>
+                <p className="text-[10px] text-gray-400 mt-1 font-medium">Client Signature & Date</p>
+              </div>
             </div>
           </div>
         </div>
