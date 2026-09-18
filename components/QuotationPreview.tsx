@@ -15,7 +15,8 @@ import {
   Building2, 
   User, 
   Receipt,
-  CheckCircle2
+  CheckCircle2,
+  Stamp
 } from 'lucide-react';
 
 interface QuotationPreviewProps {
@@ -34,6 +35,9 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
   onConvertToInvoice
 }) => {
   const displayTrn = companyInfo.trn;
+  const [showSeal, setShowSeal] = React.useState<boolean>(
+    quotation.includeSeal !== undefined ? quotation.includeSeal : true
+  );
 
   React.useEffect(() => {
     if (quotation?.quotationNumber) {
@@ -67,6 +71,21 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
         </button>
 
         <div className="flex items-center flex-wrap gap-2">
+          {companyInfo.sealUrl && (
+            <button
+              onClick={() => setShowSeal(!showSeal)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-bold text-xs transition-colors border ${
+                showSeal
+                  ? 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100'
+                  : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
+              }`}
+              title="Toggle company seal/stamp for this document"
+            >
+              <Stamp size={15} />
+              {showSeal ? 'Seal Stamp: ON' : 'Seal Stamp: OFF'}
+            </button>
+          )}
+
           {onEdit && (
             <button
               onClick={() => onEdit(quotation)}
@@ -320,18 +339,46 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
 
         {/* Signatures & Acceptance Block */}
         <div className="grid grid-cols-1 sm:grid-cols-2 print-grid-2 gap-6 sm:gap-10 pt-4 sm:pt-6 border-t border-gray-200 text-xs">
-          <div>
-            <p className="font-black text-gray-900 uppercase text-[11px] mb-1">For Carryint Shipping Services L.L.C</p>
-            <p className="text-[10px] text-gray-500 mb-6 sm:mb-8">Authorized Signatory / Operations Dept</p>
-            <div className="w-44 border-b border-gray-400"></div>
-            <p className="text-[10px] text-gray-400 mt-1">Authorized Signature & Stamp</p>
+          <div className="relative flex flex-col justify-between">
+            <div>
+              <p className="font-black text-gray-900 uppercase text-[11px] mb-0.5">For Carryint Shipping Services L.L.C</p>
+              <p className="text-[10px] text-gray-500 mb-2">Authorized Signatory / Operations Dept</p>
+            </div>
+
+            <div className="min-h-[65px] sm:min-h-[75px] flex items-center relative my-1">
+              {showSeal && companyInfo.sealUrl ? (
+                <div className="relative">
+                  <img
+                    src={companyInfo.sealUrl}
+                    alt="Authorized Signatory Stamp & Seal"
+                    className="h-16 sm:h-20 max-w-[170px] object-contain drop-shadow-sm select-none pointer-events-none"
+                  />
+                </div>
+              ) : (
+                <div className="h-12 sm:h-14"></div>
+              )}
+            </div>
+
+            <div>
+              <div className="w-44 border-b border-gray-400"></div>
+              <p className="text-[10px] text-gray-400 mt-1">Authorized Signature & Stamp</p>
+            </div>
           </div>
 
-          <div className="sm:text-right print-text-right">
-            <p className="font-black text-gray-900 uppercase text-[11px] mb-1">Customer Acceptance & Confirmation</p>
-            <p className="text-[10px] text-gray-500 mb-6 sm:mb-8">Sign & stamp to approve quotation</p>
-            <div className="w-44 border-b border-gray-400 sm:ml-auto"></div>
-            <p className="text-[10px] text-gray-400 mt-1">Client Signature & Date</p>
+          <div className="sm:text-right print-text-right flex flex-col justify-between">
+            <div>
+              <p className="font-black text-gray-900 uppercase text-[11px] mb-0.5">Customer Acceptance & Confirmation</p>
+              <p className="text-[10px] text-gray-500 mb-2">Sign & stamp to approve quotation</p>
+            </div>
+
+            <div className="min-h-[65px] sm:min-h-[75px] flex items-center sm:justify-end print-justify-end my-1">
+              <div className="h-12 sm:h-14"></div>
+            </div>
+
+            <div>
+              <div className="w-44 border-b border-gray-400 sm:ml-auto"></div>
+              <p className="text-[10px] text-gray-400 mt-1">Client Signature & Date</p>
+            </div>
           </div>
         </div>
 

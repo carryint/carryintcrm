@@ -16,7 +16,9 @@ import {
   Clock,
   UserCheck,
   Edit2,
-  Trash2
+  Trash2,
+  Stamp,
+  FileSignature
 } from 'lucide-react';
 import { CompanyInfo, Invoice, Customer, Vendor, User, Expense, AdjustmentNote, Quotation } from '../types';
 import Logo from './Logo';
@@ -59,6 +61,7 @@ const Settings: React.FC<SettingsProps> = ({
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [newUser, setNewUser] = useState<Partial<User>>({ role: 'STAFF' });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sealInputRef = useRef<HTMLInputElement>(null);
 
   const handleUserSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,6 +110,22 @@ const Settings: React.FC<SettingsProps> = ({
   const removeLogo = () => {
     setFormData({ ...formData, logoUrl: '' });
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleSealUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({ ...formData, sealUrl: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeSeal = () => {
+    setFormData({ ...formData, sealUrl: '' });
+    if (sealInputRef.current) sealInputRef.current.value = '';
   };
 
   const handleFullBackup = async () => {
@@ -338,47 +357,132 @@ const Settings: React.FC<SettingsProps> = ({
 
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Brand Identity / Logo Section */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
-            <ImageIcon size={20} className="text-orange-500" />
-            Brand Identity
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-            <div className="space-y-4">
-              <label className={labelClass}>Company Logo</label>
-              <div className="flex items-center gap-4">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2 bg-amber-100 border-2 border-dashed border-amber-300 px-6 py-8 rounded-xl text-amber-800 font-black hover:bg-amber-200 transition-all flex-1 text-center justify-center group"
-                >
-                  <Upload className="group-hover:-translate-y-1 transition-transform" />
-                  <span>Upload New Image</span>
-                </button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleLogoUpload}
-                  accept="image/*"
-                  className="hidden"
-                />
+        {/* Brand Identity & Official Seal Section */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-8">
+          <div>
+            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+              <ImageIcon size={20} className="text-orange-500" />
+              Brand Identity & Official Seal
+            </h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Upload your official company logo and authorized signature seal / stamp for quotations and documents
+            </p>
+          </div>
+
+          {/* 1. Company Logo */}
+          <div className="border-b border-gray-100 pb-6">
+            <h4 className="text-xs font-black text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-1.5">
+              <ImageIcon size={16} className="text-orange-600" />
+              Company Logo (Header)
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+              <div className="space-y-4">
+                <label className={labelClass}>Upload Company Logo</label>
+                <div className="flex items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 bg-amber-100 border-2 border-dashed border-amber-300 px-6 py-8 rounded-xl text-amber-800 font-black hover:bg-amber-200 transition-all flex-1 text-center justify-center group"
+                  >
+                    <Upload className="group-hover:-translate-y-1 transition-transform" />
+                    <span>Upload Logo Image</span>
+                  </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleLogoUpload}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                </div>
+                <p className="text-xs text-amber-800 font-bold uppercase">Supports PNG, JPG, or SVG</p>
               </div>
-              <p className="text-xs text-amber-800 font-bold uppercase">Supports PNG, JPG, or SVG</p>
+
+              <div className="relative group p-4 bg-gray-50 rounded-2xl border border-gray-100 flex flex-col items-center justify-center min-h-[160px]">
+                <div className="text-[10px] font-black text-gray-400 absolute top-3 left-3 tracking-widest uppercase">Preview</div>
+                <Logo src={formData.logoUrl} className="h-20" />
+                {formData.logoUrl && (
+                  <button
+                    type="button"
+                    onClick={removeLogo}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow-lg hover:scale-110 transition-transform"
+                    title="Remove Logo"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Company Official Seal / Signature Stamp */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-xs font-black text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                <Stamp size={16} className="text-orange-600" />
+                Company Seal / Official Stamp & Signature
+              </h4>
+              <span className="text-[10px] bg-orange-100 text-orange-800 font-bold px-2 py-0.5 rounded-full">
+                For Quotations & Signatory
+              </span>
             </div>
 
-            <div className="relative group p-4 bg-gray-50 rounded-2xl border border-gray-100 flex flex-col items-center justify-center min-h-[160px]">
-              <div className="text-[10px] font-black text-gray-400 absolute top-3 left-3 tracking-widest uppercase">Preview</div>
-              <Logo src={formData.logoUrl} className="h-20" />
-              {formData.logoUrl && (
-                <button
-                  type="button"
-                  onClick={removeLogo}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow-lg hover:scale-110 transition-transform"
-                >
-                  <X size={16} />
-                </button>
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+              <div className="space-y-4">
+                <label className={labelClass}>Upload Company Stamp / Seal (Signature)</label>
+                <div className="flex items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={() => sealInputRef.current?.click()}
+                    className="flex items-center gap-2 bg-orange-50 border-2 border-dashed border-orange-300 px-6 py-8 rounded-xl text-orange-900 font-black hover:bg-orange-100 transition-all flex-1 text-center justify-center group"
+                  >
+                    <Upload className="group-hover:-translate-y-1 transition-transform text-orange-600" />
+                    <span>{formData.sealUrl ? 'Replace Company Seal' : 'Upload Company Seal / Stamp'}</span>
+                  </button>
+                  <input
+                    type="file"
+                    ref={sealInputRef}
+                    onChange={handleSealUpload}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 font-medium">
+                  Transparent PNG recommended. This seal will be stamped under <strong className="text-gray-800">Authorized Signatory / Operations Dept</strong> on official quotations when enabled.
+                </p>
+              </div>
+
+              <div className="relative group p-4 bg-slate-50/80 rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center min-h-[160px]">
+                <div className="text-[10px] font-black text-gray-400 absolute top-3 left-3 tracking-widest uppercase">
+                  Seal Stamp Preview
+                </div>
+                {formData.sealUrl ? (
+                  <div className="p-2 flex flex-col items-center">
+                    <img
+                      src={formData.sealUrl}
+                      alt="Company Seal Stamp"
+                      className="max-h-24 max-w-[200px] object-contain drop-shadow-sm"
+                    />
+                    <span className="text-[10px] font-bold text-emerald-600 mt-2">Active Official Seal</span>
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-gray-400">
+                    <Stamp size={36} className="mx-auto mb-1 opacity-40" />
+                    <p className="text-xs font-bold text-gray-400">No company seal uploaded</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Upload a round stamp or signature image</p>
+                  </div>
+                )}
+                {formData.sealUrl && (
+                  <button
+                    type="button"
+                    onClick={removeSeal}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow-lg hover:scale-110 transition-transform"
+                    title="Remove Seal"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

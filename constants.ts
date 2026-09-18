@@ -12,7 +12,8 @@ export const COMPANY_INFO = {
     iban: 'AE970330000019102017222'
   },
   // Updated with a high-quality logo URL matching the provided image
-  logoUrl: 'https://i.ibb.co/LhyM4pL/Carryint-Logo.png'
+  logoUrl: 'https://i.ibb.co/LhyM4pL/Carryint-Logo.png',
+  sealUrl: ''
 };
 
 export const COUNTRY_CODES = [

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Customer, Quotation, QuotationItem, CustomerCategory, QuotationStatus } from '../types';
+import { Customer, Quotation, QuotationItem, CustomerCategory, QuotationStatus, CompanyInfo } from '../types';
 import { COMMODITY_TYPES, DESTINATION_COUNTRIES } from '../constants';
 import { generateId } from '../utils';
 import { 
@@ -15,7 +15,10 @@ import {
   Sparkles, 
   RotateCcw,
   ShieldCheck,
-  Truck
+  Truck,
+  Stamp,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 
 // ── Reusable Smart Decimal & Numeric Input ─────────────────────────────────────
@@ -114,6 +117,7 @@ interface QuotationFormProps {
   onCancel: () => void;
   currentUserId?: string;
   currentUserName?: string;
+  companyInfo?: CompanyInfo;
 }
 
 const DEFAULT_TERMS = `1. Rates quoted are in AED and valid for 5 days from the quotation date.
@@ -156,7 +160,8 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
   onSave,
   onCancel,
   currentUserId = 'user-1',
-  currentUserName = 'Operations Staff'
+  currentUserName = 'Operations Staff',
+  companyInfo
 }) => {
   const today = new Date().toISOString().split('T')[0];
 
@@ -172,6 +177,9 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
   const [date, setDate] = useState<string>(initialQuotation?.date || today);
   const [validityDate, setValidityDate] = useState<string>(
     initialQuotation?.validityDate || calculateFiveDaysAhead(initialQuotation?.date || today)
+  );
+  const [includeSeal, setIncludeSeal] = useState<boolean>(
+    initialQuotation?.includeSeal !== undefined ? initialQuotation.includeSeal : true
   );
 
   // Customer Information
@@ -323,6 +331,7 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
       vatAmount,
       totalAmount,
       notesAndTerms,
+      includeSeal,
       status,
       createdBy: initialQuotation?.createdBy || currentUserId,
       createdByName: initialQuotation?.createdByName || currentUserName,
@@ -857,6 +866,108 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
           placeholder="Type or copy-paste terms and conditions here..."
           className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-xs font-mono leading-relaxed outline-none focus:bg-white focus:ring-2 focus:ring-orange-500 transition-all"
         />
+      </div>
+
+      {/* SECTION 6: Official Authorization & Company Seal (Stamp) */}
+      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 pb-4">
+          <div className="flex items-center gap-2">
+            <div className={`p-2 rounded-lg ${includeSeal ? 'bg-orange-50 text-orange-600' : 'bg-gray-100 text-gray-500'}`}>
+              <Stamp size={20} />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-gray-900">Official Signatory Seal & Stamp</h3>
+              <p className="text-xs text-gray-400">Control whether the company official seal/stamp is included under Authorized Signatory</p>
+            </div>
+          </div>
+
+          {/* Quick Enable / Disable Action Buttons */}
+          <div className="inline-flex items-center p-1 bg-gray-100 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setIncludeSeal(true)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-black transition-all ${
+                includeSeal
+                  ? 'bg-orange-600 text-white shadow-md'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <CheckCircle2 size={14} />
+              Enable Seal
+            </button>
+            <button
+              type="button"
+              onClick={() => setIncludeSeal(false)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-black transition-all ${
+                !includeSeal
+                  ? 'bg-slate-800 text-white shadow-md'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <XCircle size={14} />
+              Disable Seal
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center bg-gray-50 p-4 rounded-xl border border-gray-200">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className={`text-xs font-black px-2.5 py-1 rounded-md uppercase ${
+                includeSeal 
+                  ? 'bg-emerald-100 text-emerald-800' 
+                  : 'bg-gray-200 text-gray-700'
+              }`}>
+                {includeSeal ? 'Seal Stamp Enabled' : 'Seal Stamp Disabled'}
+              </span>
+            </div>
+            <p className="text-xs text-gray-600 leading-relaxed">
+              {includeSeal
+                ? 'The official company seal and signature will be stamped on the final quotation under the "Authorized Signatory / Operations Dept" block.'
+                : 'The quotation will display a blank signature line for manual signing and physical stamp.'}
+            </p>
+            {companyInfo?.sealUrl ? (
+              <p className="text-[11px] text-emerald-700 font-bold flex items-center gap-1">
+                <CheckCircle2 size={13} className="text-emerald-600" />
+                Company seal is configured in Settings.
+              </p>
+            ) : (
+              <p className="text-[11px] text-amber-700 font-medium">
+                Note: You can upload your official company seal stamp in <strong>Settings → Core Configuration → Brand Identity</strong>.
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-col items-center justify-center p-3 bg-white rounded-xl border border-gray-200 min-h-[110px]">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">
+              Signatory Block Live Preview
+            </span>
+            {includeSeal ? (
+              companyInfo?.sealUrl ? (
+                <div className="flex flex-col items-center">
+                  <img
+                    src={companyInfo.sealUrl}
+                    alt="Company Official Seal"
+                    className="max-h-20 max-w-[160px] object-contain drop-shadow-sm"
+                  />
+                  <span className="text-[10px] text-gray-500 font-bold mt-1">Authorized Signatory / Operations Dept</span>
+                </div>
+              ) : (
+                <div className="text-center py-2 text-orange-600">
+                  <Stamp size={28} className="mx-auto mb-1 opacity-70" />
+                  <p className="text-xs font-bold">Seal Option Active</p>
+                  <p className="text-[10px] text-gray-400">Stamp will appear once uploaded in Settings</p>
+                </div>
+              )
+            ) : (
+              <div className="text-center py-2 text-gray-400">
+                <div className="w-32 border-b-2 border-dashed border-gray-300 mx-auto mb-1.5"></div>
+                <p className="text-xs font-bold text-gray-500">Manual Signature Line</p>
+                <p className="text-[10px] text-gray-400">Stamp disabled for physical stamping</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Bottom Actions */}

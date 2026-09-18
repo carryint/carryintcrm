@@ -190,6 +190,7 @@ export interface CompanyInfo {
     iban: string;
   };
   logoUrl: string;
+  sealUrl?: string;
 }
 
 export interface Customer {
@@ -350,6 +351,7 @@ export interface Quotation {
   vatAmount: number;
   totalAmount: number;
   notesAndTerms: string;   // Type or copy-paste terms and conditions
+  includeSeal?: boolean;   // Enable or disable company seal/stamp on quotation
   status: QuotationStatus;
   createdBy: string;
   createdByName: string;

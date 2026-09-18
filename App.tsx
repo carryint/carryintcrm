@@ -761,6 +761,7 @@ const App: React.FC = () => {
       quotationNumber: `${quotation.quotationNumber}-COPY`,
       date: today,
       validityDate: valD.toISOString().split('T')[0],
+      includeSeal: quotation.includeSeal !== undefined ? quotation.includeSeal : true,
       status: 'DRAFT',
       createdAt: new Date().toISOString()
     };
@@ -997,6 +998,7 @@ const App: React.FC = () => {
             initialQuotation={editingQuotation}
             existingQuotations={quotations}
             customers={customers}
+            companyInfo={companyInfo}
             onSave={handleSaveQuotation}
             onCancel={() => {
               setEditingQuotation(null);
