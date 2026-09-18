@@ -244,7 +244,8 @@ export const prepareInvoiceForSupabase = (inv: Invoice): any => {
     carrierAssignedAt: inv.carrierAssignedAt,
     carrierAssignedBy: inv.carrierAssignedBy,
     trackingEvents: inv.trackingEvents,
-    vendorPaidAmount: inv.vendorPaidAmount
+    vendorPaidAmount: inv.vendorPaidAmount,
+    includeSeal: inv.includeSeal
   };
 
   const rawItems = Array.isArray(inv.items) && inv.items.length > 0
@@ -272,6 +273,7 @@ export const hydrateInvoiceFromStorage = (raw: any): Invoice => {
   
   return {
     ...raw,
+    includeSeal: raw.includeSeal !== undefined ? raw.includeSeal : (firstItemLogistics.includeSeal !== undefined ? firstItemLogistics.includeSeal : false),
     awbNumber: raw.awbNumber || firstItemLogistics.awbNumber || generateAwbNumber(),
     carrier: raw.carrier || firstItemLogistics.carrier || undefined,
     carrierTrackingNumber: raw.carrierTrackingNumber || firstItemLogistics.carrierTrackingNumber || undefined,

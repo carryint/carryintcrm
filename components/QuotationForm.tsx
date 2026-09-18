@@ -178,9 +178,17 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
   const [validityDate, setValidityDate] = useState<string>(
     initialQuotation?.validityDate || calculateFiveDaysAhead(initialQuotation?.date || today)
   );
-  const [includeSeal, setIncludeSeal] = useState<boolean>(
-    initialQuotation?.includeSeal !== undefined ? initialQuotation.includeSeal : true
-  );
+  const [includeSeal, setIncludeSeal] = useState<boolean>(() => {
+    if (initialQuotation?.includeSeal !== undefined) return initialQuotation.includeSeal;
+    const remembered = localStorage.getItem('carryint_quotation_seal_preference');
+    if (remembered !== null) return remembered === 'true';
+    return companyInfo?.defaultQuotationSeal ?? false;
+  });
+
+  const handleToggleSeal = (enabled: boolean) => {
+    setIncludeSeal(enabled);
+    localStorage.setItem('carryint_quotation_seal_preference', String(enabled));
+  };
 
   // Customer Information
   const [customerName, setCustomerName] = useState<string>(initialQuotation?.customerName || '');
@@ -885,7 +893,7 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
           <div className="inline-flex items-center p-1 bg-gray-100 rounded-xl">
             <button
               type="button"
-              onClick={() => setIncludeSeal(true)}
+              onClick={() => handleToggleSeal(true)}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-black transition-all ${
                 includeSeal
                   ? 'bg-orange-600 text-white shadow-md'
@@ -897,7 +905,7 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setIncludeSeal(false)}
+              onClick={() => handleToggleSeal(false)}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-black transition-all ${
                 !includeSeal
                   ? 'bg-slate-800 text-white shadow-md'

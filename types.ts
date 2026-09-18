@@ -188,9 +188,12 @@ export interface CompanyInfo {
     cif: string;
     accNo: string;
     iban: string;
+    sealUrl?: string;
   };
   logoUrl: string;
   sealUrl?: string;
+  defaultQuotationSeal?: boolean;
+  defaultInvoiceSeal?: boolean;
 }
 
 export interface Customer {
@@ -274,6 +277,7 @@ export interface Invoice {
   paymentMethod?: string;  // e.g. Cash, Bank Transfer, Cheque
   transactionReference?: string; // Transaction reference for bank transfers
   companyTrn?: string; // Capture TRN at time of generation
+  includeSeal?: boolean; // Whether to display official company seal stamp on invoice
   createdBy: string;
   createdByName: string;
   auditLogs: AuditLog[];

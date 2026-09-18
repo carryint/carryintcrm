@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, Save, Send, Search, ChevronDown, X, Truck, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, Save, Send, Search, ChevronDown, X, Truck, ExternalLink, Stamp, CheckCircle2, XCircle } from 'lucide-react';
 
 // ── Reusable Searchable Dropdown ─────────────────────────────────────────────
 interface SearchableSelectProps {
@@ -312,6 +312,17 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const [paymentDate, setPaymentDate] = useState<string>(editingInvoice?.paymentDate || new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState<string>(editingInvoice?.paymentMethod || 'Bank Transfer');
   const [transactionReference, setTransactionReference] = useState<string>(editingInvoice?.transactionReference || '');
+  const [includeSeal, setIncludeSeal] = useState<boolean>(() => {
+    if (editingInvoice?.includeSeal !== undefined) return editingInvoice.includeSeal;
+    const remembered = localStorage.getItem('carryint_invoice_seal_preference');
+    if (remembered !== null) return remembered === 'true';
+    return companyInfo?.defaultInvoiceSeal ?? false;
+  });
+
+  const handleToggleSeal = (enabled: boolean) => {
+    setIncludeSeal(enabled);
+    localStorage.setItem('carryint_invoice_seal_preference', String(enabled));
+  };
 
   // Totals are based on the manually entered total — qty/weight/price are independent descriptive fields.
   const calculateTotals = () => {
@@ -433,6 +444,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
       vendorPaymentDate: vendorStatus !== 'UNPAID' ? vendorPaymentDate : undefined,
       vendorTransactionReference: vendorStatus !== 'UNPAID' ? vendorTransactionReference : undefined,
       companyTrn: companyInfo.trn,
+      includeSeal,
       createdBy: editingInvoice?.createdBy || currentUser?.id || 'system',
       createdByName: editingInvoice?.createdByName || currentUser?.name || 'System',
       auditLogs: [...(editingInvoice?.auditLogs || []), auditLog]
@@ -937,6 +949,64 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
                   <option value="UNPAID">UNPAID (Pending Broker Payment)</option>
                   <option value="PAID">PAID (Closed Broker Commission)</option>
                 </select>
+              </div>
+
+              {/* Official Signatory Seal & Stamp Option */}
+              <div className="pt-4 border-t border-amber-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-black text-orange-800 uppercase tracking-widest flex items-center gap-1.5">
+                    <Stamp size={16} />
+                    Official Seal / Stamp
+                  </label>
+                  <div className="inline-flex items-center p-0.5 bg-amber-200/80 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSeal(true)}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-black transition-all ${
+                        includeSeal
+                          ? 'bg-orange-600 text-white shadow-sm'
+                          : 'text-amber-950 hover:text-orange-900'
+                      }`}
+                    >
+                      <CheckCircle2 size={13} />
+                      Enable
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSeal(false)}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-black transition-all ${
+                        !includeSeal
+                          ? 'bg-slate-900 text-white shadow-sm'
+                          : 'text-amber-950 hover:text-orange-900'
+                      }`}
+                    >
+                      <XCircle size={13} />
+                      Disable
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-amber-50 p-3.5 rounded-xl border border-amber-300 flex items-center justify-between gap-3">
+                  <div>
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${
+                      includeSeal ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-200 text-gray-700'
+                    }`}>
+                      {includeSeal ? 'Seal Stamp Enabled' : 'Seal Stamp Disabled'}
+                    </span>
+                    <p className="text-[11px] text-amber-950 font-medium mt-1">
+                      {includeSeal
+                        ? 'Official company stamp will appear over the signature on the invoice.'
+                        : 'Invoice will display a blank signature line for physical signing.'}
+                    </p>
+                  </div>
+                  {includeSeal && companyInfo.sealUrl && (
+                    <img
+                      src={companyInfo.sealUrl}
+                      alt="Seal Stamp Preview"
+                      className="h-12 max-w-[80px] object-contain drop-shadow-sm flex-shrink-0"
+                    />
+                  )}
+                </div>
               </div>
             </div>
           </div>

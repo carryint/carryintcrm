@@ -101,15 +101,45 @@ const App: React.FC = () => {
           supabase.from('adjustment_notes').select('*')
         ]);
 
+        const localSeal = localStorage.getItem('carryint_company_seal') || '';
+        const localCompRaw = localStorage.getItem('carryint_company_info');
+        let parsedLocalComp: any = null;
+        if (localCompRaw) {
+          try { parsedLocalComp = JSON.parse(localCompRaw); } catch (e) {}
+        }
+
         if (savedCompanyInfo && savedCompanyInfo.length > 0) {
-          setCompanyInfo(savedCompanyInfo[0] as any);
-          localStorage.setItem('carryint_company_info', JSON.stringify(savedCompanyInfo[0]));
+          const remote = savedCompanyInfo[0] as any;
+          const resolvedSeal = remote.sealUrl || remote.bank?.sealUrl || localSeal || (parsedLocalComp?.sealUrl || '');
+          const resolvedDefaultQuoteSeal = remote.defaultQuotationSeal !== undefined 
+            ? remote.defaultQuotationSeal 
+            : (remote.bank?.defaultQuotationSeal !== undefined 
+                ? remote.bank.defaultQuotationSeal 
+                : (parsedLocalComp?.defaultQuotationSeal !== undefined ? parsedLocalComp.defaultQuotationSeal : false));
+          const resolvedDefaultInvSeal = remote.defaultInvoiceSeal !== undefined 
+            ? remote.defaultInvoiceSeal 
+            : (remote.bank?.defaultInvoiceSeal !== undefined 
+                ? remote.bank.defaultInvoiceSeal 
+                : (parsedLocalComp?.defaultInvoiceSeal !== undefined ? parsedLocalComp.defaultInvoiceSeal : false));
+
+          const merged = {
+            ...remote,
+            sealUrl: resolvedSeal,
+            defaultQuotationSeal: resolvedDefaultQuoteSeal,
+            defaultInvoiceSeal: resolvedDefaultInvSeal
+          };
+          setCompanyInfo(merged);
+          localStorage.setItem('carryint_company_info', JSON.stringify(merged));
+          if (resolvedSeal) localStorage.setItem('carryint_company_seal', resolvedSeal);
         } else {
-          const localComp = localStorage.getItem('carryint_company_info');
-          if (localComp) {
-            setCompanyInfo(JSON.parse(localComp));
+          if (parsedLocalComp) {
+            const resolvedSeal = parsedLocalComp.sealUrl || localSeal || '';
+            const merged = { ...parsedLocalComp, sealUrl: resolvedSeal };
+            setCompanyInfo(merged);
+            localStorage.setItem('carryint_company_info', JSON.stringify(merged));
+            if (resolvedSeal) localStorage.setItem('carryint_company_seal', resolvedSeal);
           } else {
-            const initial = { ...DEFAULT_COMPANY_INFO, trn: '100456209800003' };
+            const initial = { ...DEFAULT_COMPANY_INFO, trn: '100456209800003', sealUrl: localSeal || '' };
             setCompanyInfo(initial as any);
           }
         }
@@ -612,8 +642,29 @@ const App: React.FC = () => {
   const handleUpdateCompanyInfo = async (info: CompanyInfo) => {
     setCompanyInfo(info);
     localStorage.setItem('carryint_company_info', JSON.stringify(info));
+    if (info.sealUrl) {
+      localStorage.setItem('carryint_company_seal', info.sealUrl);
+    } else {
+      localStorage.removeItem('carryint_company_seal');
+    }
     try {
-      await supabase.from('company_info').upsert([{ id: '1', ...info }]);
+      const payload: any = {
+        id: '1',
+        name: info.name,
+        address: info.address,
+        contact: info.contact,
+        email: info.email,
+        website: info.website,
+        trn: info.trn,
+        logoUrl: info.logoUrl,
+        bank: {
+          ...info.bank,
+          sealUrl: info.sealUrl || '',
+          defaultQuotationSeal: info.defaultQuotationSeal ?? false,
+          defaultInvoiceSeal: info.defaultInvoiceSeal ?? false
+        }
+      };
+      await supabase.from('company_info').upsert([payload]);
     } catch (err) {
       console.error('Error updating company info in Supabase:', err);
     }

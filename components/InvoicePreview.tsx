@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Invoice, CompanyInfo, AdjustmentNote } from '../types';
 import { formatCurrency, numberToWords, getCarrierTrackingUrl } from '../utils';
 import { COUNTRY_SHORT_NAMES, MAJOR_CARRIERS } from '../constants';
-import { Truck, ExternalLink, Edit } from 'lucide-react';
+import { Truck, ExternalLink, Edit, Stamp } from 'lucide-react';
 import Logo from './Logo';
 
 interface InvoicePreviewProps {
@@ -13,6 +13,7 @@ interface InvoicePreviewProps {
 }
 
 const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, companyInfo, adjustmentNotes = [], onOpenCarrierModal }) => {
+  const [showSeal, setShowSeal] = useState<boolean>(invoice.includeSeal !== undefined ? invoice.includeSeal : false);
   const linkedNotes = adjustmentNotes.filter(n => n.originalInvoiceId === invoice.id);
   const totalCredits = linkedNotes.filter(n => n.type === 'CREDIT').reduce((sum, n) => sum + n.amount, 0);
   const totalDebits = linkedNotes.filter(n => n.type === 'DEBIT').reduce((sum, n) => sum + n.amount, 0);
@@ -292,9 +293,33 @@ const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice, companyInfo, a
           <p className="font-bold text-gray-500 mb-0.5">Notes & Terms:</p>
           <p>Please pay within 30 days. Make all cheques payable to {companyInfo.bank.name}. Late payments may incur service charges.</p>
         </div>
-        <div className="text-center w-full sm:w-36 print-w-auto pt-2 sm:pt-0">
-          <div className="h-10 border-b border-dashed border-gray-300 mb-1 w-36 mx-auto sm:w-full"></div>
-          <p className="text-[10px] font-bold text-gray-400 uppercase">Authorized Signature</p>
+
+        <div className="relative text-center w-full sm:w-48 print-w-auto pt-2 sm:pt-0 flex flex-col items-center">
+          <div className="relative min-h-[75px] sm:min-h-[85px] flex items-end justify-center w-full pb-1">
+            {showSeal && companyInfo.sealUrl && (
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none select-none">
+                <img
+                  src={companyInfo.sealUrl}
+                  alt="Authorized Signatory Stamp & Seal"
+                  className="h-20 sm:h-24 max-w-[190px] object-contain drop-shadow-sm transform -rotate-1 opacity-95"
+                />
+              </div>
+            )}
+            <div className="w-44 border-b border-gray-400 mx-auto relative z-0"></div>
+          </div>
+          <div className="flex items-center justify-center gap-1.5 mt-1">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Authorized Signature & Stamp</p>
+            {companyInfo.sealUrl && (
+              <button
+                type="button"
+                onClick={() => setShowSeal(!showSeal)}
+                className="no-print text-[9px] font-black text-orange-600 hover:text-orange-800 underline ml-1"
+                title="Toggle seal on/off for this document"
+              >
+                ({showSeal ? 'Hide Seal' : 'Show Seal'})
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

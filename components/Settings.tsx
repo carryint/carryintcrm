@@ -484,6 +484,68 @@ const Settings: React.FC<SettingsProps> = ({
                 )}
               </div>
             </div>
+
+            {/* Default Seal Preferences */}
+            <div className="mt-6 pt-6 border-t border-gray-100">
+              <h4 className="text-xs font-black text-gray-700 uppercase tracking-wider mb-3">
+                Default Seal / Stamp Behavior
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-gray-900">Quotations Default Mode</p>
+                    <p className="text-[10px] text-gray-500">Initial stamp state when creating quotations</p>
+                  </div>
+                  <div className="inline-flex p-1 bg-white rounded-lg border border-gray-200 text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, defaultQuotationSeal: false })}
+                      className={`px-3 py-1 rounded-md transition-all ${
+                        !formData.defaultQuotationSeal ? 'bg-slate-900 text-white shadow-sm' : 'text-gray-500 hover:text-gray-900'
+                      }`}
+                    >
+                      Disabled (Default)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, defaultQuotationSeal: true })}
+                      className={`px-3 py-1 rounded-md transition-all ${
+                        formData.defaultQuotationSeal ? 'bg-orange-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-900'
+                      }`}
+                    >
+                      Enabled
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-gray-900">Invoices Default Mode</p>
+                    <p className="text-[10px] text-gray-500">Initial stamp state when creating invoices</p>
+                  </div>
+                  <div className="inline-flex p-1 bg-white rounded-lg border border-gray-200 text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, defaultInvoiceSeal: false })}
+                      className={`px-3 py-1 rounded-md transition-all ${
+                        !formData.defaultInvoiceSeal ? 'bg-slate-900 text-white shadow-sm' : 'text-gray-500 hover:text-gray-900'
+                      }`}
+                    >
+                      Disabled (Default)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, defaultInvoiceSeal: true })}
+                      className={`px-3 py-1 rounded-md transition-all ${
+                        formData.defaultInvoiceSeal ? 'bg-orange-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-900'
+                      }`}
+                    >
+                      Enabled
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
