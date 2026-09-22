@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Save,
   Building2,
@@ -18,7 +18,10 @@ import {
   Edit2,
   Trash2,
   Stamp,
-  FileSignature
+  FileSignature,
+  Lock,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { CompanyInfo, Invoice, Customer, Vendor, User, Expense, AdjustmentNote, Quotation } from '../types';
 import Logo from './Logo';
@@ -63,6 +66,13 @@ const Settings: React.FC<SettingsProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sealInputRef = useRef<HTMLInputElement>(null);
 
+  const isAdmin = currentUser?.role === 'ADMIN';
+
+  // Sync formData whenever companyInfo prop updates (e.g. on load from Supabase)
+  useEffect(() => {
+    setFormData(companyInfo);
+  }, [companyInfo]);
+
   const handleUserSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (newUser.name && newUser.email && newUser.password) {
@@ -97,35 +107,83 @@ const Settings: React.FC<SettingsProps> = ({
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isAdmin) {
+      alert('Only Administrators can update the company logo.');
+      return;
+    }
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setFormData({ ...formData, logoUrl: reader.result as string });
+        const newLogoUrl = reader.result as string;
+        const updated = { ...formData, logoUrl: newLogoUrl };
+        setFormData(updated);
+        onUpdate(updated);
+        setIsSaved(true);
+        setTimeout(() => setIsSaved(false), 3000);
       };
       reader.readAsDataURL(file);
     }
   };
 
   const removeLogo = () => {
-    setFormData({ ...formData, logoUrl: '' });
+    if (!isAdmin) {
+      alert('Only Administrators can update the company logo.');
+      return;
+    }
+    const updated = { ...formData, logoUrl: '' };
+    setFormData(updated);
+    onUpdate(updated);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 3000);
   };
 
   const handleSealUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isAdmin) {
+      alert('Only Administrators can upload or change the official company seal.');
+      return;
+    }
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setFormData({ ...formData, sealUrl: reader.result as string });
+        const newSealUrl = reader.result as string;
+        const updated: CompanyInfo = {
+          ...formData,
+          sealUrl: newSealUrl,
+          bank: {
+            ...formData.bank,
+            sealUrl: newSealUrl
+          }
+        };
+        setFormData(updated);
+        onUpdate(updated); // Save immediately to localStorage & Supabase for all users!
+        setIsSaved(true);
+        setTimeout(() => setIsSaved(false), 3000);
       };
       reader.readAsDataURL(file);
     }
   };
 
   const removeSeal = () => {
-    setFormData({ ...formData, sealUrl: '' });
+    if (!isAdmin) {
+      alert('Only Administrators can remove the official company seal.');
+      return;
+    }
+    const updated: CompanyInfo = {
+      ...formData,
+      sealUrl: '',
+      bank: {
+        ...formData.bank,
+        sealUrl: ''
+      }
+    };
+    setFormData(updated);
+    onUpdate(updated); // Save immediately to localStorage & Supabase!
     if (sealInputRef.current) sealInputRef.current.value = '';
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 3000);
   };
 
   const handleFullBackup = async () => {
@@ -422,33 +480,72 @@ const Settings: React.FC<SettingsProps> = ({
                 <Stamp size={16} className="text-orange-600" />
                 Company Seal / Official Stamp & Signature
               </h4>
-              <span className="text-[10px] bg-orange-100 text-orange-800 font-bold px-2 py-0.5 rounded-full">
-                For Quotations & Signatory
-              </span>
+              <div className="flex items-center gap-2">
+                {isAdmin ? (
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <ShieldCheck size={12} />
+                    Admin Upload Access
+                  </span>
+                ) : (
+                  <span className="text-[10px] bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Lock size={12} />
+                    Admin Managed
+                  </span>
+                )}
+                <span className="text-[10px] bg-orange-100 text-orange-800 font-bold px-2 py-0.5 rounded-full">
+                  For Quotations & Signatory
+                </span>
+              </div>
             </div>
+
+            {!isAdmin && (
+              <div className="p-3.5 bg-blue-50/80 border border-blue-200/70 rounded-xl text-blue-900 text-xs flex items-center gap-2.5 mb-5 shadow-sm">
+                <Lock size={16} className="text-blue-600 shrink-0" />
+                <span>
+                  <strong>Administrator Managed:</strong> The official company seal stamp is configured by Administrators. The active seal below is automatically synced across all team members and applied to official documents.
+                </span>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
               <div className="space-y-4">
-                <label className={labelClass}>Upload Company Stamp / Seal (Signature)</label>
-                <div className="flex items-center gap-4">
-                  <button
-                    type="button"
-                    onClick={() => sealInputRef.current?.click()}
-                    className="flex items-center gap-2 bg-orange-50 border-2 border-dashed border-orange-300 px-6 py-8 rounded-xl text-orange-900 font-black hover:bg-orange-100 transition-all flex-1 text-center justify-center group"
-                  >
-                    <Upload className="group-hover:-translate-y-1 transition-transform text-orange-600" />
-                    <span>{formData.sealUrl ? 'Replace Company Seal' : 'Upload Company Seal / Stamp'}</span>
-                  </button>
-                  <input
-                    type="file"
-                    ref={sealInputRef}
-                    onChange={handleSealUpload}
-                    accept="image/*"
-                    className="hidden"
-                  />
-                </div>
+                <label className={labelClass}>Company Stamp / Seal (Signature)</label>
+                {isAdmin ? (
+                  <>
+                    <div className="flex items-center gap-4">
+                      <button
+                        type="button"
+                        onClick={() => sealInputRef.current?.click()}
+                        className="flex items-center gap-2 bg-orange-50 border-2 border-dashed border-orange-300 px-6 py-8 rounded-xl text-orange-900 font-black hover:bg-orange-100 transition-all flex-1 text-center justify-center group"
+                      >
+                        <Upload className="group-hover:-translate-y-1 transition-transform text-orange-600" />
+                        <span>{formData.sealUrl ? 'Replace Company Seal' : 'Upload Company Seal / Stamp'}</span>
+                      </button>
+                      <input
+                        type="file"
+                        ref={sealInputRef}
+                        onChange={handleSealUpload}
+                        accept="image/*"
+                        className="hidden"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-700 font-medium">
+                      <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                      <span>Any uploaded seal is instantly synced to cloud storage for all users.</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="p-5 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
+                    <p className="text-xs font-bold text-gray-700">Official Stamp Sync Status</p>
+                    <p className="text-xs text-gray-500">
+                      {formData.sealUrl
+                        ? 'Official company seal is active and synced from Supabase cloud database.'
+                        : 'No company seal has been uploaded by the administrator yet.'}
+                    </p>
+                  </div>
+                )}
                 <p className="text-xs text-gray-500 font-medium">
-                  Transparent PNG recommended. This seal will be stamped under <strong className="text-gray-800">Authorized Signatory / Operations Dept</strong> on official quotations when enabled.
+                  Transparent PNG recommended. This seal is stamped under <strong className="text-gray-800">Authorized Signatory / Operations Dept</strong> on official quotations and invoices.
                 </p>
               </div>
 
@@ -463,16 +560,21 @@ const Settings: React.FC<SettingsProps> = ({
                       alt="Company Seal Stamp"
                       className="max-h-24 max-w-[200px] object-contain drop-shadow-sm"
                     />
-                    <span className="text-[10px] font-bold text-emerald-600 mt-2">Active Official Seal</span>
+                    <span className="text-[10px] font-bold text-emerald-600 mt-2 flex items-center gap-1">
+                      <CheckCircle2 size={12} />
+                      Active Official Seal (All Users)
+                    </span>
                   </div>
                 ) : (
                   <div className="text-center py-4 text-gray-400">
                     <Stamp size={36} className="mx-auto mb-1 opacity-40" />
                     <p className="text-xs font-bold text-gray-400">No company seal uploaded</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">Upload a round stamp or signature image</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      {isAdmin ? 'Upload a round stamp or signature image above' : 'Waiting for Admin to upload seal'}
+                    </p>
                   </div>
                 )}
-                {formData.sealUrl && (
+                {isAdmin && formData.sealUrl && (
                   <button
                     type="button"
                     onClick={removeSeal}
@@ -499,19 +601,37 @@ const Settings: React.FC<SettingsProps> = ({
                   <div className="inline-flex p-1 bg-white rounded-lg border border-gray-200 text-xs font-bold">
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, defaultQuotationSeal: false })}
+                      disabled={!isAdmin}
+                      onClick={() => {
+                        const updated = {
+                          ...formData,
+                          defaultQuotationSeal: false,
+                          bank: { ...formData.bank, defaultQuotationSeal: false }
+                        };
+                        setFormData(updated);
+                        onUpdate(updated);
+                      }}
                       className={`px-3 py-1 rounded-md transition-all ${
                         !formData.defaultQuotationSeal ? 'bg-slate-900 text-white shadow-sm' : 'text-gray-500 hover:text-gray-900'
-                      }`}
+                      } ${!isAdmin ? 'cursor-not-allowed opacity-80' : ''}`}
                     >
-                      Disabled (Default)
+                      Disabled
                     </button>
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, defaultQuotationSeal: true })}
+                      disabled={!isAdmin}
+                      onClick={() => {
+                        const updated = {
+                          ...formData,
+                          defaultQuotationSeal: true,
+                          bank: { ...formData.bank, defaultQuotationSeal: true }
+                        };
+                        setFormData(updated);
+                        onUpdate(updated);
+                      }}
                       className={`px-3 py-1 rounded-md transition-all ${
                         formData.defaultQuotationSeal ? 'bg-orange-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-900'
-                      }`}
+                      } ${!isAdmin ? 'cursor-not-allowed opacity-80' : ''}`}
                     >
                       Enabled
                     </button>
@@ -526,19 +646,37 @@ const Settings: React.FC<SettingsProps> = ({
                   <div className="inline-flex p-1 bg-white rounded-lg border border-gray-200 text-xs font-bold">
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, defaultInvoiceSeal: false })}
+                      disabled={!isAdmin}
+                      onClick={() => {
+                        const updated = {
+                          ...formData,
+                          defaultInvoiceSeal: false,
+                          bank: { ...formData.bank, defaultInvoiceSeal: false }
+                        };
+                        setFormData(updated);
+                        onUpdate(updated);
+                      }}
                       className={`px-3 py-1 rounded-md transition-all ${
                         !formData.defaultInvoiceSeal ? 'bg-slate-900 text-white shadow-sm' : 'text-gray-500 hover:text-gray-900'
-                      }`}
+                      } ${!isAdmin ? 'cursor-not-allowed opacity-80' : ''}`}
                     >
-                      Disabled (Default)
+                      Disabled
                     </button>
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, defaultInvoiceSeal: true })}
+                      disabled={!isAdmin}
+                      onClick={() => {
+                        const updated = {
+                          ...formData,
+                          defaultInvoiceSeal: true,
+                          bank: { ...formData.bank, defaultInvoiceSeal: true }
+                        };
+                        setFormData(updated);
+                        onUpdate(updated);
+                      }}
                       className={`px-3 py-1 rounded-md transition-all ${
                         formData.defaultInvoiceSeal ? 'bg-orange-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-900'
-                      }`}
+                      } ${!isAdmin ? 'cursor-not-allowed opacity-80' : ''}`}
                     >
                       Enabled
                     </button>

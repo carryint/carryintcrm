@@ -31,7 +31,23 @@ export const MigrationTool: React.FC = () => {
         // 1. Company Info
         if (data.companyInfo) {
           setStatus('Migrating company info...');
-          const infoWithId = { id: '1', ...data.companyInfo };
+          const cInfo = data.companyInfo;
+          const infoWithId: any = {
+            id: '1',
+            name: cInfo.name || '',
+            address: cInfo.address || '',
+            contact: cInfo.contact || '',
+            email: cInfo.email || '',
+            website: cInfo.website || '',
+            trn: cInfo.trn || '',
+            logoUrl: cInfo.logoUrl || '',
+            bank: {
+              ...cInfo.bank,
+              sealUrl: cInfo.sealUrl || cInfo.bank?.sealUrl || '',
+              defaultQuotationSeal: cInfo.defaultQuotationSeal ?? false,
+              defaultInvoiceSeal: cInfo.defaultInvoiceSeal ?? false
+            }
+          };
           const { error } = await supabase.from('company_info').upsert([infoWithId]);
           if (error) throw error;
         }

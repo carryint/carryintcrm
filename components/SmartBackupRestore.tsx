@@ -308,9 +308,29 @@ export const SmartBackupRestore: React.FC<SmartBackupRestoreProps> = ({
         localStorage.setItem('carryint_users', JSON.stringify(finalUsers));
       }
       if (backup.companyInfo) {
-        const { error: compErr } = await supabase.from('company_info').upsert([{ id: '1', ...backup.companyInfo }]);
-        if (compErr) throw new Error(`Company info sync: ${compErr.message}`);
+        const cInfo = backup.companyInfo;
+        const compPayload: any = {
+          id: '1',
+          name: cInfo.name || '',
+          address: cInfo.address || '',
+          contact: cInfo.contact || '',
+          email: cInfo.email || '',
+          website: cInfo.website || '',
+          trn: cInfo.trn || '',
+          logoUrl: cInfo.logoUrl || '',
+          bank: {
+            ...cInfo.bank,
+            sealUrl: cInfo.sealUrl || cInfo.bank?.sealUrl || '',
+            defaultQuotationSeal: cInfo.defaultQuotationSeal ?? false,
+            defaultInvoiceSeal: cInfo.defaultInvoiceSeal ?? false
+          }
+        };
+        const { error: compErr } = await supabase.from('company_info').upsert([compPayload]);
+        if (compErr) console.error(`Company info sync: ${compErr.message}`);
         localStorage.setItem('carryint_company_info', JSON.stringify(backup.companyInfo));
+        if (compPayload.bank.sealUrl) {
+          localStorage.setItem('carryint_company_seal', compPayload.bank.sealUrl);
+        }
       }
 
       // Step 2: Notify Parent to update live React state

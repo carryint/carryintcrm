@@ -110,27 +110,44 @@ const App: React.FC = () => {
 
         if (savedCompanyInfo && savedCompanyInfo.length > 0) {
           const remote = savedCompanyInfo[0] as any;
-          const resolvedSeal = remote.sealUrl || remote.bank?.sealUrl || localSeal || (parsedLocalComp?.sealUrl || '');
-          const resolvedDefaultQuoteSeal = remote.defaultQuotationSeal !== undefined 
-            ? remote.defaultQuotationSeal 
-            : (remote.bank?.defaultQuotationSeal !== undefined 
-                ? remote.bank.defaultQuotationSeal 
+          // Remote Supabase DB is the source of truth across all users/devices
+          const remoteSeal = remote.bank?.sealUrl !== undefined 
+            ? remote.bank.sealUrl 
+            : (remote.sealUrl !== undefined ? remote.sealUrl : null);
+
+          const resolvedSeal = remoteSeal !== null ? remoteSeal : (localSeal || parsedLocalComp?.sealUrl || '');
+
+          const resolvedDefaultQuoteSeal = remote.bank?.defaultQuotationSeal !== undefined 
+            ? remote.bank.defaultQuotationSeal 
+            : (remote.defaultQuotationSeal !== undefined 
+                ? remote.defaultQuotationSeal 
                 : (parsedLocalComp?.defaultQuotationSeal !== undefined ? parsedLocalComp.defaultQuotationSeal : false));
-          const resolvedDefaultInvSeal = remote.defaultInvoiceSeal !== undefined 
-            ? remote.defaultInvoiceSeal 
-            : (remote.bank?.defaultInvoiceSeal !== undefined 
-                ? remote.bank.defaultInvoiceSeal 
+
+          const resolvedDefaultInvSeal = remote.bank?.defaultInvoiceSeal !== undefined 
+            ? remote.bank.defaultInvoiceSeal 
+            : (remote.defaultInvoiceSeal !== undefined 
+                ? remote.defaultInvoiceSeal 
                 : (parsedLocalComp?.defaultInvoiceSeal !== undefined ? parsedLocalComp.defaultInvoiceSeal : false));
 
-          const merged = {
+          const merged: CompanyInfo = {
             ...remote,
             sealUrl: resolvedSeal,
             defaultQuotationSeal: resolvedDefaultQuoteSeal,
-            defaultInvoiceSeal: resolvedDefaultInvSeal
+            defaultInvoiceSeal: resolvedDefaultInvSeal,
+            bank: {
+              ...remote.bank,
+              sealUrl: resolvedSeal,
+              defaultQuotationSeal: resolvedDefaultQuoteSeal,
+              defaultInvoiceSeal: resolvedDefaultInvSeal
+            }
           };
           setCompanyInfo(merged);
           localStorage.setItem('carryint_company_info', JSON.stringify(merged));
-          if (resolvedSeal) localStorage.setItem('carryint_company_seal', resolvedSeal);
+          if (resolvedSeal) {
+            localStorage.setItem('carryint_company_seal', resolvedSeal);
+          } else {
+            localStorage.removeItem('carryint_company_seal');
+          }
         } else {
           if (parsedLocalComp) {
             const resolvedSeal = parsedLocalComp.sealUrl || localSeal || '';
@@ -640,31 +657,47 @@ const App: React.FC = () => {
   };
 
   const handleUpdateCompanyInfo = async (info: CompanyInfo) => {
-    setCompanyInfo(info);
-    localStorage.setItem('carryint_company_info', JSON.stringify(info));
-    if (info.sealUrl) {
-      localStorage.setItem('carryint_company_seal', info.sealUrl);
+    const cleanSeal = info.sealUrl || '';
+    const updatedInfo: CompanyInfo = {
+      ...info,
+      sealUrl: cleanSeal,
+      bank: {
+        ...info.bank,
+        sealUrl: cleanSeal,
+        defaultQuotationSeal: info.defaultQuotationSeal ?? false,
+        defaultInvoiceSeal: info.defaultInvoiceSeal ?? false
+      }
+    };
+
+    setCompanyInfo(updatedInfo);
+    localStorage.setItem('carryint_company_info', JSON.stringify(updatedInfo));
+    if (cleanSeal) {
+      localStorage.setItem('carryint_company_seal', cleanSeal);
     } else {
       localStorage.removeItem('carryint_company_seal');
     }
+
     try {
       const payload: any = {
         id: '1',
-        name: info.name,
-        address: info.address,
-        contact: info.contact,
-        email: info.email,
-        website: info.website,
-        trn: info.trn,
-        logoUrl: info.logoUrl,
+        name: updatedInfo.name || '',
+        address: updatedInfo.address || '',
+        contact: updatedInfo.contact || '',
+        email: updatedInfo.email || '',
+        website: updatedInfo.website || '',
+        trn: updatedInfo.trn || '',
+        logoUrl: updatedInfo.logoUrl || '',
         bank: {
-          ...info.bank,
-          sealUrl: info.sealUrl || '',
-          defaultQuotationSeal: info.defaultQuotationSeal ?? false,
-          defaultInvoiceSeal: info.defaultInvoiceSeal ?? false
+          ...updatedInfo.bank,
+          sealUrl: cleanSeal,
+          defaultQuotationSeal: updatedInfo.defaultQuotationSeal ?? false,
+          defaultInvoiceSeal: updatedInfo.defaultInvoiceSeal ?? false
         }
       };
-      await supabase.from('company_info').upsert([payload]);
+      const { error } = await supabase.from('company_info').upsert([payload]);
+      if (error) {
+        console.error('Error updating company info in Supabase:', error);
+      }
     } catch (err) {
       console.error('Error updating company info in Supabase:', err);
     }
@@ -1041,6 +1074,8 @@ const App: React.FC = () => {
             onDuplicate={handleDuplicateQuotation}
             onConvertToInvoice={handleConvertToInvoice}
             searchQuery={searchQuery}
+            currentUser={currentUser}
+            users={users}
           />
         );
       case 'create-quotation':
@@ -1057,6 +1092,8 @@ const App: React.FC = () => {
             }}
             currentUserId={currentUser?.id}
             currentUserName={currentUser?.name}
+            currentUser={currentUser}
+            users={users}
           />
         );
       case 'view-quotation':

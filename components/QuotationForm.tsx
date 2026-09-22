@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Customer, Quotation, QuotationItem, CustomerCategory, QuotationStatus, CompanyInfo } from '../types';
+import { Customer, Quotation, QuotationItem, CustomerCategory, QuotationStatus, CompanyInfo, User as UserType, AuditLog } from '../types';
 import { COMMODITY_TYPES, DESTINATION_COUNTRIES } from '../constants';
 import { generateId } from '../utils';
 import { 
@@ -18,7 +18,9 @@ import {
   Truck,
   Stamp,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Users,
+  Info
 } from 'lucide-react';
 
 // ── Reusable Smart Decimal & Numeric Input ─────────────────────────────────────
@@ -118,6 +120,8 @@ interface QuotationFormProps {
   currentUserId?: string;
   currentUserName?: string;
   companyInfo?: CompanyInfo;
+  currentUser?: UserType | null;
+  users?: UserType[];
 }
 
 const DEFAULT_TERMS = `1. Rates quoted are in AED and valid for 5 days from the quotation date.
@@ -161,9 +165,19 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
   onCancel,
   currentUserId = 'user-1',
   currentUserName = 'Operations Staff',
-  companyInfo
+  companyInfo,
+  currentUser,
+  users = []
 }) => {
   const today = new Date().toISOString().split('T')[0];
+  const isAdminOrManager = currentUser?.role === 'ADMIN' || currentUser?.role === 'MANAGER';
+
+  const [salesPersonId, setSalesPersonId] = useState<string>(
+    initialQuotation?.createdBy || currentUser?.id || currentUserId
+  );
+  const [salesPersonName, setSalesPersonName] = useState<string>(
+    initialQuotation?.createdByName || currentUser?.name || currentUserName
+  );
 
   const [customerCategory, setCustomerCategory] = useState<CustomerCategory>(
     initialQuotation?.customerCategory || 'COMMERCIAL'
@@ -310,6 +324,17 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
       return;
     }
 
+    const auditLogs: AuditLog[] = initialQuotation?.auditLogs || [];
+    const newLog: AuditLog = {
+      action: (initialQuotation ? 'EDIT' : 'CREATE') as 'EDIT' | 'CREATE',
+      userId: currentUser?.id || currentUserId,
+      userName: currentUser?.name || currentUserName,
+      timestamp: new Date().toISOString(),
+      details: initialQuotation 
+        ? `Quotation modified by ${currentUser?.name || currentUserName} (Original: ${initialQuotation.createdByName || 'Staff'})`
+        : `Quotation created by ${salesPersonName || currentUserName}`
+    };
+
     const newQuotation: Quotation = {
       id: initialQuotation?.id || generateId(),
       quotationNumber: quotationNumber.trim(),
@@ -341,10 +366,13 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
       notesAndTerms,
       includeSeal,
       status,
-      createdBy: initialQuotation?.createdBy || currentUserId,
-      createdByName: initialQuotation?.createdByName || currentUserName,
+      createdBy: salesPersonId || initialQuotation?.createdBy || currentUserId,
+      createdByName: salesPersonName || initialQuotation?.createdByName || currentUserName,
       createdAt: initialQuotation?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      updatedBy: currentUser?.id || currentUserId,
+      updatedByName: currentUser?.name || currentUserName,
+      auditLogs: [...auditLogs, newLog]
     };
 
     onSave(newQuotation, andPreview);
@@ -353,43 +381,95 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
   return (
     <form onSubmit={(e) => handleSubmit(e, false)} className="max-w-5xl mx-auto space-y-6 pb-12">
       {/* Top Banner Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-black text-gray-900">
-              {initialQuotation ? 'Edit Quotation' : 'Create New Quotation'}
-            </h2>
-            <span className="bg-orange-100 text-orange-800 text-xs font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
-              {quotationNumber}
-            </span>
+      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-2xl font-black text-gray-900">
+                {initialQuotation ? 'Edit Quotation' : 'Create New Quotation'}
+              </h2>
+              <span className="bg-orange-100 text-orange-800 text-xs font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
+                {quotationNumber}
+              </span>
+              {isAdminOrManager && initialQuotation && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-purple-100 text-purple-800 border border-purple-200">
+                  <ShieldCheck size={12} />
+                  Admin Editing Mode
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 font-medium mt-1">
+              Generate formal rate quotes for prospective commercial or personal clients (Valid for 5 days).
+            </p>
           </div>
-          <p className="text-xs text-gray-500 font-medium mt-1">
-            Generate formal rate quotes for prospective commercial or personal clients (Valid for 5 days).
-          </p>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-4 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition-colors text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={(e) => handleSubmit(e, true)}
+              className="px-4 py-2.5 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors text-sm flex items-center gap-2"
+            >
+              <Sparkles size={16} className="text-orange-400" />
+              Save & View Preview
+            </button>
+            <button
+              type="submit"
+              className="px-6 py-2.5 bg-orange-600 text-white font-black rounded-xl hover:bg-orange-700 transition-colors shadow-lg shadow-orange-500/20 text-sm"
+            >
+              Save Changes
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition-colors text-sm"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={(e) => handleSubmit(e, true)}
-            className="px-4 py-2.5 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors text-sm flex items-center gap-2"
-          >
-            <Sparkles size={16} className="text-orange-400" />
-            Save & View Preview
-          </button>
-          <button
-            type="submit"
-            className="px-6 py-2.5 bg-orange-600 text-white font-black rounded-xl hover:bg-orange-700 transition-colors shadow-lg shadow-orange-500/20 text-sm"
-          >
-            Save Quotation
-          </button>
+        {/* Creator & Prepared By Banner */}
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-orange-500 text-white font-black flex items-center justify-center text-xs shrink-0 shadow-xs">
+              {(salesPersonName || 'S').charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <p className="text-[11px] text-gray-500 font-medium">Prepared By / Author:</p>
+              <p className="font-bold text-gray-900 text-sm">{salesPersonName || 'Operations Staff'}</p>
+            </div>
+            {initialQuotation?.createdAt && (
+              <span className="text-[11px] text-gray-400 ml-2 border-l border-gray-200 pl-2">
+                Created on: {new Date(initialQuotation.createdAt).toLocaleDateString()}
+              </span>
+            )}
+            {initialQuotation?.updatedByName && (
+              <span className="text-[11px] text-purple-700 font-semibold ml-2 border-l border-gray-200 pl-2">
+                Last modified by {initialQuotation.updatedByName}
+              </span>
+            )}
+          </div>
+
+          {/* Admin Salesperson Reassignment Dropdown */}
+          {isAdminOrManager && users.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-gray-600">Assign To:</span>
+              <select
+                value={salesPersonId}
+                onChange={(e) => {
+                  const uid = e.target.value;
+                  const u = users.find(usr => usr.id === uid);
+                  setSalesPersonId(uid);
+                  if (u) setSalesPersonName(u.name);
+                }}
+                className="bg-white border border-gray-300 rounded-lg px-2.5 py-1 text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-orange-500"
+              >
+                {users.map(u => (
+                  <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 

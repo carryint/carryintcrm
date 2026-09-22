@@ -146,7 +146,7 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
         </div>
 
         {/* Validity & Meta Strip */}
-        <div className="grid grid-cols-1 md:grid-cols-3 print-grid-3 gap-3 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 print-grid-4 gap-3 mb-6">
           <div className="bg-slate-900 text-white p-3 rounded-xl flex items-center justify-between">
             <div>
               <span className="text-[10px] text-slate-400 uppercase font-black tracking-widest block">Quotation Code</span>
@@ -179,6 +179,21 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
               </span>
             </div>
             <Clock size={18} className={isExpired ? 'text-red-500' : 'text-emerald-600'} />
+          </div>
+
+          <div className="bg-purple-50 border border-purple-200 p-3 rounded-xl flex items-center justify-between">
+            <div>
+              <span className="text-[10px] text-purple-700 uppercase font-black tracking-widest block">Prepared By</span>
+              <span className="text-sm font-bold text-gray-900 block truncate" title={quotation.createdByName || 'Staff'}>
+                {quotation.createdByName || 'Staff'}
+              </span>
+              {quotation.updatedByName && quotation.updatedByName !== quotation.createdByName && (
+                <span className="text-[9px] text-purple-600 font-semibold block leading-none mt-0.5">
+                  Mod: {quotation.updatedByName}
+                </span>
+              )}
+            </div>
+            <User size={18} className="text-purple-600" />
           </div>
         </div>
 
@@ -342,7 +357,9 @@ export const QuotationPreview: React.FC<QuotationPreviewProps> = ({
           <div className="relative flex flex-col justify-between">
             <div>
               <p className="font-black text-gray-900 uppercase text-[11px] mb-0.5">For Carryint Shipping Services L.L.C</p>
-              <p className="text-[10px] text-gray-500 mb-2">Authorized Signatory / Operations Dept</p>
+              <p className="text-[10px] text-gray-500 mb-2">
+                Prepared by: <strong className="text-gray-800">{quotation.createdByName || 'Operations Dept'}</strong> • Authorized Signatory
+              </p>
             </div>
 
             <div className="relative min-h-[90px] sm:min-h-[105px] flex items-end pt-2 pb-1">

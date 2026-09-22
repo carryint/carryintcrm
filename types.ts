@@ -189,6 +189,8 @@ export interface CompanyInfo {
     accNo: string;
     iban: string;
     sealUrl?: string;
+    defaultQuotationSeal?: boolean;
+    defaultInvoiceSeal?: boolean;
   };
   logoUrl: string;
   sealUrl?: string;
@@ -361,5 +363,8 @@ export interface Quotation {
   createdByName: string;
   createdAt: string;
   updatedAt?: string;
+  updatedBy?: string;
+  updatedByName?: string;
+  auditLogs?: AuditLog[];
 }
 

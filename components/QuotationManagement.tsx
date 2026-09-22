@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Quotation, CustomerCategory, QuotationStatus } from '../types';
+import React, { useState, useMemo } from 'react';
+import { Quotation, CustomerCategory, QuotationStatus, User as UserType } from '../types';
 import { formatCurrency } from '../utils';
 import { 
   PlusCircle, 
@@ -15,12 +15,12 @@ import {
   Edit, 
   Trash2, 
   Copy, 
-  Receipt,
-  ArrowRight,
-  Filter,
-  Layers,
-  Sparkles,
-  MapPin
+  Receipt, 
+  Layers, 
+  Sparkles, 
+  ShieldCheck, 
+  Users, 
+  Filter
 } from 'lucide-react';
 
 interface QuotationManagementProps {
@@ -32,6 +32,8 @@ interface QuotationManagementProps {
   onDuplicate: (quotation: Quotation) => void;
   onConvertToInvoice: (quotation: Quotation) => void;
   searchQuery?: string;
+  currentUser?: UserType | null;
+  users?: UserType[];
 }
 
 export const QuotationManagement: React.FC<QuotationManagementProps> = ({
@@ -42,16 +44,43 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
   onDelete,
   onDuplicate,
   onConvertToInvoice,
-  searchQuery = ''
+  searchQuery = '',
+  currentUser,
+  users = []
 }) => {
   const [internalSearch, setInternalSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'ALL' | CustomerCategory>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | QuotationStatus>('ALL');
   const [validityFilter, setValidityFilter] = useState<'ALL' | 'VALID' | 'EXPIRED'>('ALL');
+  const [creatorFilter, setCreatorFilter] = useState<string>('ALL');
 
   const activeSearch = searchQuery || internalSearch;
-
   const today = new Date().setHours(0, 0, 0, 0);
+
+  const isAdminOrManager = currentUser?.role === 'ADMIN' || currentUser?.role === 'MANAGER';
+
+  // Extract unique creators for the filter
+  const uniqueCreators = useMemo(() => {
+    const creatorMap = new Map<string, string>();
+    
+    // First from existing quotations
+    quotations.forEach(q => {
+      const name = q.createdByName || 'Standard Staff';
+      const key = q.createdBy || name;
+      if (!creatorMap.has(key)) {
+        creatorMap.set(key, name);
+      }
+    });
+
+    // Also include all users from system
+    users.forEach(u => {
+      if (!creatorMap.has(u.id)) {
+        creatorMap.set(u.id, u.name);
+      }
+    });
+
+    return Array.from(creatorMap.entries()).map(([id, name]) => ({ id, name }));
+  }, [quotations, users]);
 
   const filteredQuotations = quotations.filter((q) => {
     const query = activeSearch.toLowerCase();
@@ -61,7 +90,9 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
       q.customerContact.toLowerCase().includes(query) ||
       (q.customerEmail && q.customerEmail.toLowerCase().includes(query)) ||
       (q.pickupAddress && q.pickupAddress.toLowerCase().includes(query)) ||
-      (q.deliveryAddress && q.deliveryAddress.toLowerCase().includes(query));
+      (q.deliveryAddress && q.deliveryAddress.toLowerCase().includes(query)) ||
+      (q.createdByName && q.createdByName.toLowerCase().includes(query)) ||
+      (q.updatedByName && q.updatedByName.toLowerCase().includes(query));
 
     const matchesCategory = categoryFilter === 'ALL' || q.customerCategory === categoryFilter;
     const matchesStatus = statusFilter === 'ALL' || q.status === statusFilter;
@@ -72,7 +103,12 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
       (validityFilter === 'VALID' && !isExpired) ||
       (validityFilter === 'EXPIRED' && isExpired);
 
-    return matchesSearch && matchesCategory && matchesStatus && matchesValidity;
+    const matchesCreator = 
+      creatorFilter === 'ALL' ||
+      q.createdBy === creatorFilter ||
+      q.createdByName === creatorFilter;
+
+    return matchesSearch && matchesCategory && matchesStatus && matchesValidity && matchesCreator;
   }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   // Section stats
@@ -127,12 +163,22 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
-            <FileText className="text-orange-500" />
-            Quotations Management
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+              <FileText className="text-orange-500" />
+              Quotations Management
+            </h2>
+            {isAdminOrManager && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-purple-100 text-purple-800 border border-purple-200">
+                <ShieldCheck size={12} />
+                Admin Full Access
+              </span>
+            )}
+          </div>
           <p className="text-xs text-gray-500 font-medium mt-0.5">
-            Commercial & Personal price quotes (5-day validity). Not included in accounting & dashboard totals.
+            {isAdminOrManager 
+              ? 'View and manage all quotations prepared by every team member. You have full access to view, edit, duplicate, and convert any quotation.'
+              : 'Commercial & Personal price quotes (5-day validity). Track and convert active customer estimates.'}
           </p>
         </div>
 
@@ -145,11 +191,35 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
         </button>
       </div>
 
-      {/* Overview Stat Cards (Independent from financial accounting) */}
+      {/* Admin Central Visibility Banner */}
+      {isAdminOrManager && (
+        <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white p-4 rounded-2xl shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-white/10 rounded-xl text-purple-300">
+              <Users size={22} />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-white flex items-center gap-2">
+                Team Quotations Visibility (Prepared by Everyone)
+              </h4>
+              <p className="text-xs text-purple-200">
+                All staff price quotations are aggregated here in real time. Click <strong>Edit</strong> on any quotation to make adjustments and save changes directly.
+              </p>
+            </div>
+          </div>
+          <div className="text-xs font-bold text-purple-200 bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 shrink-0">
+            Total Team Quotes: <strong className="text-white text-sm">{quotations.length}</strong>
+          </div>
+        </div>
+      )}
+
+      {/* Overview Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Quotations</p>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+              {isAdminOrManager ? 'Total Team Quotes' : 'Total Quotations'}
+            </p>
             <h3 className="text-2xl font-black text-gray-900 mt-1">{totalQuotationsCount}</h3>
           </div>
           <div className="p-3 bg-orange-50 text-orange-600 rounded-xl">
@@ -190,11 +260,11 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
 
       {/* Filter and Search Bar */}
       <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-wrap items-center justify-between gap-4">
-        <div className="relative flex-1 min-w-[220px]">
+        <div className="relative flex-1 min-w-[240px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
           <input
             type="text"
-            placeholder="Search by quote code, customer, phone, location..."
+            placeholder="Search by quote code, customer, phone, route, or prepared by..."
             value={internalSearch}
             onChange={(e) => setInternalSearch(e.target.value)}
             className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2 text-xs font-medium outline-none focus:ring-2 focus:ring-orange-500"
@@ -203,6 +273,28 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Creator Filter for Admin / Team */}
+          {uniqueCreators.length > 0 && (
+            <select
+              value={creatorFilter}
+              onChange={(e) => setCreatorFilter(e.target.value)}
+              className="bg-purple-50 border border-purple-200 text-purple-900 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-purple-500"
+              title="Filter by who prepared the quotation"
+            >
+              <option value="ALL">👤 Prepared By: Everyone ({quotations.length})</option>
+              {uniqueCreators.map((creator) => {
+                const count = quotations.filter(
+                  q => q.createdBy === creator.id || q.createdByName === creator.name
+                ).length;
+                return (
+                  <option key={creator.id} value={creator.id}>
+                    {creator.name} ({count})
+                  </option>
+                );
+              })}
+            </select>
+          )}
+
           {/* Customer Category Filter */}
           <div className="inline-flex bg-gray-100 p-1 rounded-xl text-xs font-bold">
             <button
@@ -259,7 +351,7 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
             <FileText size={48} className="mx-auto text-gray-300 mb-3" />
             <h3 className="text-base font-bold text-gray-900">No Quotations Found</h3>
             <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
-              {activeSearch || categoryFilter !== 'ALL' || statusFilter !== 'ALL'
+              {activeSearch || categoryFilter !== 'ALL' || statusFilter !== 'ALL' || creatorFilter !== 'ALL'
                 ? 'No quotations match your current filter criteria.'
                 : 'Create your first commercial or personal price quotation with 5-day validity.'}
             </p>
@@ -277,6 +369,7 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
                 <tr>
                   <th className="px-5 py-3.5 text-xs font-black text-gray-500 uppercase tracking-wider">Quote No & Date</th>
                   <th className="px-5 py-3.5 text-xs font-black text-gray-500 uppercase tracking-wider">Customer</th>
+                  <th className="px-5 py-3.5 text-xs font-black text-gray-500 uppercase tracking-wider">Prepared By</th>
                   <th className="px-5 py-3.5 text-xs font-black text-gray-500 uppercase tracking-wider">Route (Origin → Dest)</th>
                   <th className="px-5 py-3.5 text-xs font-black text-gray-500 uppercase tracking-wider text-center">Weight / Qty</th>
                   <th className="px-5 py-3.5 text-xs font-black text-gray-500 uppercase tracking-wider">Validity (5 Days)</th>
@@ -289,6 +382,7 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
                 {filteredQuotations.map((q) => {
                   const totalWeight = q.items.reduce((s, i) => s + (Number(i.weight) || 0), 0);
                   const totalQty = q.items.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
+                  const creatorInitial = (q.createdByName || 'S').charAt(0).toUpperCase();
 
                   return (
                     <tr key={q.id} className="hover:bg-orange-50/30 transition-colors group">
@@ -317,6 +411,29 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
                         </div>
                         <p className="font-bold text-xs text-gray-900">{q.customerName}</p>
                         <p className="text-[11px] text-gray-500">{q.customerContact}</p>
+                      </td>
+
+                      {/* Prepared By Column */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center font-black text-[10px] shrink-0 border border-orange-200">
+                            {creatorInitial}
+                          </div>
+                          <div>
+                            <p className="font-bold text-xs text-gray-900 leading-tight">
+                              {q.createdByName || 'Standard Staff'}
+                            </p>
+                            {q.updatedByName && q.updatedByName !== q.createdByName ? (
+                              <span className="text-[10px] text-purple-600 font-bold block leading-tight">
+                                Edited by {q.updatedByName}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-gray-400 font-medium block leading-tight">
+                                {q.createdAt ? new Date(q.createdAt).toLocaleDateString() : 'Original'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </td>
 
                       <td className="px-5 py-4 max-w-[200px]">
@@ -370,8 +487,8 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
                           </button>
                           <button
                             onClick={() => onEdit(q)}
-                            className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors"
-                            title="Edit Quotation"
+                            className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors font-bold"
+                            title={isAdminOrManager ? "Edit Quotation (Admin Full Access)" : "Edit Quotation"}
                           >
                             <Edit size={15} />
                           </button>

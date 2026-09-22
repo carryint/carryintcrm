@@ -59,6 +59,8 @@ export const exportToExcel = (data: { invoices: any[], customers: any[], vendors
       'Category': q.customerCategory,
       'Customer': q.customerName,
       'Contact': q.customerContact,
+      'Prepared By': q.createdByName || q.createdBy || 'Standard Staff',
+      'Last Modified By': q.updatedByName || 'N/A',
       'Pickup Address': q.pickupAddress,
       'Delivery Address': q.deliveryAddress,
       'Total Amount (AED)': q.totalAmount,
