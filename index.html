@@ -59,7 +59,7 @@
     @media print {
       @page {
         size: A4 portrait;
-        margin: 10mm;
+        margin: 8mm 10mm;
       }
 
       .no-print {
@@ -75,30 +75,92 @@
         margin: 0 !important;
         background: white !important;
         width: 100% !important;
-        font-size: 11.5px !important;
+        font-size: 11px !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
+        overflow: visible !important;
       }
 
-      /* Reset app wrapper layout for print */
-      main {
+      #root, #root > div {
         padding: 0 !important;
         margin: 0 !important;
         width: 100% !important;
-        position: static !important;
-        left: auto !important;
-        top: auto !important;
+        min-height: auto !important;
+        overflow: visible !important;
       }
 
-      .invoice-container, .receipt-container, .quotation-container {
+      /* Reset app wrapper layout for print - kill sidebar offset & container padding */
+      main,
+      main.lg\:pl-64,
+      [class*="lg:pl-"],
+      [class*="pl-64"],
+      main > div {
+        padding: 0 !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        position: static !important;
+        left: 0 !important;
+        top: 0 !important;
+        background: white !important;
+        overflow: visible !important;
+      }
+
+      .invoice-container, .receipt-container, .quotation-container, .soa-container {
         margin: 0 auto !important;
         padding: 0 !important;
         box-shadow: none !important;
         border: none !important;
         max-width: 100% !important;
         width: 100% !important;
-        page-break-inside: avoid !important;
         background: white !important;
+        box-sizing: border-box !important;
+      }
+
+      /* Allow multi-page statements to break cleanly between pages without squishing */
+      .soa-container {
+        page-break-inside: auto !important;
+      }
+
+      .receipt-container, .quotation-container {
+        page-break-inside: avoid !important;
+      }
+
+      tr {
+        page-break-inside: avoid !important;
+      }
+
+      thead {
+        display: table-header-group !important;
+      }
+
+      tfoot {
+        display: table-footer-group !important;
+      }
+
+      /* Perfectly align SOA tables within A4 margins */
+      .soa-container table {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        table-layout: auto !important;
+        border-collapse: collapse !important;
+      }
+
+      .soa-container table th,
+      .soa-container table td {
+        padding: 6px 8px !important;
+        font-size: 10px !important;
+        line-height: 1.35 !important;
+        vertical-align: middle !important;
+      }
+
+      .soa-container .max-w-xs {
+        max-width: 100% !important;
       }
 
       /* Print Layout Overrides for Mobile & Desktop */
@@ -185,7 +247,7 @@
     }
   </style>
 
-  <script type="module" crossorigin src="./assets/index-DxwG5wsW.js"></script>
+  <script type="module" crossorigin src="./assets/index-my6_xsfb.js"></script>
 </head>
 
 <body class="bg-gray-50 text-gray-900">
