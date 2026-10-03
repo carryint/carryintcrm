@@ -706,10 +706,21 @@ const App: React.FC = () => {
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [vendorInvoiceFilter, setVendorInvoiceFilter] = useState<'ALL' | 'UNPAID' | 'PAID_LATEST'>('ALL');
   const [showVendorDescriptions, setShowVendorDescriptions] = useState(false);
+  const [includeVendorCreditNotes, setIncludeVendorCreditNotes] = useState(false);
+  const [includeVendorDebitNotes, setIncludeVendorDebitNotes] = useState(false);
+  const [selectedVendorNoteIds, setSelectedVendorNoteIds] = useState<string[]>([]);
   const [isAddingVendor, setIsAddingVendor] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [newVendor, setNewVendor] = useState<Partial<Vendor>>({});
   const [selectedVendorInvoiceIds, setSelectedVendorInvoiceIds] = useState<string[]>([]);
+
+  const openVendorStatement = (v: Vendor) => {
+    setSelectedVendor(v);
+    setSelectedVendorInvoiceIds([]);
+    setIncludeVendorCreditNotes(false);
+    setIncludeVendorDebitNotes(false);
+    setSelectedVendorNoteIds([]);
+  };
   const [vendorPaymentModalInvoice, setVendorPaymentModalInvoice] = useState<Invoice | null>(null);
   const [modalVendorStatus, setModalVendorStatus] = useState<PaymentStatus>('PAID');
   const [modalVendorPaidAmount, setModalVendorPaidAmount] = useState<number>(0);
@@ -1537,6 +1548,30 @@ const App: React.FC = () => {
           const totalPaid = filteredSet.reduce((s, i) => s + (i.vendorStatus === 'PAID' ? (i.vendorCost || 0) : (i.vendorStatus === 'PARTIAL' ? (i.vendorPaidAmount || 0) : 0)), 0);
           const totalPayable = filteredSet.reduce((s, i) => s + (i.vendorStatus === 'PAID' ? 0 : (i.vendorStatus === 'PARTIAL' ? Math.max(0, (i.vendorCost || 0) - (i.vendorPaidAmount || 0)) : (i.vendorCost || 0))), 0);
 
+          // Notes linked to vendor or vendor's invoices
+          const vendorNotes = adjustmentNotes.filter(n =>
+            (n.vendorId && n.vendorId === selectedVendor.id) ||
+            vendorInvoices.some(vInv => vInv.id === n.originalInvoiceId)
+          );
+          const vendorCreditNotes = vendorNotes.filter(n => n.type === 'CREDIT');
+          const vendorDebitNotes = vendorNotes.filter(n => n.type === 'DEBIT');
+
+          const availableVendorNotes = vendorNotes.filter(n =>
+            (includeVendorCreditNotes && n.type === 'CREDIT') ||
+            (includeVendorDebitNotes && n.type === 'DEBIT')
+          );
+
+          const activeVendorNotes = selectedVendorNoteIds.length > 0
+            ? availableVendorNotes.filter(n => selectedVendorNoteIds.includes(n.id))
+            : availableVendorNotes;
+
+          const totalVendorDebits = (includeVendorDebitNotes ? activeVendorNotes.filter(n => n.type === 'DEBIT') : [])
+            .reduce((s, n) => s + n.amount, 0);
+          const totalVendorCredits = (includeVendorCreditNotes ? activeVendorNotes.filter(n => n.type === 'CREDIT' && n.creditAction !== 'REFUND') : [])
+            .reduce((s, n) => s + n.amount, 0);
+
+          const netPayable = Math.max(0, totalPayable + totalVendorDebits - totalVendorCredits);
+
           const handleSelectAllVendors = (e: React.ChangeEvent<HTMLInputElement>) => {
             if (e.target.checked) {
               setSelectedVendorInvoiceIds(displayedInvoices.map(inv => inv.id));
@@ -1555,7 +1590,13 @@ const App: React.FC = () => {
             <div className="space-y-6">
               <div className="flex justify-between items-center no-print">
                 <button
-                  onClick={() => { setSelectedVendor(null); setSelectedVendorInvoiceIds([]); }}
+                  onClick={() => {
+                    setSelectedVendor(null);
+                    setSelectedVendorInvoiceIds([]);
+                    setIncludeVendorCreditNotes(false);
+                    setIncludeVendorDebitNotes(false);
+                    setSelectedVendorNoteIds([]);
+                  }}
                   className="flex items-center gap-2 text-gray-500 hover:text-slate-900 font-bold"
                 >
                   <ArrowLeft size={20} /> Back to Vendors
@@ -1592,7 +1633,7 @@ const App: React.FC = () => {
                     </div>
                     <div className="bg-red-50 p-3 rounded-xl border border-red-100">
                       <p className="text-xs text-red-500 font-black uppercase tracking-widest">Outstanding Payable</p>
-                      <p className="text-xl font-black text-red-600">{totalPayable.toFixed(2)} AED</p>
+                      <p className="text-xl font-black text-red-600">{netPayable.toFixed(2)} AED</p>
                     </div>
                   </div>
                 </div>
@@ -1625,6 +1666,50 @@ const App: React.FC = () => {
                         className="w-4 h-4 accent-orange-500"
                       />
                       <span className="text-xs font-bold text-gray-600">Show Descriptions</span>
+                    </label>
+                    <label className={`flex items-center gap-2 cursor-pointer px-2.5 py-1 rounded-lg border transition-colors ${
+                      includeVendorCreditNotes ? 'bg-blue-100/70 border-blue-400 text-blue-900' : 'bg-blue-50/50 border-blue-200 text-blue-700 hover:bg-blue-50'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={includeVendorCreditNotes}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setIncludeVendorCreditNotes(checked);
+                          if (checked) {
+                            const creditIds = vendorCreditNotes.map(n => n.id);
+                            setSelectedVendorNoteIds(prev => Array.from(new Set([...prev, ...creditIds])));
+                          } else {
+                            setSelectedVendorNoteIds(prev => prev.filter(id => !vendorCreditNotes.some(n => n.id === id)));
+                          }
+                        }}
+                        className="w-4 h-4 accent-blue-600 cursor-pointer"
+                      />
+                      <span className="text-xs font-bold">
+                        Include Credit Notes {vendorCreditNotes.length > 0 ? `(${vendorCreditNotes.length})` : ''}
+                      </span>
+                    </label>
+                    <label className={`flex items-center gap-2 cursor-pointer px-2.5 py-1 rounded-lg border transition-colors ${
+                      includeVendorDebitNotes ? 'bg-purple-100/70 border-purple-400 text-purple-900' : 'bg-purple-50/50 border-purple-200 text-purple-700 hover:bg-purple-50'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={includeVendorDebitNotes}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setIncludeVendorDebitNotes(checked);
+                          if (checked) {
+                            const debitIds = vendorDebitNotes.map(n => n.id);
+                            setSelectedVendorNoteIds(prev => Array.from(new Set([...prev, ...debitIds])));
+                          } else {
+                            setSelectedVendorNoteIds(prev => prev.filter(id => !vendorDebitNotes.some(n => n.id === id)));
+                          }
+                        }}
+                        className="w-4 h-4 accent-purple-600 cursor-pointer"
+                      />
+                      <span className="text-xs font-bold">
+                        Include Debit Notes {vendorDebitNotes.length > 0 ? `(${vendorDebitNotes.length})` : ''}
+                      </span>
                     </label>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold text-gray-600">Filter Invoices:</span>
@@ -1753,23 +1838,138 @@ const App: React.FC = () => {
                     )}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-gray-50">
-                      <td colSpan={5} className="px-4 py-5 text-right text-xs font-black text-gray-500 uppercase">
-                        Summary Totals
+                    <tr className="bg-gray-50 border-t border-gray-200">
+                      <td colSpan={5} className="px-4 py-4 text-right text-xs font-black text-gray-500 uppercase">
+                        Invoice Totals
                       </td>
-                      <td className="px-4 py-5 text-right font-black text-base text-gray-900">
+                      <td className="px-4 py-4 text-right font-black text-base text-gray-900">
                         {totalBilled.toFixed(2)} AED
                       </td>
-                      <td className="px-4 py-5 text-right font-black text-base text-emerald-600">
+                      <td className="px-4 py-4 text-right font-black text-base text-emerald-600">
                         {totalPaid.toFixed(2)} AED
                       </td>
-                      <td className="px-4 py-5 text-right font-black text-base text-red-600">
+                      <td className="px-4 py-4 text-right font-black text-base text-red-600">
                         {totalPayable.toFixed(2)} AED
                       </td>
                       <td></td>
                     </tr>
+                    {includeVendorCreditNotes && totalVendorCredits > 0 && (
+                      <tr className="bg-blue-50/60 text-blue-900 border-t border-blue-100">
+                        <td colSpan={7} className="px-4 py-3 text-right text-xs font-bold uppercase">
+                          Less: Vendor Credit Notes Applied
+                        </td>
+                        <td className="px-4 py-3 text-right font-black text-sm text-blue-700">
+                          - {totalVendorCredits.toFixed(2)} AED
+                        </td>
+                        <td></td>
+                      </tr>
+                    )}
+                    {includeVendorDebitNotes && totalVendorDebits > 0 && (
+                      <tr className="bg-purple-50/60 text-purple-900 border-t border-purple-100">
+                        <td colSpan={7} className="px-4 py-3 text-right text-xs font-bold uppercase">
+                          Add: Vendor Debit Notes Applied
+                        </td>
+                        <td className="px-4 py-3 text-right font-black text-sm text-purple-700">
+                          + {totalVendorDebits.toFixed(2)} AED
+                        </td>
+                        <td></td>
+                      </tr>
+                    )}
+                    {((includeVendorCreditNotes && totalVendorCredits > 0) || (includeVendorDebitNotes && totalVendorDebits > 0)) && (
+                      <tr className="bg-gray-100 border-t-2 border-gray-300">
+                        <td colSpan={7} className="px-4 py-4 text-right text-xs font-black text-gray-800 uppercase tracking-wider">
+                          Net Outstanding Payable
+                        </td>
+                        <td className="px-4 py-4 text-right font-black text-red-600 text-lg">
+                          {netPayable.toFixed(2)} AED
+                        </td>
+                        <td></td>
+                      </tr>
+                    )}
                   </tfoot>
                 </table>
+
+                {(includeVendorCreditNotes || includeVendorDebitNotes) && availableVendorNotes.length > 0 && (
+                  <div className="mt-8 pt-8 border-t border-gray-100">
+                    <div className="flex justify-between items-center mb-4">
+                      <div>
+                        <h3 className="font-black text-gray-900 flex items-center gap-2 uppercase tracking-widest text-sm">
+                          <FileText size={18} className="text-orange-500" />
+                          Linked Credit & Debit Notes
+                        </h3>
+                        <p className="text-xs text-gray-400 font-medium mt-0.5 no-print">
+                          Select which notes to include in the vendor statement balance and printout
+                        </p>
+                      </div>
+                      <span className="text-xs font-bold text-gray-500 no-print">
+                        {selectedVendorNoteIds.filter(id => availableVendorNotes.some(n => n.id === id)).length} of {availableVendorNotes.length} notes selected
+                      </span>
+                    </div>
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="bg-slate-900 text-white text-[10px] font-black uppercase">
+                          <th className="px-4 py-3 no-print w-10">
+                            <input
+                              type="checkbox"
+                              checked={availableVendorNotes.length > 0 && availableVendorNotes.every(n => selectedVendorNoteIds.includes(n.id))}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedVendorNoteIds(prev => Array.from(new Set([...prev, ...availableVendorNotes.map(n => n.id)])));
+                                } else {
+                                  setSelectedVendorNoteIds(prev => prev.filter(id => !availableVendorNotes.some(n => n.id === id)));
+                                }
+                              }}
+                              className="w-4 h-4 accent-orange-500 cursor-pointer"
+                              title="Select/Deselect All Notes"
+                            />
+                          </th>
+                          <th className="px-4 py-3">Note Number</th>
+                          <th className="px-4 py-3">Type</th>
+                          <th className="px-4 py-3">Date</th>
+                          <th className="px-4 py-3">Ref Invoice</th>
+                          <th className="px-4 py-3">Reason</th>
+                          <th className="px-4 py-3 text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 border-b">
+                        {availableVendorNotes.map(note => {
+                          const isSelected = selectedVendorNoteIds.includes(note.id);
+                          return (
+                            <tr
+                              key={note.id}
+                              className={`hover:bg-gray-50 text-xs transition-colors ${!isSelected ? 'no-print opacity-40' : ''}`}
+                            >
+                              <td className="px-4 py-4 no-print">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {
+                                    setSelectedVendorNoteIds(prev =>
+                                      prev.includes(note.id) ? prev.filter(id => id !== note.id) : [...prev, note.id]
+                                    );
+                                  }}
+                                  className="w-4 h-4 accent-orange-500 cursor-pointer"
+                                />
+                              </td>
+                              <td className="px-4 py-4 font-bold text-gray-900">{note.noteNumber}</td>
+                              <td className="px-4 py-4">
+                                <span className={`text-[9px] font-black px-2.5 py-1 rounded-full uppercase ${
+                                  note.type === 'CREDIT' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                                }`}>
+                                  {note.type}
+                                </span>
+                              </td>
+                              <td className="px-4 py-4 text-gray-600 font-bold">{new Date(note.date).toLocaleDateString()}</td>
+                              <td className="px-4 py-4 text-orange-600 font-bold">{note.originalInvoiceNumber}</td>
+                              <td className="px-4 py-4 text-gray-500 font-medium">{note.reason}</td>
+                              <td className="px-4 py-4 text-right font-black text-gray-900">{note.amount.toFixed(2)} AED</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
 
               {/* Vendor Payment Edit Modal */}
@@ -2027,7 +2227,7 @@ const App: React.FC = () => {
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-2">
                             <button
-                              onClick={() => setSelectedVendor(v)}
+                              onClick={() => openVendorStatement(v)}
                               className="bg-slate-100 p-2 rounded-lg text-slate-600 hover:bg-orange-600 hover:text-white transition-all shadow-sm"
                               title="View Statement"
                             >

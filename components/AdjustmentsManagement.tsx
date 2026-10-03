@@ -54,7 +54,8 @@ const AdjustmentsManagement: React.FC<AdjustmentsManagementProps> = ({
     const q = invoiceSearch.toLowerCase();
     return (
       inv.invoiceNumber.toLowerCase().includes(q) ||
-      inv.customerName.toLowerCase().includes(q)
+      inv.customerName.toLowerCase().includes(q) ||
+      (inv.vendorName && inv.vendorName.toLowerCase().includes(q))
     );
   });
 
@@ -171,6 +172,8 @@ const AdjustmentsManagement: React.FC<AdjustmentsManagementProps> = ({
       date: noteDate,
       customerId: selectedInvoice.customerId,
       customerName: selectedInvoice.customerName,
+      vendorId: selectedInvoice.vendorId,
+      vendorName: selectedInvoice.vendorName,
       originalInvoiceId: selectedInvoice.id,
       originalInvoiceNumber: selectedInvoice.invoiceNumber,
       reason: noteReason,

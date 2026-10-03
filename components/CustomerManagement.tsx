@@ -26,9 +26,20 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
   const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
   const [showDescriptions, setShowDescriptions] = useState(false);
   const [showAgeing, setShowAgeing] = useState(false);
+  const [includeCreditNotes, setIncludeCreditNotes] = useState(false);
+  const [includeDebitNotes, setIncludeDebitNotes] = useState(false);
+  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
   const [activeFilter, setActiveFilter] = useState<FilterTab>('ALL');
   const [showAddDropdown, setShowAddDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const openCustomerStatement = (c: Customer) => {
+    setSelectedCustomer(c);
+    setSelectedInvoiceIds([]);
+    setIncludeCreditNotes(false);
+    setIncludeDebitNotes(false);
+    setSelectedNoteIds([]);
+  };
 
   const getAgeingText = (invDateStr: string, status: string, paymentDateStr?: string) => {
     const invDate = new Date(invDateStr);
@@ -174,13 +185,28 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
         : customerInvoices
     );
     const customerNotes = adjustmentNotes.filter(n => n.customerId === selectedCustomer.id);
-    const totalDebits = customerNotes.filter(n => n.type === 'DEBIT').reduce((s, n) => s + n.amount, 0);
-    const totalCredits = customerNotes.filter(n => n.type === 'CREDIT' && n.creditAction !== 'REFUND').reduce((s, n) => s + n.amount, 0);
+    const customerCreditNotes = customerNotes.filter(n => n.type === 'CREDIT');
+    const customerDebitNotes = customerNotes.filter(n => n.type === 'DEBIT');
 
-    const totalOutstanding = (selectedInvoiceIds.length > 0
+    const availableNotes = customerNotes.filter(n => 
+      (includeCreditNotes && n.type === 'CREDIT') ||
+      (includeDebitNotes && n.type === 'DEBIT')
+    );
+
+    const activeNotes = selectedNoteIds.length > 0
+      ? availableNotes.filter(n => selectedNoteIds.includes(n.id))
+      : availableNotes;
+
+    const totalDebits = (includeDebitNotes ? activeNotes.filter(n => n.type === 'DEBIT') : [])
+      .reduce((s, n) => s + n.amount, 0);
+    const totalCredits = (includeCreditNotes ? activeNotes.filter(n => n.type === 'CREDIT' && n.creditAction !== 'REFUND') : [])
+      .reduce((s, n) => s + n.amount, 0);
+
+    const invoicesSubtotal = (selectedInvoiceIds.length > 0
       ? displayedInvoices.filter(inv => selectedInvoiceIds.includes(inv.id)).reduce((s, i) => s + i.totalAmount, 0)
-      : customerInvoices.filter(inv => inv.status !== 'PAID').reduce((s, i) => s + i.totalAmount, 0))
-      + totalDebits - totalCredits;
+      : customerInvoices.filter(inv => inv.status !== 'PAID').reduce((s, i) => s + i.totalAmount, 0));
+
+    const totalOutstanding = invoicesSubtotal + totalDebits - totalCredits;
 
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.checked) {
@@ -200,7 +226,13 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
       <div className="space-y-6">
         <div className="flex justify-between items-center no-print">
           <button
-            onClick={() => { setSelectedCustomer(null); setSelectedInvoiceIds([]); }}
+            onClick={() => {
+              setSelectedCustomer(null);
+              setSelectedInvoiceIds([]);
+              setIncludeCreditNotes(false);
+              setIncludeDebitNotes(false);
+              setSelectedNoteIds([]);
+            }}
             className="flex items-center gap-2 text-gray-500 hover:text-slate-900 font-bold"
           >
             <ArrowLeft size={20} /> Back to CRM
@@ -279,6 +311,50 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
                   className="w-4 h-4 accent-orange-500"
                 />
                 <span className="text-xs font-bold text-gray-600">Show Ageing</span>
+              </label>
+              <label className={`flex items-center gap-2 cursor-pointer px-2.5 py-1 rounded-lg border transition-colors ${
+                includeCreditNotes ? 'bg-blue-100/70 border-blue-400 text-blue-900' : 'bg-blue-50/50 border-blue-200 text-blue-700 hover:bg-blue-50'
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={includeCreditNotes}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setIncludeCreditNotes(checked);
+                    if (checked) {
+                      const creditIds = customerCreditNotes.map(n => n.id);
+                      setSelectedNoteIds(prev => Array.from(new Set([...prev, ...creditIds])));
+                    } else {
+                      setSelectedNoteIds(prev => prev.filter(id => !customerCreditNotes.some(n => n.id === id)));
+                    }
+                  }}
+                  className="w-4 h-4 accent-blue-600 cursor-pointer"
+                />
+                <span className="text-xs font-bold">
+                  Include Credit Notes {customerCreditNotes.length > 0 ? `(${customerCreditNotes.length})` : ''}
+                </span>
+              </label>
+              <label className={`flex items-center gap-2 cursor-pointer px-2.5 py-1 rounded-lg border transition-colors ${
+                includeDebitNotes ? 'bg-purple-100/70 border-purple-400 text-purple-900' : 'bg-purple-50/50 border-purple-200 text-purple-700 hover:bg-purple-50'
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={includeDebitNotes}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setIncludeDebitNotes(checked);
+                    if (checked) {
+                      const debitIds = customerDebitNotes.map(n => n.id);
+                      setSelectedNoteIds(prev => Array.from(new Set([...prev, ...debitIds])));
+                    } else {
+                      setSelectedNoteIds(prev => prev.filter(id => !customerDebitNotes.some(n => n.id === id)));
+                    }
+                  }}
+                  className="w-4 h-4 accent-purple-600 cursor-pointer"
+                />
+                <span className="text-xs font-bold">
+                  Include Debit Notes {customerDebitNotes.length > 0 ? `(${customerDebitNotes.length})` : ''}
+                </span>
               </label>
             </div>
           </div>
@@ -387,22 +463,79 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
               )}
             </tbody>
             <tfoot>
-              <tr className="bg-gray-50">
-                <td colSpan={3} className="px-6 py-5 text-right text-xs font-black text-gray-500 uppercase">Subtotal Balance</td>
-                <td className="px-6 py-5 text-right font-black text-orange-600 text-lg">{formatCurrency(totalOutstanding)}</td>
+              <tr className="bg-gray-50 border-t border-gray-200">
+                <td colSpan={6} className="px-6 py-4 text-right text-xs font-black text-gray-500 uppercase">
+                  Subtotal Invoices
+                </td>
+                <td className="px-6 py-4 text-right font-black text-gray-900 text-base">
+                  {formatCurrency(invoicesSubtotal)}
+                </td>
+              </tr>
+              {includeCreditNotes && totalCredits > 0 && (
+                <tr className="bg-blue-50/60 text-blue-900 border-t border-blue-100">
+                  <td colSpan={6} className="px-6 py-3 text-right text-xs font-bold uppercase">
+                    Less: Credit Notes Applied
+                  </td>
+                  <td className="px-6 py-3 text-right font-black text-sm text-blue-700">
+                    - {formatCurrency(totalCredits)}
+                  </td>
+                </tr>
+              )}
+              {includeDebitNotes && totalDebits > 0 && (
+                <tr className="bg-purple-50/60 text-purple-900 border-t border-purple-100">
+                  <td colSpan={6} className="px-6 py-3 text-right text-xs font-bold uppercase">
+                    Add: Debit Notes Applied
+                  </td>
+                  <td className="px-6 py-3 text-right font-black text-sm text-purple-700">
+                    + {formatCurrency(totalDebits)}
+                  </td>
+                </tr>
+              )}
+              <tr className="bg-gray-100 border-t-2 border-gray-300">
+                <td colSpan={6} className="px-6 py-5 text-right text-xs font-black text-gray-800 uppercase tracking-wider">
+                  Total Outstanding Balance
+                </td>
+                <td className="px-6 py-5 text-right font-black text-orange-600 text-xl">
+                  {formatCurrency(totalOutstanding)}
+                </td>
               </tr>
             </tfoot>
           </table>
 
-          {customerNotes.length > 0 && (
+          {(includeCreditNotes || includeDebitNotes) && availableNotes.length > 0 && (
             <div className="mt-8 pt-8 border-t border-gray-100">
-              <h3 className="font-black text-gray-900 flex items-center gap-2 uppercase tracking-widest text-sm mb-4">
-                <FileText size={18} className="text-orange-500" />
-                Linked Credit & Debit Notes
-              </h3>
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h3 className="font-black text-gray-900 flex items-center gap-2 uppercase tracking-widest text-sm">
+                    <FileText size={18} className="text-orange-500" />
+                    Linked Credit & Debit Notes
+                  </h3>
+                  <p className="text-xs text-gray-400 font-medium mt-0.5 no-print">
+                    Select which notes to include in the statement balance and printout
+                  </p>
+                </div>
+                <span className="text-xs font-bold text-gray-500 no-print">
+                  {selectedNoteIds.filter(id => availableNotes.some(n => n.id === id)).length} of {availableNotes.length} notes selected
+                </span>
+              </div>
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-slate-900 text-white text-[10px] font-black uppercase">
+                    <th className="px-6 py-3 no-print w-10">
+                      <input
+                        type="checkbox"
+                        checked={availableNotes.length > 0 && availableNotes.every(n => selectedNoteIds.includes(n.id))}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedNoteIds(prev => Array.from(new Set([...prev, ...availableNotes.map(n => n.id)])));
+                          } else {
+                            setSelectedNoteIds(prev => prev.filter(id => !availableNotes.some(n => n.id === id)));
+                          }
+                        }}
+                        className="w-4 h-4 accent-orange-500 cursor-pointer"
+                        title="Select/Deselect All Notes"
+                      />
+                    </th>
                     <th className="px-6 py-3">Note Number</th>
                     <th className="px-6 py-3">Type</th>
                     <th className="px-6 py-3">Date</th>
@@ -412,22 +545,40 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 border-b">
-                  {customerNotes.map(note => (
-                    <tr key={note.id} className="hover:bg-gray-50 text-xs">
-                      <td className="px-6 py-4 font-bold text-gray-900">{note.noteNumber}</td>
-                      <td className="px-6 py-4">
-                        <span className={`text-[9px] font-black px-2.5 py-1 rounded-full uppercase ${
-                          note.type === 'CREDIT' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
-                        }`}>
-                          {note.type}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-gray-600 font-bold">{new Date(note.date).toLocaleDateString()}</td>
-                      <td className="px-6 py-4 text-orange-600 font-bold">{note.originalInvoiceNumber}</td>
-                      <td className="px-6 py-4 text-gray-500 font-medium">{note.reason}</td>
-                      <td className="px-6 py-4 text-right font-black text-gray-900">{formatCurrency(note.amount)}</td>
-                    </tr>
-                  ))}
+                  {availableNotes.map(note => {
+                    const isSelected = selectedNoteIds.includes(note.id);
+                    return (
+                      <tr 
+                        key={note.id} 
+                        className={`hover:bg-gray-50 text-xs transition-colors ${!isSelected ? 'no-print opacity-40' : ''}`}
+                      >
+                        <td className="px-6 py-4 no-print">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {
+                              setSelectedNoteIds(prev =>
+                                prev.includes(note.id) ? prev.filter(id => id !== note.id) : [...prev, note.id]
+                              );
+                            }}
+                            className="w-4 h-4 accent-orange-500 cursor-pointer"
+                          />
+                        </td>
+                        <td className="px-6 py-4 font-bold text-gray-900">{note.noteNumber}</td>
+                        <td className="px-6 py-4">
+                          <span className={`text-[9px] font-black px-2.5 py-1 rounded-full uppercase ${
+                            note.type === 'CREDIT' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                          }`}>
+                            {note.type}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-gray-600 font-bold">{new Date(note.date).toLocaleDateString()}</td>
+                        <td className="px-6 py-4 text-orange-600 font-bold">{note.originalInvoiceNumber}</td>
+                        <td className="px-6 py-4 text-gray-500 font-medium">{note.reason}</td>
+                        <td className="px-6 py-4 text-right font-black text-gray-900">{formatCurrency(note.amount)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -645,7 +796,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
                               )}
                             </div>
                             <button
-                              onClick={() => setSelectedCustomer(c)}
+                              onClick={() => openCustomerStatement(c)}
                               className="bg-slate-100 p-2 rounded-lg text-slate-600 hover:bg-orange-500 hover:text-white transition-all shadow-sm group-hover:scale-110"
                               title="View Statement"
                             >

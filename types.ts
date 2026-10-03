@@ -313,6 +313,8 @@ export interface AdjustmentNote {
   date: string;
   customerId: string;
   customerName: string;
+  vendorId?: string;
+  vendorName?: string;
   originalInvoiceId: string;
   originalInvoiceNumber: string;
   reason: string;
