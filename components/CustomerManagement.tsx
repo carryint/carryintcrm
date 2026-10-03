@@ -254,28 +254,28 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
           </div>
         </div>
 
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 invoice-container">
-          <div className="flex justify-between items-start mb-10 pb-8 border-b border-gray-100">
+        <div className="bg-white p-6 sm:p-8 max-w-5xl mx-auto rounded-2xl shadow-sm border border-gray-100 invoice-container soa-container">
+          <div className="flex flex-col sm:flex-row print-flex-between-start justify-between items-start mb-8 pb-6 border-b border-gray-100 gap-4">
             <div>
-              <h2 className="text-3xl font-black text-gray-900 mb-2">Statement of Account</h2>
-              <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Customer Record</p>
+              <h2 className="text-2xl sm:text-3xl font-black text-gray-900 mb-1">Statement of Account</h2>
+              <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Customer Ledger & Record</p>
             </div>
-            <div className="text-right">
-              <p className="text-2xl font-black text-orange-600">{formatCurrency(totalOutstanding)}</p>
+            <div className="text-left sm:text-right print-text-right">
+              <p className="text-xl sm:text-2xl font-black text-orange-600">{formatCurrency(totalOutstanding)}</p>
               <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Total Outstanding Balance</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-10 mb-10">
+          <div className="flex flex-col sm:flex-row print-flex-between-start justify-between items-start gap-6 mb-8">
             <div>
-              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Client Details</h4>
-              <p className="font-bold text-lg text-gray-900">{selectedCustomer.name}</p>
-              <p className="text-sm text-gray-500 max-w-xs">{selectedCustomer.address}</p>
-              <p className="text-sm text-gray-500 mt-1">VAT: {selectedCustomer.vatNumber || 'N/A'}</p>
+              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Client Details</h4>
+              <p className="font-bold text-lg text-gray-900 leading-tight">{selectedCustomer.name}</p>
+              <p className="text-sm text-gray-500 max-w-sm mt-1">{selectedCustomer.address}</p>
+              <p className="text-xs text-gray-500 font-medium mt-1">VAT / TRN: <span className="font-bold text-gray-700">{selectedCustomer.vatNumber || 'N/A'}</span></p>
             </div>
-            <div className="text-right">
-              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Statement Date</h4>
-              <p className="font-bold text-gray-900">{new Date().toLocaleDateString()}</p>
+            <div className="text-left sm:text-right print-text-right">
+              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Statement Date</h4>
+              <p className="font-bold text-base text-gray-900">{new Date().toLocaleDateString()}</p>
             </div>
           </div>
 
@@ -464,7 +464,8 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
             </tbody>
             <tfoot>
               <tr className="bg-gray-50 border-t border-gray-200">
-                <td colSpan={6} className="px-6 py-4 text-right text-xs font-black text-gray-500 uppercase">
+                <td className="no-print w-10"></td>
+                <td colSpan={5} className="px-6 py-4 text-right text-xs font-black text-gray-500 uppercase">
                   Subtotal Invoices
                 </td>
                 <td className="px-6 py-4 text-right font-black text-gray-900 text-base">
@@ -473,7 +474,8 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
               </tr>
               {includeCreditNotes && totalCredits > 0 && (
                 <tr className="bg-blue-50/60 text-blue-900 border-t border-blue-100">
-                  <td colSpan={6} className="px-6 py-3 text-right text-xs font-bold uppercase">
+                  <td className="no-print w-10"></td>
+                  <td colSpan={5} className="px-6 py-3 text-right text-xs font-bold uppercase">
                     Less: Credit Notes Applied
                   </td>
                   <td className="px-6 py-3 text-right font-black text-sm text-blue-700">
@@ -483,7 +485,8 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
               )}
               {includeDebitNotes && totalDebits > 0 && (
                 <tr className="bg-purple-50/60 text-purple-900 border-t border-purple-100">
-                  <td colSpan={6} className="px-6 py-3 text-right text-xs font-bold uppercase">
+                  <td className="no-print w-10"></td>
+                  <td colSpan={5} className="px-6 py-3 text-right text-xs font-bold uppercase">
                     Add: Debit Notes Applied
                   </td>
                   <td className="px-6 py-3 text-right font-black text-sm text-purple-700">
@@ -492,7 +495,8 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
                 </tr>
               )}
               <tr className="bg-gray-100 border-t-2 border-gray-300">
-                <td colSpan={6} className="px-6 py-5 text-right text-xs font-black text-gray-800 uppercase tracking-wider">
+                <td className="no-print w-10"></td>
+                <td colSpan={5} className="px-6 py-5 text-right text-xs font-black text-gray-800 uppercase tracking-wider">
                   Total Outstanding Balance
                 </td>
                 <td className="px-6 py-5 text-right font-black text-orange-600 text-xl">
