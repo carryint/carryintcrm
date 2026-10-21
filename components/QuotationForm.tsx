@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Customer, Quotation, QuotationItem, CustomerCategory, QuotationStatus, CompanyInfo, User as UserType, AuditLog } from '../types';
 import { COMMODITY_TYPES, DESTINATION_COUNTRIES } from '../constants';
 import { generateId } from '../utils';
+import { safeStorage } from '../safeStorage';
 import { 
   Building2, 
   User, 
@@ -194,14 +195,14 @@ export const QuotationForm: React.FC<QuotationFormProps> = ({
   );
   const [includeSeal, setIncludeSeal] = useState<boolean>(() => {
     if (initialQuotation?.includeSeal !== undefined) return initialQuotation.includeSeal;
-    const remembered = localStorage.getItem('carryint_quotation_seal_preference');
+    const remembered = safeStorage.getItem('carryint_quotation_seal_preference');
     if (remembered !== null) return remembered === 'true';
     return companyInfo?.defaultQuotationSeal ?? false;
   });
 
   const handleToggleSeal = (enabled: boolean) => {
     setIncludeSeal(enabled);
-    localStorage.setItem('carryint_quotation_seal_preference', String(enabled));
+    safeStorage.setItem('carryint_quotation_seal_preference', String(enabled));
   };
 
   // Customer Information

@@ -78,6 +78,7 @@ import {
   AccountingApproval
 } from '../types';
 import { formatCurrency, generateId, sortInvoicesByNewestCreated } from '../utils';
+import { safeStorage } from '../safeStorage';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -132,7 +133,7 @@ export const AccountantDashboard: React.FC<AccountantDashboardProps> = ({
 
   // --- PERSISTENT ACCOUNTING STATE WITH LOCAL STORAGE ---
   const [ledgers, setLedgers] = useState<AccountLedger[]>(() => {
-    const saved = localStorage.getItem('carryint_ledgers');
+    const saved = safeStorage.getItem('carryint_ledgers');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
@@ -154,7 +155,7 @@ export const AccountantDashboard: React.FC<AccountantDashboardProps> = ({
   });
 
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>(() => {
-    const saved = localStorage.getItem('carryint_journal_entries');
+    const saved = safeStorage.getItem('carryint_journal_entries');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
@@ -181,7 +182,7 @@ export const AccountantDashboard: React.FC<AccountantDashboardProps> = ({
   });
 
   const [fixedAssets, setFixedAssets] = useState<FixedAsset[]>(() => {
-    const saved = localStorage.getItem('carryint_fixed_assets');
+    const saved = safeStorage.getItem('carryint_fixed_assets');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
@@ -315,7 +316,7 @@ export const AccountantDashboard: React.FC<AccountantDashboardProps> = ({
     };
     const updated = [...ledgers, created];
     setLedgers(updated);
-    localStorage.setItem('carryint_ledgers', JSON.stringify(updated));
+    safeStorage.setJSON('carryint_ledgers', updated);
     setIsAddingLedger(false);
     setNewLedger({ category: 'EXPENSE', currency: 'AED', openingBalance: 0 });
   };
@@ -356,7 +357,7 @@ export const AccountantDashboard: React.FC<AccountantDashboardProps> = ({
 
     const updated = [entry, ...journalEntries];
     setJournalEntries(updated);
-    localStorage.setItem('carryint_journal_entries', JSON.stringify(updated));
+    safeStorage.setJSON('carryint_journal_entries', updated);
     setIsAddingJournal(false);
     setNewJournal({
       reference: '',

@@ -21,6 +21,7 @@ import {
 import { Invoice, Customer, Vendor, Expense, AdjustmentNote, CompanyInfo, User, Quotation } from '../types';
 import { supabase } from '../supabase';
 import { prepareInvoiceForSupabase } from '../utils';
+import { safeStorage } from '../safeStorage';
 
 interface SmartBackupRestoreProps {
   currentInvoices: Invoice[];
@@ -267,12 +268,12 @@ export const SmartBackupRestore: React.FC<SmartBackupRestoreProps> = ({
       if (finalCustomers.length > 0) {
         const { error: custErr } = await supabase.from('customers').upsert(finalCustomers);
         if (custErr) throw new Error(`Customers sync: ${custErr.message}`);
-        localStorage.setItem('carryint_customers', JSON.stringify(finalCustomers));
+        safeStorage.setJSON('carryint_customers', finalCustomers);
       }
       if (finalVendors.length > 0) {
         const { error: venErr } = await supabase.from('vendors').upsert(finalVendors);
         if (venErr) throw new Error(`Vendors sync: ${venErr.message}`);
-        localStorage.setItem('carryint_vendors', JSON.stringify(finalVendors));
+        safeStorage.setJSON('carryint_vendors', finalVendors);
       }
 
       setRestoreProgress('Syncing invoices, adjustments & quotations...');
@@ -280,12 +281,12 @@ export const SmartBackupRestore: React.FC<SmartBackupRestoreProps> = ({
         const preparedInvoices = finalInvoices.map(prepareInvoiceForSupabase);
         const { error: invErr } = await supabase.from('invoices').upsert(preparedInvoices);
         if (invErr) throw new Error(`Invoices sync: ${invErr.message}`);
-        localStorage.setItem('carryint_invoices', JSON.stringify(finalInvoices));
+        safeStorage.setJSON('carryint_invoices', finalInvoices);
       }
       if (finalAdjustments.length > 0) {
         const { error: adjErr } = await supabase.from('adjustment_notes').upsert(finalAdjustments);
         if (adjErr) throw new Error(`Adjustment notes sync: ${adjErr.message}`);
-        localStorage.setItem('carryint_adjustment_notes', JSON.stringify(finalAdjustments));
+        safeStorage.setJSON('carryint_adjustment_notes', finalAdjustments);
       }
       if (finalQuotations.length > 0) {
         try {
@@ -293,19 +294,19 @@ export const SmartBackupRestore: React.FC<SmartBackupRestoreProps> = ({
         } catch (e) {
           console.warn('Quotations table sync bypassed', e);
         }
-        localStorage.setItem('carryint_quotations', JSON.stringify(finalQuotations));
+        safeStorage.setJSON('carryint_quotations', finalQuotations);
       }
 
       setRestoreProgress('Syncing expenses & settings...');
       if (finalExpenses.length > 0) {
         const { error: expErr } = await supabase.from('expenses').upsert(finalExpenses);
         if (expErr) throw new Error(`Expenses sync: ${expErr.message}`);
-        localStorage.setItem('carryint_expenses', JSON.stringify(finalExpenses));
+        safeStorage.setJSON('carryint_expenses', finalExpenses);
       }
       if (finalUsers.length > 0) {
         const { error: userErr } = await supabase.from('users').upsert(finalUsers);
         if (userErr) throw new Error(`Users sync: ${userErr.message}`);
-        localStorage.setItem('carryint_users', JSON.stringify(finalUsers));
+        safeStorage.setJSON('carryint_users', finalUsers);
       }
       if (backup.companyInfo) {
         const cInfo = backup.companyInfo;
@@ -327,9 +328,9 @@ export const SmartBackupRestore: React.FC<SmartBackupRestoreProps> = ({
         };
         const { error: compErr } = await supabase.from('company_info').upsert([compPayload]);
         if (compErr) console.error(`Company info sync: ${compErr.message}`);
-        localStorage.setItem('carryint_company_info', JSON.stringify(backup.companyInfo));
+        safeStorage.setJSON('carryint_company_info', backup.companyInfo);
         if (compPayload.bank.sealUrl) {
-          localStorage.setItem('carryint_company_seal', compPayload.bank.sealUrl);
+          safeStorage.setItem('carryint_company_seal', compPayload.bank.sealUrl);
         }
       }
 

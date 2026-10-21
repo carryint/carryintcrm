@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, Save, Send, Search, ChevronDown, X, Truck, ExternalLink, Stamp, CheckCircle2, XCircle } from 'lucide-react';
+import { safeStorage } from '../safeStorage';
 
 // ── Reusable Searchable Dropdown ─────────────────────────────────────────────
 interface SearchableSelectProps {
@@ -314,14 +315,14 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const [transactionReference, setTransactionReference] = useState<string>(editingInvoice?.transactionReference || '');
   const [includeSeal, setIncludeSeal] = useState<boolean>(() => {
     if (editingInvoice?.includeSeal !== undefined) return editingInvoice.includeSeal;
-    const remembered = localStorage.getItem('carryint_invoice_seal_preference');
+    const remembered = safeStorage.getItem('carryint_invoice_seal_preference');
     if (remembered !== null) return remembered === 'true';
     return companyInfo?.defaultInvoiceSeal ?? false;
   });
 
   const handleToggleSeal = (enabled: boolean) => {
     setIncludeSeal(enabled);
-    localStorage.setItem('carryint_invoice_seal_preference', String(enabled));
+    safeStorage.setItem('carryint_invoice_seal_preference', String(enabled));
   };
 
   // Totals are based on the manually entered total — qty/weight/price are independent descriptive fields.

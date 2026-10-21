@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, LogIn } from 'lucide-react';
+import { User, LogIn, Eye, EyeOff } from 'lucide-react';
 
 interface LoginProps {
     onLogin: (email: string, password: string) => void;
@@ -10,6 +10,7 @@ interface LoginProps {
 const Login: React.FC<LoginProps> = ({ onLogin, error, companyName }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -60,17 +61,26 @@ const Login: React.FC<LoginProps> = ({ onLogin, error, companyName }) => {
                                 <div className="relative">
                                     <LogIn className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                                     <input
-                                        type="password"
+                                        type={showPassword ? "text" : "password"}
                                         required
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
-                                        className="w-full pl-12 pr-4 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-orange-500 outline-none transition-all font-medium"
+                                        className="w-full pl-12 pr-12 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-orange-500 outline-none transition-all font-medium"
                                         placeholder="••••••••"
                                         autoCapitalize="none"
                                         autoCorrect="off"
                                         spellCheck="false"
                                         autoComplete="current-password"
                                     />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 active:text-orange-600 transition-colors p-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400/40"
+                                        title={showPassword ? "Hide password" : "Show password"}
+                                        aria-label={showPassword ? "Hide password" : "Show password"}
+                                    >
+                                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                    </button>
                                 </div>
                             </div>
 

@@ -19,6 +19,7 @@ import UserAnalyticsDashboard from './components/UserAnalyticsDashboard';
 import CarrierAwbModal from './components/CarrierAwbModal';
 import TrackingManagement from './components/TrackingManagement';
 import { supabase } from './supabase';
+import { safeStorage } from './safeStorage';
 import { Customer, Vendor, Invoice, CompanyInfo, User, Expense, AdjustmentNote, Quotation, PaymentStatus } from './types';
 import { COMPANY_INFO as DEFAULT_COMPANY_INFO } from './constants';
 import {
@@ -67,9 +68,9 @@ const App: React.FC = () => {
   const [preSelectedInvoice, setPreSelectedInvoice] = useState<Invoice | null>(null);
   const [preSelectedType, setPreSelectedType] = useState<'CREDIT' | 'DEBIT' | null>(null);
   const [users, setUsers] = useState<User[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(() => safeStorage.getUser());
   const [authError, setAuthError] = useState<string>('');
-  const [isAppLoading, setIsAppLoading] = useState(true);
+  const [isAppLoading, setIsAppLoading] = useState<boolean>(() => !safeStorage.getUser());
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(DEFAULT_COMPANY_INFO as any);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [carrierModalInvoice, setCarrierModalInvoice] = useState<Invoice | null>(null);
@@ -79,188 +80,173 @@ const App: React.FC = () => {
   const [invoiceFilterMonth, setInvoiceFilterMonth] = useState('');
   const [invoiceFilterCreator, setInvoiceFilterCreator] = useState('ALL');
 
-  // Load initial data from Supabase Cloud with reliable LocalStorage fallback
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [
-          { data: savedUsers },
-          { data: savedCompanyInfo },
-          { data: savedCustomers },
-          { data: savedVendors },
-          { data: savedInvoices },
-          { data: savedExpenses },
-          { data: savedAdjustments }
-        ] = await Promise.all([
-          supabase.from('users').select('*'),
-          supabase.from('company_info').select('*'),
-          supabase.from('customers').select('*'),
-          supabase.from('vendors').select('*'),
-          supabase.from('invoices').select('*'),
-          supabase.from('expenses').select('*'),
-          supabase.from('adjustment_notes').select('*')
-        ]);
+  // Load initial data from Supabase Cloud with resilient multi-tier offline caching
+  const loadData = async (forceCloud = false) => {
+    try {
+      // 1. Instantly hydrate state from safe local cache so user never sees a blank dashboard
+      const cachedUsers = safeStorage.getJSON<User[]>('carryint_users', null);
+      if (cachedUsers && cachedUsers.length > 0) setUsers(cachedUsers);
 
-        const localSeal = localStorage.getItem('carryint_company_seal') || '';
-        const localCompRaw = localStorage.getItem('carryint_company_info');
-        let parsedLocalComp: any = null;
-        if (localCompRaw) {
-          try { parsedLocalComp = JSON.parse(localCompRaw); } catch (e) {}
+      const cachedComp = safeStorage.getJSON<CompanyInfo>('carryint_company_info', null);
+      if (cachedComp) setCompanyInfo(cachedComp);
+
+      const cachedCust = safeStorage.getJSON<Customer[]>('carryint_customers', null);
+      if (cachedCust && cachedCust.length > 0) setCustomers(cachedCust);
+
+      const cachedVend = safeStorage.getJSON<Vendor[]>('carryint_vendors', null);
+      if (cachedVend && cachedVend.length > 0) setVendors(cachedVend);
+
+      const cachedInv = safeStorage.getJSON<any[]>('carryint_invoices', null);
+      if (cachedInv && cachedInv.length > 0) {
+        setInvoices(sortInvoicesByNewestCreated(cachedInv.map(hydrateInvoiceFromStorage)));
+      }
+
+      const cachedExp = safeStorage.getJSON<Expense[]>('carryint_expenses', null);
+      if (cachedExp && cachedExp.length > 0) setExpenses(cachedExp);
+
+      const cachedAdj = safeStorage.getJSON<AdjustmentNote[]>('carryint_adjustment_notes', null);
+      if (cachedAdj && cachedAdj.length > 0) setAdjustmentNotes(cachedAdj);
+
+      const cachedQuotes = safeStorage.getJSON<Quotation[]>('carryint_quotations', null);
+      if (cachedQuotes && cachedQuotes.length > 0) setQuotations(cachedQuotes);
+
+      // 2. Fetch all live data from Supabase Cloud in parallel using Promise.allSettled
+      // Guarantees mobile network fluctuations or missing tables never abort data loading
+      const [
+        usersRes,
+        companyRes,
+        customersRes,
+        vendorsRes,
+        invoicesRes,
+        expensesRes,
+        adjustmentsRes,
+        quotationsRes
+      ] = await Promise.allSettled([
+        supabase.from('users').select('*'),
+        supabase.from('company_info').select('*'),
+        supabase.from('customers').select('*'),
+        supabase.from('vendors').select('*'),
+        supabase.from('invoices').select('*'),
+        supabase.from('expenses').select('*'),
+        supabase.from('adjustment_notes').select('*'),
+        supabase.from('quotations').select('*')
+      ]);
+
+      // Process Users
+      const defaultAdmin: User = {
+        id: 'admin-1',
+        name: 'Super Admin',
+        email: 'info@carryint.com',
+        password: 'intCC3#0',
+        role: 'ADMIN'
+      };
+
+      if (usersRes.status === 'fulfilled' && usersRes.value.data && usersRes.value.data.length > 0) {
+        const liveUsers = usersRes.value.data as User[];
+        setUsers(liveUsers);
+        safeStorage.setJSON('carryint_users', liveUsers);
+
+        // Keep active session user profile updated with live DB details
+        const currentSession = safeStorage.getUser();
+        if (currentSession) {
+          const freshUser = liveUsers.find(u => u.id === currentSession.id || u.email?.toLowerCase().trim() === currentSession.email?.toLowerCase().trim());
+          if (freshUser) {
+            setCurrentUser(freshUser);
+            safeStorage.setUser(freshUser);
+          }
         }
+      } else if (!cachedUsers || cachedUsers.length === 0) {
+        setUsers([defaultAdmin]);
+        safeStorage.setJSON('carryint_users', [defaultAdmin]);
+        try {
+          await supabase.from('users').upsert([defaultAdmin]);
+        } catch (e) {
+          console.error('Error seeding default admin:', e);
+        }
+      }
 
-        if (savedCompanyInfo && savedCompanyInfo.length > 0) {
-          const remote = savedCompanyInfo[0] as any;
-          // Remote Supabase DB is the source of truth across all users/devices
-          const remoteSeal = remote.bank?.sealUrl !== undefined 
-            ? remote.bank.sealUrl 
-            : (remote.sealUrl !== undefined ? remote.sealUrl : null);
+      // Process Company Info
+      if (companyRes.status === 'fulfilled' && companyRes.value.data && companyRes.value.data.length > 0) {
+        const remote = companyRes.value.data[0] as any;
+        const localSeal = safeStorage.getItem('carryint_company_seal') || '';
+        const remoteSeal = remote.bank?.sealUrl !== undefined 
+          ? remote.bank.sealUrl 
+          : (remote.sealUrl !== undefined ? remote.sealUrl : null);
 
-          const resolvedSeal = remoteSeal !== null ? remoteSeal : (localSeal || parsedLocalComp?.sealUrl || '');
+        const resolvedSeal = remoteSeal !== null ? remoteSeal : (localSeal || '');
 
-          const resolvedDefaultQuoteSeal = remote.bank?.defaultQuotationSeal !== undefined 
-            ? remote.bank.defaultQuotationSeal 
-            : (remote.defaultQuotationSeal !== undefined 
-                ? remote.defaultQuotationSeal 
-                : (parsedLocalComp?.defaultQuotationSeal !== undefined ? parsedLocalComp.defaultQuotationSeal : false));
+        const resolvedDefaultQuoteSeal = remote.bank?.defaultQuotationSeal !== undefined 
+          ? remote.bank.defaultQuotationSeal 
+          : (remote.defaultQuotationSeal !== undefined ? remote.defaultQuotationSeal : true);
 
-          const resolvedDefaultInvSeal = remote.bank?.defaultInvoiceSeal !== undefined 
-            ? remote.bank.defaultInvoiceSeal 
-            : (remote.defaultInvoiceSeal !== undefined 
-                ? remote.defaultInvoiceSeal 
-                : (parsedLocalComp?.defaultInvoiceSeal !== undefined ? parsedLocalComp.defaultInvoiceSeal : false));
+        const resolvedDefaultInvSeal = remote.bank?.defaultInvoiceSeal !== undefined 
+          ? remote.bank.defaultInvoiceSeal 
+          : (remote.defaultInvoiceSeal !== undefined ? remote.defaultInvoiceSeal : false);
 
-          const merged: CompanyInfo = {
-            ...remote,
+        const merged: CompanyInfo = {
+          ...remote,
+          sealUrl: resolvedSeal,
+          defaultQuotationSeal: resolvedDefaultQuoteSeal,
+          defaultInvoiceSeal: resolvedDefaultInvSeal,
+          bank: {
+            ...remote.bank,
             sealUrl: resolvedSeal,
             defaultQuotationSeal: resolvedDefaultQuoteSeal,
-            defaultInvoiceSeal: resolvedDefaultInvSeal,
-            bank: {
-              ...remote.bank,
-              sealUrl: resolvedSeal,
-              defaultQuotationSeal: resolvedDefaultQuoteSeal,
-              defaultInvoiceSeal: resolvedDefaultInvSeal
-            }
-          };
-          setCompanyInfo(merged);
-          localStorage.setItem('carryint_company_info', JSON.stringify(merged));
-          if (resolvedSeal) {
-            localStorage.setItem('carryint_company_seal', resolvedSeal);
-          } else {
-            localStorage.removeItem('carryint_company_seal');
+            defaultInvoiceSeal: resolvedDefaultInvSeal
           }
-        } else {
-          if (parsedLocalComp) {
-            const resolvedSeal = parsedLocalComp.sealUrl || localSeal || '';
-            const merged = { ...parsedLocalComp, sealUrl: resolvedSeal };
-            setCompanyInfo(merged);
-            localStorage.setItem('carryint_company_info', JSON.stringify(merged));
-            if (resolvedSeal) localStorage.setItem('carryint_company_seal', resolvedSeal);
-          } else {
-            const initial = { ...DEFAULT_COMPANY_INFO, trn: '100456209800003', sealUrl: localSeal || '' };
-            setCompanyInfo(initial as any);
-          }
-        }
-
-        const defaultAdmin: User = {
-          id: 'admin-1',
-          name: 'Super Admin',
-          email: 'info@carryint.com',
-          password: 'intCC3#0',
-          role: 'ADMIN'
         };
-
-        if (savedUsers && savedUsers.length > 0) {
-          setUsers(savedUsers);
-          localStorage.setItem('carryint_users', JSON.stringify(savedUsers));
-        } else {
-          const localUsers = localStorage.getItem('carryint_users');
-          if (localUsers) {
-            setUsers(JSON.parse(localUsers));
-          } else {
-            setUsers([defaultAdmin]);
-            try {
-              await supabase.from('users').upsert([defaultAdmin]);
-            } catch (e) {
-              console.error('Error seeding default admin:', e);
-            }
-          }
-        }
-
-        if (savedCustomers !== null && savedCustomers !== undefined) {
-          setCustomers(savedCustomers);
-          localStorage.setItem('carryint_customers', JSON.stringify(savedCustomers));
-        } else {
-          const localCust = localStorage.getItem('carryint_customers');
-          if (localCust) setCustomers(JSON.parse(localCust));
-        }
-
-        if (savedVendors !== null && savedVendors !== undefined) {
-          setVendors(savedVendors);
-          localStorage.setItem('carryint_vendors', JSON.stringify(savedVendors));
-        } else {
-          const localVen = localStorage.getItem('carryint_vendors');
-          if (localVen) setVendors(JSON.parse(localVen));
-        }
-
-        if (savedInvoices !== null && savedInvoices !== undefined) {
-          const normalized = savedInvoices.map(hydrateInvoiceFromStorage);
-          const sorted = sortInvoicesByNewestCreated(normalized);
-          setInvoices(sorted);
-          localStorage.setItem('carryint_invoices', JSON.stringify(sorted));
-        } else {
-          const localInv = localStorage.getItem('carryint_invoices');
-          if (localInv) {
-            const parsed = JSON.parse(localInv).map(hydrateInvoiceFromStorage);
-            const sorted = sortInvoicesByNewestCreated(parsed);
-            setInvoices(sorted);
-          }
-        }
-
-        if (savedExpenses !== null && savedExpenses !== undefined) {
-          setExpenses(savedExpenses);
-          localStorage.setItem('carryint_expenses', JSON.stringify(savedExpenses));
-        } else {
-          const localExp = localStorage.getItem('carryint_expenses');
-          if (localExp) setExpenses(JSON.parse(localExp));
-        }
-
-        if (savedAdjustments !== null && savedAdjustments !== undefined) {
-          setAdjustmentNotes(savedAdjustments);
-          localStorage.setItem('carryint_adjustment_notes', JSON.stringify(savedAdjustments));
-        } else {
-          const localAdj = localStorage.getItem('carryint_adjustment_notes');
-          if (localAdj) setAdjustmentNotes(JSON.parse(localAdj));
-        }
-
-        // Load Quotations (Local Storage first, then Supabase if table exists)
-        const localQuotations = localStorage.getItem('carryint_quotations');
-        if (localQuotations) {
-          try {
-            setQuotations(JSON.parse(localQuotations));
-          } catch (e) {
-            console.error('Error parsing local quotations:', e);
-          }
-        }
-        try {
-          const { data: savedQuotations } = await supabase.from('quotations').select('*');
-          if (savedQuotations && savedQuotations.length > 0) {
-            setQuotations(savedQuotations);
-            localStorage.setItem('carryint_quotations', JSON.stringify(savedQuotations));
-          }
-        } catch (e) {
-          console.log('Quotations cloud sync fallback to local storage');
-        }
-
-        const sessionUser = localStorage.getItem('carryint_current_user');
-        if (sessionUser) {
-          setCurrentUser(JSON.parse(sessionUser));
-        }
-      } catch (error) {
-        console.error("Error loading data from Supabase:", error);
-      } finally {
-        setIsAppLoading(false);
+        setCompanyInfo(merged);
+        safeStorage.setJSON('carryint_company_info', merged);
+      } else if (!cachedComp) {
+        const initial = { ...DEFAULT_COMPANY_INFO, trn: '100456209800003', sealUrl: '' };
+        setCompanyInfo(initial as any);
       }
-    };
+
+      // Process Customers
+      if (customersRes.status === 'fulfilled' && customersRes.value.data) {
+        setCustomers(customersRes.value.data);
+        safeStorage.setJSON('carryint_customers', customersRes.value.data);
+      }
+
+      // Process Vendors
+      if (vendorsRes.status === 'fulfilled' && vendorsRes.value.data) {
+        setVendors(vendorsRes.value.data);
+        safeStorage.setJSON('carryint_vendors', vendorsRes.value.data);
+      }
+
+      // Process Invoices
+      if (invoicesRes.status === 'fulfilled' && invoicesRes.value.data) {
+        const normalized = (invoicesRes.value.data as any[]).map(hydrateInvoiceFromStorage);
+        const sorted = sortInvoicesByNewestCreated(normalized);
+        setInvoices(sorted);
+        safeStorage.setJSON('carryint_invoices', sorted);
+      }
+
+      // Process Expenses
+      if (expensesRes.status === 'fulfilled' && expensesRes.value.data) {
+        setExpenses(expensesRes.value.data);
+        safeStorage.setJSON('carryint_expenses', expensesRes.value.data);
+      }
+
+      // Process Adjustment Notes
+      if (adjustmentsRes.status === 'fulfilled' && adjustmentsRes.value.data) {
+        setAdjustmentNotes(adjustmentsRes.value.data);
+        safeStorage.setJSON('carryint_adjustment_notes', adjustmentsRes.value.data);
+      }
+
+      // Process Quotations
+      if (quotationsRes.status === 'fulfilled' && quotationsRes.value.data && quotationsRes.value.data.length > 0) {
+        setQuotations(quotationsRes.value.data);
+        safeStorage.setJSON('carryint_quotations', quotationsRes.value.data);
+      }
+    } catch (error) {
+      console.error("Error loading data from Supabase:", error);
+    } finally {
+      setIsAppLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadData();
   }, []);
 
@@ -269,45 +255,49 @@ const App: React.FC = () => {
     const trimmedEmail = emailInput.trim().toLowerCase();
     const trimmedPass = passInput.trim();
 
-    // Check currently loaded state first
-    const user = users.find(u => u.email?.toLowerCase().trim() === trimmedEmail && u.password?.trim() === trimmedPass);
-    if (user) {
-      setCurrentUser(user);
-      localStorage.setItem('carryint_current_user', JSON.stringify(user));
-      return;
-    }
-
-    // Check live cloud database directly
-    try {
-      const { data: dbUsers } = await supabase.from('users').select('*');
-      if (dbUsers && dbUsers.length > 0) {
-        setUsers(dbUsers);
-        localStorage.setItem('carryint_users', JSON.stringify(dbUsers));
-        const match = dbUsers.find(u => u.email?.toLowerCase().trim() === trimmedEmail && u.password?.trim() === trimmedPass);
-        if (match) {
-          setCurrentUser(match);
-          localStorage.setItem('carryint_current_user', JSON.stringify(match));
-          return;
+    // 1. Check currently loaded state first
+    let user = users.find(u => u.email?.toLowerCase().trim() === trimmedEmail && u.password?.trim() === trimmedPass);
+    
+    // 2. Query live cloud database directly to authenticate newest users immediately
+    if (!user) {
+      try {
+        const { data: dbUsers } = await supabase.from('users').select('*');
+        if (dbUsers && dbUsers.length > 0) {
+          setUsers(dbUsers);
+          safeStorage.setJSON('carryint_users', dbUsers);
+          user = dbUsers.find(u => u.email?.toLowerCase().trim() === trimmedEmail && u.password?.trim() === trimmedPass);
         }
+      } catch (err) {
+        console.error('Cloud login check failed:', err);
       }
-    } catch (err) {
-      console.error('Cloud login check failed:', err);
     }
 
-    if (trimmedEmail === 'info@carryint.com' && trimmedPass === 'intCC3#0') {
-      const adminUser: User = {
+    // 3. Fallback check for default admin
+    if (!user && trimmedEmail === 'info@carryint.com' && trimmedPass === 'intCC3#0') {
+      user = {
         id: 'admin-1',
         name: 'Super Admin',
         email: 'info@carryint.com',
         password: 'intCC3#0',
         role: 'ADMIN'
       };
-      setCurrentUser(adminUser);
-      localStorage.setItem('carryint_current_user', JSON.stringify(adminUser));
-      const updated = [...users.filter(u => u.id !== 'admin-1'), adminUser];
+      const updated = [...users.filter(u => u.id !== 'admin-1'), user];
       setUsers(updated);
-      localStorage.setItem('carryint_users', JSON.stringify(updated));
-      await supabase.from('users').upsert([adminUser]);
+      safeStorage.setJSON('carryint_users', updated);
+      try {
+        await supabase.from('users').upsert([user]);
+      } catch (e) {
+        console.error('Error syncing admin on login:', e);
+      }
+    }
+
+    if (user) {
+      setCurrentUser(user);
+      safeStorage.setUser(user);
+      setIsAppLoading(true);
+      // Immediately fetch complete CRM database upon login so mobile phones never show zeroes
+      await loadData(true);
+      setIsAppLoading(false);
       return;
     }
 
@@ -316,7 +306,7 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     setCurrentUser(null);
-    localStorage.removeItem('carryint_current_user');
+    safeStorage.clearUser();
   };
 
   const handleAddUser = async (user: User) => {
@@ -330,7 +320,7 @@ const App: React.FC = () => {
 
     const updated = [...users.filter(u => u.id !== cleanUser.id), cleanUser];
     setUsers(updated);
-    localStorage.setItem('carryint_users', JSON.stringify(updated));
+    safeStorage.setJSON('carryint_users', updated);
 
     try {
       const { error } = await supabase.from('users').upsert([cleanUser]);
@@ -349,7 +339,7 @@ const App: React.FC = () => {
     }
     const updated = users.filter(u => u.id !== id);
     setUsers(updated);
-    localStorage.setItem('carryint_users', JSON.stringify(updated));
+    safeStorage.setJSON('carryint_users', updated);
 
     try {
       const { error } = await supabase.from('users').delete().eq('id', id);
@@ -372,7 +362,7 @@ const App: React.FC = () => {
 
     const updated = users.map(u => u.id === cleanUser.id ? cleanUser : u);
     setUsers(updated);
-    localStorage.setItem('carryint_users', JSON.stringify(updated));
+    safeStorage.setJSON('carryint_users', updated);
 
     try {
       const { error } = await supabase.from('users').upsert([cleanUser]);
@@ -398,7 +388,7 @@ const App: React.FC = () => {
       return inv;
     });
     setInvoices(updated);
-    localStorage.setItem('carryint_invoices', JSON.stringify(updated));
+    safeStorage.setJSON('carryint_invoices', updated);
     const target = updated.find(i => i.id === invoiceId);
     if (target) {
       try {
@@ -431,7 +421,7 @@ const App: React.FC = () => {
       return inv;
     });
     setInvoices(updated);
-    localStorage.setItem('carryint_invoices', JSON.stringify(updated));
+    safeStorage.setJSON('carryint_invoices', updated);
     const target = updated.find(i => i.id === invoiceId);
     if (target) {
       try {
@@ -445,7 +435,7 @@ const App: React.FC = () => {
   const handleAddExpense = async (expense: Expense) => {
     const updated = [...expenses, expense];
     setExpenses(updated);
-    localStorage.setItem('carryint_expenses', JSON.stringify(updated));
+    safeStorage.setJSON('carryint_expenses', updated);
     try {
       await supabase.from('expenses').upsert([expense]);
     } catch (err) {
@@ -455,7 +445,7 @@ const App: React.FC = () => {
   const handleUpdateExpense = async (updatedExpense: Expense) => {
     const updated = expenses.map(e => e.id === updatedExpense.id ? updatedExpense : e);
     setExpenses(updated);
-    localStorage.setItem('carryint_expenses', JSON.stringify(updated));
+    safeStorage.setJSON('carryint_expenses', updated);
     try {
       await supabase.from('expenses').upsert([updatedExpense]);
     } catch (err) {
@@ -466,7 +456,7 @@ const App: React.FC = () => {
   const handleDeleteExpense = async (id: string) => {
     const updated = expenses.filter(e => e.id !== id);
     setExpenses(updated);
-    localStorage.setItem('carryint_expenses', JSON.stringify(updated));
+    safeStorage.setJSON('carryint_expenses', updated);
     try {
       await supabase.from('expenses').delete().eq('id', id);
     } catch (err) {
@@ -477,7 +467,7 @@ const App: React.FC = () => {
   const handleAddAdjustmentNote = async (note: AdjustmentNote) => {
     const updatedNotes = [...adjustmentNotes, note];
     setAdjustmentNotes(updatedNotes);
-    localStorage.setItem('carryint_adjustment_notes', JSON.stringify(updatedNotes));
+    safeStorage.setJSON('carryint_adjustment_notes', updatedNotes);
     try {
       await supabase.from('adjustment_notes').upsert([note]);
     } catch (err) {
@@ -503,7 +493,7 @@ const App: React.FC = () => {
       return inv;
     });
     setInvoices(updatedInvoices);
-    localStorage.setItem('carryint_invoices', JSON.stringify(updatedInvoices));
+    safeStorage.setJSON('carryint_invoices', updatedInvoices);
     const invTarget = updatedInvoices.find(i => i.id === note.originalInvoiceId);
     if (invTarget) {
       try {
@@ -520,7 +510,7 @@ const App: React.FC = () => {
 
     const updated = adjustmentNotes.filter(n => n.id !== id);
     setAdjustmentNotes(updated);
-    localStorage.setItem('carryint_adjustment_notes', JSON.stringify(updated));
+    safeStorage.setJSON('carryint_adjustment_notes', updated);
     try {
       await supabase.from('adjustment_notes').delete().eq('id', id);
     } catch (err) {
@@ -546,7 +536,7 @@ const App: React.FC = () => {
       return inv;
     });
     setInvoices(updatedInvoices);
-    localStorage.setItem('carryint_invoices', JSON.stringify(updatedInvoices));
+    safeStorage.setJSON('carryint_invoices', updatedInvoices);
     const invTarget = updatedInvoices.find(i => i.id === noteToDelete.originalInvoiceId);
     if (invTarget) {
       try {
@@ -567,7 +557,7 @@ const App: React.FC = () => {
     }
     const sorted = sortInvoicesByNewestCreated(updatedInvoices);
     setInvoices(sorted);
-    localStorage.setItem('carryint_invoices', JSON.stringify(sorted));
+    safeStorage.setJSON('carryint_invoices', sorted);
     try {
       await supabase.from('invoices').upsert([prepareInvoiceForSupabase(invoice)]);
     } catch (err) {
@@ -581,7 +571,7 @@ const App: React.FC = () => {
     const updated = invoices.map(inv => inv.id === updatedInvoice.id ? updatedInvoice : inv);
     const sorted = sortInvoicesByNewestCreated(updated);
     setInvoices(sorted);
-    localStorage.setItem('carryint_invoices', JSON.stringify(sorted));
+    safeStorage.setJSON('carryint_invoices', sorted);
     try {
       await supabase.from('invoices').upsert([prepareInvoiceForSupabase(updatedInvoice)]);
     } catch (err) {
@@ -600,7 +590,7 @@ const App: React.FC = () => {
     if (confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
       const updated = invoices.filter(inv => inv.id !== id);
       setInvoices(updated);
-      localStorage.setItem('carryint_invoices', JSON.stringify(updated));
+      safeStorage.setJSON('carryint_invoices', updated);
       try {
         await supabase.from('invoices').delete().eq('id', id);
       } catch (err) {
@@ -624,7 +614,7 @@ const App: React.FC = () => {
   const handleAddCustomer = async (customer: Customer) => {
     const updated = [...customers, customer];
     setCustomers(updated);
-    localStorage.setItem('carryint_customers', JSON.stringify(updated));
+    safeStorage.setJSON('carryint_customers', updated);
     try {
       await supabase.from('customers').upsert([customer]);
     } catch (err) {
@@ -635,7 +625,7 @@ const App: React.FC = () => {
   const handleEditCustomer = async (updatedCustomer: Customer) => {
     const updated = customers.map(c => c.id === updatedCustomer.id ? updatedCustomer : c);
     setCustomers(updated);
-    localStorage.setItem('carryint_customers', JSON.stringify(updated));
+    safeStorage.setJSON('carryint_customers', updated);
     try {
       await supabase.from('customers').upsert([updatedCustomer]);
     } catch (err) {
@@ -647,7 +637,7 @@ const App: React.FC = () => {
     if (confirm('Are you sure you want to remove this client? This will affect existing invoices linked to this client.')) {
       const updated = customers.filter(c => c.id !== id);
       setCustomers(updated);
-      localStorage.setItem('carryint_customers', JSON.stringify(updated));
+      safeStorage.setJSON('carryint_customers', updated);
       try {
         await supabase.from('customers').delete().eq('id', id);
       } catch (err) {
@@ -670,11 +660,11 @@ const App: React.FC = () => {
     };
 
     setCompanyInfo(updatedInfo);
-    localStorage.setItem('carryint_company_info', JSON.stringify(updatedInfo));
+    safeStorage.setJSON('carryint_company_info', updatedInfo);
     if (cleanSeal) {
-      localStorage.setItem('carryint_company_seal', cleanSeal);
+      safeStorage.setItem('carryint_company_seal', cleanSeal);
     } else {
-      localStorage.removeItem('carryint_company_seal');
+      safeStorage.removeItem('carryint_company_seal');
     }
 
     try {
@@ -761,7 +751,7 @@ const App: React.FC = () => {
         const updatedVendorObj: Vendor = { ...editingVendor, ...newVendor } as Vendor;
         const updatedVendors = vendors.map(v => v.id === editingVendor.id ? updatedVendorObj : v);
         setVendors(updatedVendors);
-        localStorage.setItem('carryint_vendors', JSON.stringify(updatedVendors));
+        safeStorage.setJSON('carryint_vendors', updatedVendors);
         setEditingVendor(null);
         try {
           await supabase.from('vendors').upsert([updatedVendorObj]);
@@ -775,7 +765,7 @@ const App: React.FC = () => {
         };
         const updated = [...vendors, vendorToAdd];
         setVendors(updated);
-        localStorage.setItem('carryint_vendors', JSON.stringify(updated));
+        safeStorage.setJSON('carryint_vendors', updated);
         try {
           await supabase.from('vendors').upsert([vendorToAdd]);
         } catch (err) {
@@ -792,7 +782,7 @@ const App: React.FC = () => {
     if (confirm('Are you sure you want to remove this vendor?')) {
       const updated = vendors.filter(v => v.id !== id);
       setVendors(updated);
-      localStorage.setItem('carryint_vendors', JSON.stringify(updated));
+      safeStorage.setJSON('carryint_vendors', updated);
       try {
         await supabase.from('vendors').delete().eq('id', id);
       } catch (err) {
@@ -817,7 +807,7 @@ const App: React.FC = () => {
       updated = [quotation, ...quotations];
     }
     setQuotations(updated);
-    localStorage.setItem('carryint_quotations', JSON.stringify(updated));
+    safeStorage.setJSON('carryint_quotations', updated);
     try {
       await supabase.from('quotations').upsert([quotation]);
     } catch (e) {
@@ -836,7 +826,7 @@ const App: React.FC = () => {
     if (confirm('Are you sure you want to delete this quotation?')) {
       const updated = quotations.filter(q => q.id !== id);
       setQuotations(updated);
-      localStorage.setItem('carryint_quotations', JSON.stringify(updated));
+      safeStorage.setJSON('carryint_quotations', updated);
       try {
         await supabase.from('quotations').delete().eq('id', id);
       } catch (e) {
@@ -967,18 +957,18 @@ const App: React.FC = () => {
     setAdjustmentNotes(restored.adjustmentNotes);
     if (restored.quotations) {
       setQuotations(restored.quotations);
-      localStorage.setItem('carryint_quotations', JSON.stringify(restored.quotations));
+      safeStorage.setJSON('carryint_quotations', restored.quotations);
     }
     if (restored.companyInfo) setCompanyInfo(restored.companyInfo);
     if (restored.users && restored.users.length > 0) setUsers(restored.users);
 
-    localStorage.setItem('carryint_invoices', JSON.stringify(restored.invoices));
-    localStorage.setItem('carryint_customers', JSON.stringify(restored.customers));
-    localStorage.setItem('carryint_vendors', JSON.stringify(restored.vendors));
-    localStorage.setItem('carryint_expenses', JSON.stringify(restored.expenses));
-    localStorage.setItem('carryint_adjustment_notes', JSON.stringify(restored.adjustmentNotes));
-    if (restored.companyInfo) localStorage.setItem('carryint_company_info', JSON.stringify(restored.companyInfo));
-    if (restored.users && restored.users.length > 0) localStorage.setItem('carryint_users', JSON.stringify(restored.users));
+    safeStorage.setJSON('carryint_invoices', restored.invoices);
+    safeStorage.setJSON('carryint_customers', restored.customers);
+    safeStorage.setJSON('carryint_vendors', restored.vendors);
+    safeStorage.setJSON('carryint_expenses', restored.expenses);
+    safeStorage.setJSON('carryint_adjustment_notes', restored.adjustmentNotes);
+    if (restored.companyInfo) safeStorage.setJSON('carryint_company_info', restored.companyInfo);
+    if (restored.users && restored.users.length > 0) safeStorage.setJSON('carryint_users', restored.users);
   };
 
   const renderContent = () => {
@@ -2325,7 +2315,7 @@ const App: React.FC = () => {
     }
   };
 
-  if (isAppLoading) {
+  if (isAppLoading && !currentUser) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <Loader2 className="animate-spin text-orange-600" size={48} />
