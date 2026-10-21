@@ -35,19 +35,21 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
   onInvoiceClick,
   onQuotationClick,
 }) => {
-  const [dateFilter, setDateFilter] = useState<'today' | '7days' | '30days' | 'month' | 'all' | 'custom'>('30days');
+  const [dateFilter, setDateFilter] = useState<'today' | '7days' | '30days' | 'month' | 'all' | 'custom'>('all');
+  const [scopeFilter, setScopeFilter] = useState<'ALL' | 'MINE'>('ALL');
   const [customStart, setCustomStart] = useState<string>('');
   const [customEnd, setCustomEnd] = useState<string>('');
 
-  // Filter ONLY invoices and quotations created by this staff member
+  // Invoices created by any user (visible to all users by default)
   const staffInvoices = invoices.filter(inv => {
-    // Match by creator ID or creator Name or fallback if creator field matches user email/id
-    const isStaffOwner =
-      inv.createdBy === currentUser.id ||
-      inv.createdByName?.toLowerCase() === currentUser.name.toLowerCase() ||
-      inv.createdBy === currentUser.email;
+    if (scopeFilter === 'MINE') {
+      const isStaffOwner =
+        inv.createdBy === currentUser.id ||
+        inv.createdByName?.toLowerCase() === currentUser.name.toLowerCase() ||
+        inv.createdBy === currentUser.email;
 
-    if (!isStaffOwner) return false;
+      if (!isStaffOwner) return false;
+    }
 
     if (dateFilter === 'all') return true;
     const invDate = new Date(inv.date);
@@ -87,13 +89,16 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
     return true;
   });
 
+  // Quotations created by any user (visible to all users by default)
   const staffQuotations = quotations.filter(q => {
-    const isStaffOwner =
-      q.createdBy === currentUser.id ||
-      q.createdByName?.toLowerCase() === currentUser.name.toLowerCase() ||
-      q.createdBy === currentUser.email;
+    if (scopeFilter === 'MINE') {
+      const isStaffOwner =
+        q.createdBy === currentUser.id ||
+        q.createdByName?.toLowerCase() === currentUser.name.toLowerCase() ||
+        q.createdBy === currentUser.email;
 
-    if (!isStaffOwner) return false;
+      if (!isStaffOwner) return false;
+    }
 
     if (dateFilter === 'all') return true;
     const qDate = new Date(q.date);
@@ -190,14 +195,38 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         </div>
       </div>
 
-      {/* Date Filter Bar */}
+      {/* Scope & Date Filter Bar */}
       <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5">
-          <Calendar size={15} className="text-orange-600" />
-          <span className="text-[11px] font-black text-gray-700 uppercase tracking-wider">Period:</span>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+            <button
+              onClick={() => setScopeFilter('ALL')}
+              className={`px-3 py-1 rounded-md text-xs font-black transition-all ${
+                scopeFilter === 'ALL'
+                  ? 'bg-orange-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              👥 All Team Data
+            </button>
+            <button
+              onClick={() => setScopeFilter('MINE')}
+              className={`px-3 py-1 rounded-md text-xs font-black transition-all ${
+                scopeFilter === 'MINE'
+                  ? 'bg-orange-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              👤 Created by Me
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex items-center gap-1 mr-1">
+            <Calendar size={14} className="text-gray-400" />
+            <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Period:</span>
+          </div>
           {(
             [
               { id: 'today', label: 'Today' },
@@ -213,7 +242,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
               onClick={() => setDateFilter(tab.id)}
               className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
                 dateFilter === tab.id
-                  ? 'bg-orange-600 text-white shadow-sm'
+                  ? 'bg-slate-900 text-white shadow-sm'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
@@ -392,12 +421,16 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         </div>
       </div>
 
-      {/* Recent Invoices Created by this Staff Member */}
+      {/* Recent Invoices Created by all users / staff */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
           <div>
-            <h3 className="text-base font-black text-gray-900">My Recent Invoices</h3>
-            <p className="text-xs text-gray-500">Invoices you generated for customers</p>
+            <h3 className="text-base font-black text-gray-900">
+              {scopeFilter === 'ALL' ? 'Tax Invoices (All Team Members)' : 'My Recent Invoices'}
+            </h3>
+            <p className="text-xs text-gray-500">
+              {scopeFilter === 'ALL' ? 'Invoices generated across the company (visible to all users)' : 'Invoices you generated for customers'}
+            </p>
           </div>
           <button
             onClick={() => onNavigate('invoices')}
@@ -416,6 +449,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                 <th className="px-6 py-3">Customer</th>
                 <th className="px-6 py-3">Destination</th>
                 <th className="px-6 py-3">Date</th>
+                <th className="px-6 py-3">Created By</th>
                 <th className="px-6 py-3">Status</th>
                 <th className="px-6 py-3 text-right">Amount</th>
                 <th className="px-6 py-3 text-right">Profit</th>
@@ -425,8 +459,8 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             <tbody className="divide-y divide-gray-100 text-sm">
               {staffInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12 text-gray-400 font-medium">
-                    No invoices generated by you for this period. Click "Create Invoice" to start.
+                  <td colSpan={9} className="text-center py-12 text-gray-400 font-medium">
+                    No invoices found for this period. Click "Create Invoice" to start.
                   </td>
                 </tr>
               ) : (
@@ -441,6 +475,9 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                     </td>
                     <td className="px-6 py-3.5 text-gray-500 text-xs font-medium">
                       {new Date(inv.date).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-3.5 text-xs font-bold text-gray-700">
+                      👤 {inv.createdByName || 'Admin'}
                     </td>
                     <td className="px-6 py-3.5">
                       <span
@@ -475,12 +512,16 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         </div>
       </div>
 
-      {/* Recent Quotations created by Staff */}
+      {/* Recent Quotations created by all users / staff */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
           <div>
-            <h3 className="text-base font-black text-gray-900">My Quotations & Offers</h3>
-            <p className="text-xs text-gray-500">Quotations you generated for potential shipments</p>
+            <h3 className="text-base font-black text-gray-900">
+              {scopeFilter === 'ALL' ? 'Quotations & Offers (All Team Members)' : 'My Quotations & Offers'}
+            </h3>
+            <p className="text-xs text-gray-500">
+              {scopeFilter === 'ALL' ? 'Quotations generated across the company (visible to all users)' : 'Quotations you generated for potential shipments'}
+            </p>
           </div>
           <button
             onClick={() => onNavigate('quotations')}
@@ -499,6 +540,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                 <th className="px-6 py-3">Customer</th>
                 <th className="px-6 py-3">Destination</th>
                 <th className="px-6 py-3">Date</th>
+                <th className="px-6 py-3">Prepared By</th>
                 <th className="px-6 py-3">Status</th>
                 <th className="px-6 py-3 text-right">Total Offer</th>
                 <th className="px-6 py-3 text-center">Action</th>
@@ -507,7 +549,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             <tbody className="divide-y divide-gray-100 text-sm">
               {staffQuotations.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-10 text-gray-400 font-medium">
+                  <td colSpan={8} className="text-center py-10 text-gray-400 font-medium">
                     No quotations made yet for this period.
                   </td>
                 </tr>
@@ -523,6 +565,9 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                     </td>
                     <td className="px-6 py-3.5 text-gray-500 text-xs font-medium">
                       {new Date(quote.date).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-3.5 text-xs font-bold text-gray-700">
+                      👤 {quote.createdByName || 'Staff'}
                     </td>
                     <td className="px-6 py-3.5">
                       <span

@@ -600,13 +600,6 @@ const App: React.FC = () => {
   };
 
   const handleEditInvoice = (inv: Invoice) => {
-    if (currentUser?.role === 'STAFF') {
-      const isOwner = inv.createdBy === currentUser.id || inv.createdBy === currentUser.email || inv.createdByName === currentUser.name;
-      if (!isOwner) {
-        alert('Access Restricted: Standard Staff can only edit invoices they personally generated.');
-        return;
-      }
-    }
     setSelectedInvoice(inv);
     setActiveTab('create-invoice');
   };
