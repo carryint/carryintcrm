@@ -21,7 +21,9 @@ import {
   FileSignature,
   Lock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Phone,
+  Mail
 } from 'lucide-react';
 import { CompanyInfo, Invoice, Customer, Vendor, User, Expense, AdjustmentNote, Quotation } from '../types';
 import Logo from './Logo';
@@ -722,26 +724,57 @@ const Settings: React.FC<SettingsProps> = ({
               <label className={labelClass}>Entity Name</label>
               <input
                 type="text"
-                value={formData.name}
+                value={formData.name || ''}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className={inputClass}
+                placeholder="Carryint Shipping Services L.L.C"
               />
             </div>
             <div className="space-y-2">
               <label className={labelClass}>Official Website</label>
               <input
                 type="text"
-                value={formData.website}
+                value={formData.website || ''}
                 onChange={(e) => setFormData({ ...formData, website: e.target.value })}
                 className={inputClass}
+                placeholder="www.carryint.com"
               />
+            </div>
+            <div className="space-y-2">
+              <label className={`${labelClass} flex items-center gap-1.5`}>
+                <Phone size={14} className="text-orange-600" />
+                Telephone / Contact Number
+              </label>
+              <input
+                type="text"
+                value={formData.contact || ''}
+                onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
+                className={inputClass}
+                placeholder="+971 563034626"
+              />
+              <p className="text-[11px] text-gray-400">Displayed on official invoices, quotations, and payment receipts</p>
+            </div>
+            <div className="space-y-2">
+              <label className={`${labelClass} flex items-center gap-1.5`}>
+                <Mail size={14} className="text-orange-600" />
+                Email ID
+              </label>
+              <input
+                type="email"
+                value={formData.email || ''}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className={inputClass}
+                placeholder="info@carryint.com"
+              />
+              <p className="text-[11px] text-gray-400">Official company communication and inquiry email</p>
             </div>
             <div className="md:col-span-2 space-y-2">
               <label className={labelClass}>Registered Address</label>
               <textarea
-                value={formData.address}
+                value={formData.address || ''}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 className={`${inputClass} h-24`}
+                placeholder="Registered business address"
               />
             </div>
           </div>
