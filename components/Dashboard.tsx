@@ -67,7 +67,7 @@ const RealTimeClock: React.FC = () => {
   const strokeDashoffset = circumference - secondProgress;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-black/70 backdrop-blur-2xl border border-white/10 p-4 sm:p-5 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_30px_rgba(234,88,12,0.18)] card-3d flex flex-col justify-between group hover:border-orange-500/50 transition-all duration-300">
+    <div className="relative overflow-hidden rounded-3xl glass-ultra glass-sheen card-3d p-4 sm:p-5 flex flex-col justify-between group hover:border-orange-500/50 transition-all duration-300">
       
       {/* Animated Scrawling Laser Light Beam */}
       <div className="scrawl-beam-wrapper">
@@ -297,7 +297,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({ invoices, selecte
   }
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-black/70 backdrop-blur-2xl border border-white/10 p-4 sm:p-5 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_30px_rgba(234,88,12,0.18)] card-3d hover:border-orange-500/50 transition-all duration-300">
+    <div className="relative overflow-hidden rounded-3xl glass-ultra glass-sheen card-3d p-4 sm:p-5 transition-all duration-300">
       
       {/* Animated Scrawling Laser Light Beam */}
       <div className="scrawl-beam-wrapper">
@@ -401,7 +401,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({ invoices, selecte
                     ? 'bg-gradient-to-br from-orange-500/30 to-amber-500/10 text-orange-300 font-black border-2 border-orange-500 shadow-[0_0_15px_rgba(234,88,12,0.4)]'
                     : hasActivity
                     ? 'bg-black/60 hover:bg-zinc-800 text-white font-bold border border-orange-500/30 shadow-[0_4px_12px_rgba(0,0,0,0.6)]'
-                    : 'bg-black/40 hover:bg-white/10 text-zinc-300 font-medium border border-white/5'
+                    : 'glass-pill text-zinc-300 font-medium'
                 }`}
                 title={
                   hasActivity 
@@ -475,7 +475,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, trend, isHero =
 
   if (isHero) {
     return (
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-950 via-zinc-900 to-black border border-orange-500/50 p-5 shadow-[0_20px_50px_rgba(0,0,0,0.9),0_0_35px_rgba(234,88,12,0.25)] card-3d group hover:border-orange-500/80 transition-all duration-300 text-left">
+      <div className="relative overflow-hidden rounded-3xl glass-ultra glass-sheen border border-orange-500/60 p-5 shadow-[0_25px_60px_rgba(0,0,0,0.95),0_0_40px_rgba(234,88,12,0.3)] card-3d group hover:border-orange-400 transition-all duration-300 text-left">
         
         {/* Scrawling Laser Light Beam */}
         <div className="scrawl-beam-wrapper">
@@ -511,7 +511,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, trend, isHero =
   return (
     <CardWrapper
       onClick={onClick}
-      className={`relative overflow-hidden rounded-2xl bg-black/70 backdrop-blur-2xl border border-white/10 p-5 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_25px_rgba(234,88,12,0.12)] text-left card-3d transition-all duration-300 ${
+      className={`relative overflow-hidden rounded-3xl glass-ultra glass-sheen p-5 text-left card-3d transition-all duration-300 ${
         isClickable
           ? 'hover:border-orange-500/50 hover:bg-black/85 active:scale-95 group cursor-pointer'
           : 'hover:border-white/20'
@@ -1113,10 +1113,11 @@ const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="relative -m-3 sm:-m-4 lg:-m-6 p-3 sm:p-4 lg:p-6 min-h-[calc(100vh-3.5rem)] crm-black-orange-bg text-white overflow-hidden space-y-5 perspective-container">
       
-      {/* AMBIENT GRADIENT MESH LIGHTS */}
-      <div className="pointer-events-none absolute top-0 left-10 w-[36rem] h-[36rem] bg-orange-600/15 rounded-full blur-[140px] animate-pulse-glow" />
-      <div className="pointer-events-none absolute top-1/3 right-10 w-[32rem] h-[32rem] bg-amber-500/12 rounded-full blur-[130px] animate-pulse-glow" style={{ animationDelay: '2s' }} />
-      <div className="pointer-events-none absolute bottom-10 left-1/3 w-[34rem] h-[34rem] bg-orange-950/25 rounded-full blur-[150px]" />
+      {/* HYPER-VIBRANT AMBIENT GRADIENT MESH LIGHTS (Luminous behind frosted glass) */}
+      <div className="pointer-events-none absolute top-0 left-6 w-[44rem] h-[44rem] bg-gradient-to-br from-orange-600/35 via-orange-500/22 to-amber-500/12 rounded-full blur-[140px] animate-pulse-glow" />
+      <div className="pointer-events-none absolute top-1/4 right-8 w-[40rem] h-[40rem] bg-gradient-to-br from-amber-400/28 via-orange-500/20 to-transparent rounded-full blur-[130px] animate-pulse-glow" style={{ animationDelay: '2.5s' }} />
+      <div className="pointer-events-none absolute bottom-10 left-1/4 w-[42rem] h-[42rem] bg-gradient-to-tr from-orange-800/35 via-orange-600/22 to-transparent rounded-full blur-[160px]" />
+      <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[28rem] h-[28rem] bg-amber-300/12 rounded-full blur-[110px]" />
 
       {/* TOP ROW: REALISTIC CHRONOMETER CLOCK, 3D CALENDAR & VELOCITY SNAPSHOT */}
       <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
@@ -1127,7 +1128,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           
           {/* Quick Metrics Bar below Clock */}
           <div className="mt-3 grid grid-cols-2 gap-2.5">
-            <div className="p-3.5 rounded-2xl bg-black/70 backdrop-blur-2xl border border-white/10 card-3d flex flex-col justify-between">
+            <div className="p-3.5 rounded-2xl glass-ultra card-3d flex flex-col justify-between">
               <span className="text-[10px] font-black uppercase tracking-wider text-zinc-300">Active Consignments</span>
               <div className="flex items-baseline justify-between mt-1">
                 <span className="text-xl sm:text-2xl font-black text-white">{totalShipmentsCount}</span>
@@ -1135,7 +1136,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               </div>
             </div>
             
-            <div className="p-3.5 rounded-2xl bg-black/70 backdrop-blur-2xl border border-white/10 card-3d flex flex-col justify-between">
+            <div className="p-3.5 rounded-2xl glass-ultra card-3d flex flex-col justify-between">
               <span className="text-[10px] font-black uppercase tracking-wider text-zinc-300">Clearance Velocity</span>
               <div className="flex items-baseline justify-between mt-1">
                 <span className="text-xl sm:text-2xl font-black text-emerald-400">{clearanceRate.toFixed(0)}%</span>
@@ -1155,7 +1156,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         {/* 3D Operations & Velocity Snapshot (lg:col-span-3) */}
-        <div className="lg:col-span-3 flex flex-col justify-between rounded-2xl bg-black/70 backdrop-blur-2xl border border-white/10 p-4 sm:p-5 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_25px_rgba(234,88,12,0.15)] card-3d">
+        <div className="lg:col-span-3 flex flex-col justify-between rounded-3xl glass-ultra glass-sheen card-3d p-4 sm:p-5">
           <div className="scrawl-beam-wrapper">
             <div className="scrawl-beam"></div>
           </div>
@@ -1212,7 +1213,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* 3D FILTER & EXPORT BAR */}
-      <div className="relative z-10 bg-black/70 backdrop-blur-2xl p-3 sm:p-4 rounded-2xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.85)] flex flex-col lg:flex-row gap-3 items-center justify-between card-3d no-print">
+      <div className="relative z-10 glass-ultra p-3 sm:p-4 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] flex flex-col lg:flex-row gap-3 items-center justify-between card-3d no-print">
         <div className="scrawl-beam-wrapper">
           <div className="scrawl-beam"></div>
         </div>
@@ -1239,7 +1240,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 className={`text-xs font-black px-3.5 py-1.5 rounded-xl transition-all duration-200 card-3d active:scale-95 ${
                   isActive
                     ? 'bg-gradient-to-r from-orange-600 via-orange-500 to-amber-200 text-black shadow-lg shadow-orange-500/35 border border-white/20'
-                    : 'bg-white/5 text-zinc-300 hover:text-white hover:bg-white/10 border border-white/10'
+                    : 'glass-pill text-zinc-300 hover:text-white'
                 }`}
               >
                 {labels[f]}
@@ -1333,7 +1334,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* ADVANCED ANALYTICS TABS & WORKBENCH */}
-      <div className="relative z-10 bg-black/70 backdrop-blur-2xl rounded-2xl border border-white/10 p-4 sm:p-6 shadow-[0_20px_50px_rgba(0,0,0,0.85)] card-3d">
+      <div className="relative z-10 glass-ultra glass-sheen rounded-3xl p-4 sm:p-6 card-3d">
         <div className="scrawl-beam-wrapper">
           <div className="scrawl-beam"></div>
         </div>
@@ -1783,7 +1784,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* RECENT SHIPMENTS 3D GLASS FEED */}
-      <div className="relative z-10 bg-black/70 backdrop-blur-2xl p-5 sm:p-6 rounded-2xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.85)] card-3d">
+      <div className="relative z-10 glass-ultra glass-sheen p-5 sm:p-6 rounded-3xl card-3d">
         <div className="scrawl-beam-wrapper">
           <div className="scrawl-beam"></div>
         </div>
@@ -1869,7 +1870,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       {/* GLASS 3D DRILL-DOWN DETAILS MODAL */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-2xl animate-in fade-in duration-200">
-          <div className="relative overflow-hidden bg-zinc-950/95 border border-white/20 rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.95),0_0_40px_rgba(234,88,12,0.3)] w-full max-w-5xl max-h-[90vh] flex flex-col text-white card-3d">
+          <div className="relative overflow-hidden glass-ultra glass-sheen rounded-3xl shadow-[0_30px_90px_rgba(0,0,0,0.98),0_0_50px_rgba(234,88,12,0.35)] w-full max-w-5xl max-h-[90vh] flex flex-col text-white card-3d">
             
             {/* Scrawling Laser Light Beam */}
             <div className="scrawl-beam-wrapper">

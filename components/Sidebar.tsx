@@ -134,7 +134,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
 
       {/* Glassy Sidebar with 3D Depth & Crawling Glow */}
       <div className={`
-        w-64 bg-black/80 backdrop-blur-2xl border-r border-orange-500/20 h-screen fixed left-0 top-0 text-white flex flex-col z-50 no-print transition-transform duration-300 shadow-[10px_0_40px_rgba(0,0,0,0.85)]
+        w-64 glass-ultra h-screen fixed left-0 top-0 text-white flex flex-col z-50 no-print transition-transform duration-300 shadow-[15px_0_50px_rgba(0,0,0,0.9)]
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Scrawling edge beam */}
