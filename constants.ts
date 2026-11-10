@@ -5,6 +5,7 @@ export const COMPANY_INFO = {
   contact: '+971 563034626',
   email: 'info@carryint.com',
   website: 'www.carryint.com',
+  trn: '100456209800003',
   bank: {
     name: 'Carryint Shipping Services LLC',
     cif: '016098528',

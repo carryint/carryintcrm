@@ -24,10 +24,15 @@ import {
   Trash2,
   Search,
   RefreshCw,
-  Check
+  Check,
+  Download,
+  Printer
 } from 'lucide-react';
-import { Invoice, Expense, AdjustmentNote, User, MonthlySalesClosing } from '../types';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { Invoice, Expense, AdjustmentNote, User, MonthlySalesClosing, CompanyInfo } from '../types';
 import { formatCurrency } from '../utils';
+import { COMPANY_INFO as DEFAULT_COMPANY_INFO } from '../constants';
 import {
   calculateClosingPreview,
   calculateTotalsForInvoices,
@@ -48,6 +53,7 @@ interface MonthlySalesClosingModalProps {
   currentUser: User;
   onClosingsUpdated: (updated: MonthlySalesClosing[]) => void;
   defaultMonth?: string; // e.g. "2026-11"
+  companyInfo?: CompanyInfo;
 }
 
 export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> = ({
@@ -59,7 +65,8 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
   closings,
   currentUser,
   onClosingsUpdated,
-  defaultMonth
+  defaultMonth,
+  companyInfo
 }) => {
   // Determine initial month to close
   const initialMonth = useMemo(() => {
@@ -126,7 +133,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
     return closings.find(c => c.month === selectedMonth && c.isClosed) || null;
   }, [closings, selectedMonth]);
 
-  // Edit Mode state (unlocked if editing an existing closed month, or always true if month is open)
+  // Edit Mode state
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
 
   // Sync edit mode: if no closing exists, edit mode is true by default
@@ -199,7 +206,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
       setCutoffDate(autoDefaultCutoff);
       setIsManualOverride(false);
     }
-  }, [existingClosing, preview]);
+  }, [existingClosing, preview, autoDefaultCutoff]);
 
   // Dynamic calculated net profit
   const dynamicNetProfit = useMemo(() => {
@@ -220,16 +227,12 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
     return invoices.filter(inv => selectedInvoiceIds.includes(inv.id));
   }, [invoices, selectedInvoiceIds]);
 
-  // Invoices available to be added to this month (not currently selected, and not in another closed month)
+  // Invoices available to be added to this month
   const availableToAddInvoices = useMemo(() => {
     return invoices.filter(inv => {
-      // Must not be already included
       if (selectedInvoiceIds.includes(inv.id)) return false;
-
-      // Must not belong to ANOTHER closed month
       const otherClosing = closings.find(c => c.month !== selectedMonth && c.isClosed && c.includedInvoiceIds?.includes(inv.id));
       if (otherClosing) return false;
-
       return true;
     });
   }, [invoices, selectedInvoiceIds, closings, selectedMonth]);
@@ -291,6 +294,8 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
     setCompanyExpenses(preview.companyExpenses);
     setClosingBalance(preview.defaultClosingBalance);
     setSelectedInvoiceIds(preview.eligibleInvoices.map(i => i.id));
+    setCutoffMode('auto');
+    setCutoffDate(autoDefaultCutoff);
     setIsManualOverride(false);
   };
 
@@ -330,8 +335,8 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
         : `${formatMonthDisplay(selectedMonth)} sales closing finalized! Post-cutoff sales roll forward to next month.`
     );
     setTimeout(() => {
-      setSuccessToast(null), 4000;
-    });
+      setSuccessToast(null);
+    }, 4000);
   };
 
   const handleReopenClosing = (monthToReopen: string) => {
@@ -343,20 +348,247 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
     }
   };
 
+  // ---------------------------------------------------------
+  // PROFESSIONAL CORPORATE CLOSING REPORT PDF EXPORT
+  // ---------------------------------------------------------
+  const handleDownloadPDF = (closingToDownload?: MonthlySalesClosing) => {
+    try {
+      const isTargetClosing = !!closingToDownload;
+      const targetMonthName = isTargetClosing ? closingToDownload.monthName : formatMonthDisplay(selectedMonth);
+      const targetMonthStr = isTargetClosing ? closingToDownload.month : selectedMonth;
+      const targetCutoff = isTargetClosing ? closingToDownload.cutoffDate : cutoffDate;
+      const targetStart = isTargetClosing ? closingToDownload.startDate : preview.startDate;
+      const targetRevenue = isTargetClosing ? closingToDownload.totalRevenue : revenue;
+      const targetGrossProfit = isTargetClosing ? closingToDownload.grossProfit : grossProfit;
+      const targetVendorPayments = isTargetClosing ? closingToDownload.vendorPayments : vendorPayments;
+      const targetCommissions = isTargetClosing ? closingToDownload.commissionPayments : commissionPayments;
+      const targetExpenses = isTargetClosing ? closingToDownload.companyExpenses : companyExpenses;
+      const targetNetProfit = isTargetClosing ? closingToDownload.netProfit : dynamicNetProfit;
+      const targetClosingBalance = isTargetClosing ? closingToDownload.closingBalance : closingBalance;
+      const targetNotes = isTargetClosing ? (closingToDownload.notes || '') : notes;
+      const targetClosedByName = isTargetClosing ? closingToDownload.closedByName : currentUser.name;
+      const targetClosedAt = isTargetClosing ? closingToDownload.closedAt : (existingClosing ? existingClosing.closedAt : undefined);
+      const targetStatus = isTargetClosing ? 'FINALIZED & OFFICIALLY SEALED' : (existingClosing ? 'FINALIZED & OFFICIALLY SEALED' : 'CLOSING REVENUE PREVIEW');
+
+      // Invoices list for PDF table
+      const targetInvoices = isTargetClosing
+        ? invoices.filter(inv => closingToDownload.includedInvoiceIds?.includes(inv.id))
+        : includedInvoices;
+
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const comp = companyInfo || DEFAULT_COMPANY_INFO;
+
+      // Header Banner (Dark Charcoal / Orange accent)
+      doc.setFillColor(15, 23, 42); // slate-900
+      doc.rect(0, 0, 210, 38, 'F');
+
+      // Orange Accent Border
+      doc.setFillColor(249, 115, 22); // orange-500
+      doc.rect(0, 38, 210, 2, 'F');
+
+      // Header Brand Info
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(255, 255, 255);
+      doc.text(comp.name.toUpperCase(), 15, 14);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(203, 213, 225);
+      doc.text(`${comp.address} | Tel: ${comp.contact} | Email: ${comp.email}`, 15, 21);
+      doc.text(`TRN: ${(comp as any)?.trn || '100456209800003'} | Official Financial Statement`, 15, 27);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(251, 146, 60); // orange-400
+      doc.text(`STATUS: ${targetStatus}`, 15, 33);
+
+      // Document Title Section
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(15, 23, 42);
+      doc.text(`MONTHLY SALES CLOSING & REVENUE REPORT`, 15, 48);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Reporting Period: ${targetMonthName} (${targetStart} to ${targetCutoff}) | Cutoff Date: ${targetCutoff}`, 15, 54);
+      doc.text(`Generated on: ${new Date().toLocaleString()} | Authorized By: ${targetClosedByName}`, 15, 59);
+
+      // Section 1: Executive Financial Summary Table
+      const summaryHeaders = [['Financial Metric', 'Amount (AED)', 'Operational Context']];
+      const grossMarginPct = targetRevenue > 0 ? ((targetGrossProfit / targetRevenue) * 100).toFixed(1) : '0.0';
+      const netMarginPct = targetRevenue > 0 ? ((targetNetProfit / targetRevenue) * 100).toFixed(1) : '0.0';
+
+      const summaryRows = [
+        ['Monthly Billed Revenue', formatCurrency(targetRevenue), 'Total invoice billing & net adjustments'],
+        ['Direct Shipment / Carrier Costs', formatCurrency(targetRevenue - targetGrossProfit), 'Freight line haul, air waybill, & courier tariffs'],
+        ['Gross Profit Contribution', formatCurrency(targetGrossProfit), `Gross Margin: ${grossMarginPct}% on sales`],
+        ['Vendor Payments Disbursed', formatCurrency(targetVendorPayments), 'Settled carrier and supplier obligations'],
+        ['Broker & Commission Disbursed', formatCurrency(targetCommissions), 'Agent fees and partner commissions settled'],
+        ['Company Operating Expenses', formatCurrency(targetExpenses), 'Office rent, utilities, overhead & staff costs'],
+        ['Calculated Net Profit', formatCurrency(targetNetProfit), `Net Operating Margin: ${netMarginPct}% retained`],
+        ['CONFIRMED MONTH CLOSING BALANCE', formatCurrency(targetClosingBalance), 'Officially certified closing profit balance in accounts']
+      ];
+
+      autoTable(doc, {
+        startY: 64,
+        head: summaryHeaders,
+        body: summaryRows,
+        theme: 'grid',
+        headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8.5 },
+        bodyStyles: { fontSize: 8, textColor: [30, 41, 59] },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 70 },
+          1: { fontStyle: 'bold', halign: 'right', cellWidth: 45 },
+          2: { fontSize: 7.5, textColor: [100, 116, 139], cellWidth: 65 }
+        },
+        didParseCell: (data) => {
+          if (data.row.index === summaryRows.length - 1 && data.section === 'body') {
+            data.cell.styles.fillColor = [254, 243, 199]; // amber-100
+            data.cell.styles.textColor = [180, 83, 9];   // amber-700
+            data.cell.styles.fontStyle = 'bold';
+          }
+        },
+        margin: { left: 15, right: 15 }
+      });
+
+      let nextY = (doc as any).lastAutoTable.finalY + 8;
+
+      // Accounting Rule Notice Box
+      doc.setFillColor(254, 242, 242);
+      doc.rect(15, nextY, 180, 13, 'F');
+      doc.setDrawColor(251, 146, 60);
+      doc.rect(15, nextY, 180, 13, 'S');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(194, 65, 12);
+      doc.text('POST-CUTOFF SALES ROLL-FORWARD NOTICE:', 18, nextY + 5);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(75, 85, 99);
+      doc.text(`Invoices entered after cutoff date (${targetCutoff}) automatically roll forward to next month's sales report. Original dates on individual customer billing invoices remain intact.`, 18, nextY + 9.5);
+
+      nextY += 18;
+
+      // Section 2: Included Consignments / Invoices Schedule
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text(`INVOICES & SHIPMENTS FINALIZED IN THIS MONTH (${targetInvoices.length} Consignments)`, 15, nextY);
+
+      const invoiceHeaders = [['#', 'Invoice Number', 'Date', 'Customer Name', 'Destination', 'Total (AED)', 'Profit (AED)']];
+      const invoiceRows = targetInvoices.map((inv, idx) => [
+        (idx + 1).toString(),
+        inv.invoiceNumber || '-',
+        (inv.date || '').slice(0, 10),
+        (inv.customerName || '-').slice(0, 24),
+        (inv.destinationCountry || '-').slice(0, 16),
+        formatCurrency(inv.totalAmount || 0),
+        formatCurrency(inv.profit || 0)
+      ]);
+
+      const totalBilledSum = targetInvoices.reduce((s, i) => s + (i.totalAmount || 0), 0);
+      const totalProfitSum = targetInvoices.reduce((s, i) => s + (i.profit || 0), 0);
+      invoiceRows.push([
+        '',
+        `Total: ${targetInvoices.length}`,
+        '',
+        'Consolidated Schedule Totals',
+        '',
+        formatCurrency(totalBilledSum),
+        formatCurrency(totalProfitSum)
+      ]);
+
+      autoTable(doc, {
+        startY: nextY + 4,
+        head: invoiceHeaders,
+        body: invoiceRows,
+        theme: 'striped',
+        headStyles: { fillColor: [51, 65, 85], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
+        bodyStyles: { fontSize: 7, textColor: [30, 41, 59] },
+        columnStyles: {
+          0: { cellWidth: 8, halign: 'center' },
+          1: { fontStyle: 'bold', cellWidth: 26 },
+          2: { cellWidth: 20 },
+          3: { cellWidth: 48 },
+          4: { cellWidth: 26 },
+          5: { halign: 'right', fontStyle: 'bold', cellWidth: 26 },
+          6: { halign: 'right', cellWidth: 26 }
+        },
+        didParseCell: (data) => {
+          if (data.row.index === invoiceRows.length - 1 && data.section === 'body') {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fillColor = [241, 245, 249];
+          }
+        },
+        margin: { left: 15, right: 15 }
+      });
+
+      // Section 3: Auditor Signatures & Notes
+      let signY = (doc as any).lastAutoTable.finalY + 9;
+      if (signY > 240) {
+        doc.addPage();
+        signY = 25;
+      }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(15, 23, 42);
+      doc.text('AUDITOR & MANAGEMENT SIGN-OFF:', 15, signY);
+
+      if (targetNotes) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(7);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Notes: "${targetNotes}"`, 15, signY + 4.5);
+        signY += 5;
+      }
+
+      signY += 11;
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.4);
+
+      // Left: Prepared By
+      doc.line(15, signY, 85, signY);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`Prepared By: ${targetClosedByName}`, 15, signY + 3.5);
+      doc.text(`Date: ${targetClosedAt ? new Date(targetClosedAt).toLocaleDateString() : new Date().toLocaleDateString()}`, 15, signY + 7);
+
+      // Right: Approved / Company Stamp
+      doc.line(125, signY, 195, signY);
+      doc.text('Managing Director / Financial Controller', 125, signY + 3.5);
+      doc.text('Carryint Shipping Services L.L.C (Official Stamp)', 125, signY + 7);
+
+      // Save PDF
+      doc.save(`CarryInt_Sales_Closing_Report_${targetMonthStr}_${targetCutoff}.pdf`);
+      setSuccessToast(`Closing report PDF downloaded successfully for ${targetMonthName}!`);
+      setTimeout(() => setSuccessToast(null), 3500);
+    } catch (err) {
+      console.error('Error generating closing PDF:', err);
+      alert('Could not generate PDF. Please try again.');
+    }
+  };
+
   const nextMonthDisplay = formatMonthDisplay(getNextMonthStr(selectedMonth));
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto no-print">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto no-print">
       {/* Dark Frosted Backdrop */}
       <div
         className="fixed inset-0 bg-black/85 backdrop-blur-md transition-opacity"
         onClick={onClose}
       />
 
-      {/* Modal Container */}
-      <div className="relative w-full max-w-4xl glass-ultra rounded-3xl border border-orange-500/50 shadow-[0_25px_80px_rgba(0,0,0,0.95),0_0_50px_rgba(234,88,12,0.3)] overflow-hidden my-auto card-3d text-white max-h-[92vh] flex flex-col">
+      {/* Modal Container: Full Screen Height on Mobile, Touch-Friendly */}
+      <div className="relative w-full max-w-4xl glass-ultra rounded-2xl sm:rounded-3xl border border-orange-500/50 shadow-[0_25px_80px_rgba(0,0,0,0.95),0_0_50px_rgba(234,88,12,0.3)] overflow-hidden my-auto card-3d text-white h-[94vh] sm:h-auto max-h-[94vh] flex flex-col">
         {/* Scrawling Laser Beam Accent */}
         <div className="scrawl-beam-wrapper">
           <div className="scrawl-beam"></div>
@@ -366,90 +598,102 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
         <div className="absolute -top-16 -right-16 w-48 h-48 bg-orange-600/25 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -top-16 -left-16 w-48 h-48 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
-        {/* Modal Header */}
-        <div className="p-5 sm:p-6 border-b border-white/10 flex items-center justify-between relative z-10 bg-black/40">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-400 flex items-center justify-center text-black font-black shadow-lg shadow-orange-500/40 card-3d">
-              <Lock size={20} />
+        {/* Modal Header: Responsive Flex */}
+        <div className="p-3.5 sm:p-5 border-b border-white/10 flex items-start sm:items-center justify-between relative z-10 bg-black/40 gap-2">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-400 flex items-center justify-center text-black font-black shadow-lg shadow-orange-500/40 card-3d shrink-0">
+              <Lock size={18} className="sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight drop-shadow-sm">
-                  Monthly Sales Closing & Revenue Finalization
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <h2 className="text-base sm:text-xl font-black text-white tracking-tight drop-shadow-sm truncate">
+                  Monthly Sales Closing
                 </h2>
                 {existingClosing ? (
                   isEditMode ? (
-                    <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-500 text-black shadow-md shadow-amber-500/40 animate-pulse">
-                      EDITING CLOSED MONTH
+                    <span className="text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-black shadow-md shadow-amber-500/40 animate-pulse">
+                      EDITING
                     </span>
                   ) : (
-                    <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-500/50">
-                      FINALIZED & CLOSED
+                    <span className="text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-500/50">
+                      FINALIZED
                     </span>
                   )
                 ) : daysRemainingInMonth <= 3 ? (
-                  <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-orange-500 text-black shadow-md shadow-orange-500/40 animate-pulse">
-                    CLOSING WINDOW ACTIVE
+                  <span className="text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full bg-orange-500 text-black shadow-md shadow-orange-500/40 animate-pulse">
+                    WINDOW ACTIVE
                   </span>
                 ) : (
-                  <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-blue-950/80 text-blue-300 border border-blue-500/50">
-                    OPEN SALES CYCLE
+                  <span className="text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-950/80 text-blue-300 border border-blue-500/50">
+                    OPEN CYCLE
                   </span>
                 )}
               </div>
-              <p className="text-xs text-zinc-300 font-medium mt-0.5">
-                Review and finalize monthly revenue, profit, vendor obligations, expenses, and confirm month closing balance.
+              <p className="text-[10.5px] sm:text-xs text-zinc-300 font-medium truncate mt-0.5">
+                Finalize revenue, profit, vendor obligations, and closing balance.
               </p>
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/15 text-zinc-300 hover:text-white transition-all card-3d active:scale-95 border border-white/10"
-            title="Close"
-          >
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Quick Header Download PDF Button */}
+            <button
+              onClick={() => handleDownloadPDF()}
+              className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all card-3d active:scale-95 flex items-center gap-1.5 border border-white/15"
+              title="Download Official Closing PDF Report"
+            >
+              <Download size={14} />
+              <span className="hidden sm:inline">PDF Report</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              className="p-1.5 sm:p-2 rounded-xl bg-white/5 hover:bg-white/15 text-zinc-300 hover:text-white transition-all card-3d active:scale-95 border border-white/10"
+              title="Close modal"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Toast Alert */}
         {successToast && (
-          <div className="mx-6 mt-4 p-3.5 rounded-xl bg-emerald-950/90 border border-emerald-500/60 text-emerald-200 text-xs font-bold flex items-center gap-2 shadow-lg animate-in fade-in slide-in-from-top-2">
+          <div className="mx-3 sm:mx-6 mt-3 p-3 rounded-xl bg-emerald-950/90 border border-emerald-500/60 text-emerald-200 text-xs font-bold flex items-center gap-2 shadow-lg animate-in fade-in slide-in-from-top-2">
             <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
-            <span>{successToast}</span>
+            <span className="truncate">{successToast}</span>
           </div>
         )}
 
-        {/* Navigation Tabs */}
-        <div className="px-6 pt-3 border-b border-white/10 flex items-center justify-between text-xs font-bold bg-black/20">
-          <div className="flex items-center gap-2">
+        {/* Navigation Tabs: Horizontal Scrolling with Touch Support */}
+        <div className="px-3 sm:px-6 pt-2.5 border-b border-white/10 flex items-center justify-between text-xs font-bold bg-black/20 overflow-x-auto no-scrollbar gap-3">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <button
               onClick={() => setActiveTab('close-month')}
-              className={`pb-2.5 px-3 border-b-2 transition-all flex items-center gap-1.5 ${
+              className={`pb-2.5 px-2.5 sm:px-3 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'close-month'
                   ? 'border-orange-500 text-orange-400 font-black'
                   : 'border-transparent text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              <Lock size={14} />
-              <span>Finalize & Update Monthly Sales</span>
+              <Lock size={13} />
+              <span>Finalize & Update Sales</span>
             </button>
             <button
               onClick={() => setActiveTab('closing-history')}
-              className={`pb-2.5 px-3 border-b-2 transition-all flex items-center gap-1.5 ${
+              className={`pb-2.5 px-2.5 sm:px-3 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'closing-history'
                   ? 'border-orange-500 text-orange-400 font-black'
                   : 'border-transparent text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              <Calendar size={14} />
-              <span>Past Closings & Audit History ({closings.filter(c => c.isClosed).length})</span>
+              <Calendar size={13} />
+              <span>Past Closings ({closings.filter(c => c.isClosed).length})</span>
             </button>
           </div>
 
           {activeTab === 'close-month' && (
-            <div className="flex items-center gap-2 pb-2">
-              <span className="text-[11px] text-zinc-400">Target Month:</span>
+            <div className="flex items-center gap-1.5 pb-2 shrink-0">
+              <span className="text-[10px] sm:text-[11px] text-zinc-400">Month:</span>
               <input
                 type="month"
                 value={selectedMonth}
@@ -457,18 +701,18 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                   setSelectedMonth(e.target.value);
                   setIsEditMode(false);
                 }}
-                className="bg-black/60 border border-white/20 rounded-lg px-2.5 py-1 text-xs text-white font-bold outline-none focus:border-orange-500"
+                className="bg-black/60 border border-white/20 rounded-lg px-2 py-0.5 text-xs text-white font-bold outline-none focus:border-orange-500"
               />
             </div>
           )}
         </div>
 
-        {/* Modal Body */}
-        <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
+        {/* Modal Body: Touch-Friendly Scrollable Container */}
+        <div className="p-3 sm:p-5 overflow-y-auto space-y-4 sm:space-y-5 flex-1 touch-pan-y">
           {activeTab === 'close-month' ? (
             <>
               {/* Notification Banner / Explanation */}
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-orange-950/70 via-black/80 to-amber-950/50 border border-orange-500/40 shadow-inner flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+              <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-orange-950/70 via-black/80 to-amber-950/50 border border-orange-500/40 shadow-inner flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
                 <div className="flex items-start gap-2.5">
                   <div className="p-1.5 rounded-lg bg-orange-500/20 text-orange-400 mt-0.5 shrink-0 border border-orange-500/30">
                     <AlertTriangle size={15} />
@@ -477,18 +721,20 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                     <span className="text-white font-black block">
                       Monthly Accounting Rule: Post-Cutoff Sales Roll-Forward
                     </span>
-                    <span className="text-zinc-300 font-medium">
-                      Finalizing <strong>{formatMonthDisplay(selectedMonth)}</strong> up to <strong>{cutoffDate}</strong> will permanently finalize this month's totals.
-                      Any sales entered with dates after {cutoffDate} will automatically be attributed to <strong>{nextMonthDisplay}</strong>'s sales report, while keeping original invoice dates untouched.
+                    <span className="text-zinc-300 font-medium text-[11px] sm:text-xs">
+                      Finalizing <strong>{formatMonthDisplay(selectedMonth)}</strong> up to <strong>{cutoffDate}</strong> locks this month's totals.
+                      Invoices dated after {cutoffDate} will automatically roll forward into <strong>{nextMonthDisplay}</strong>'s sales report.
                     </span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
-                  <div className="flex items-center gap-1.5 bg-black/60 px-3 py-1.5 rounded-xl border border-white/10 text-[11px]">
-                    <Clock size={12} className="text-orange-400" />
-                    <span className="text-zinc-400">Cutoff:</span>
-                    <span className="text-white font-black">{cutoffDate}</span>
+                  <div className="flex items-center gap-1.5 bg-black/60 px-3 py-1.5 rounded-xl border border-white/10 text-[11px] w-full sm:w-auto justify-between sm:justify-start">
+                    <div className="flex items-center gap-1.5">
+                      <Clock size={12} className="text-orange-400" />
+                      <span className="text-zinc-400">Cutoff:</span>
+                      <span className="text-white font-black">{cutoffDate}</span>
+                    </div>
                     <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-orange-500/20 text-orange-300 border border-orange-500/40">
                       {cutoffMode === 'auto' ? 'Auto Default' : 'Custom'}
                     </span>
@@ -496,30 +742,30 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                 </div>
               </div>
 
-              {/* DEDICATED CUTOFF DATE SELECTION OPTION: AUTOMATIC DEFAULT VS CHOOSE DATE */}
-              <div className="p-4 rounded-2xl glass-ultra border border-white/15 card-3d space-y-3 relative overflow-hidden">
+              {/* DEDICATED CUTOFF DATE SELECTION: AUTOMATIC DEFAULT VS CHOOSE DATE (Mobile Optimized) */}
+              <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-white/15 card-3d space-y-3 relative overflow-hidden">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                    <div className="p-2 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/30 shrink-0">
                       <Clock size={16} />
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-xs font-black text-white block uppercase tracking-wider">
-                          Cutoff Date Selection Mode
+                          Cutoff Date Selection
                         </span>
                         <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/10">
-                          {cutoffMode === 'auto' ? '⚡ Automatic Default Active' : '🗓️ Custom Chosen Date'}
+                          {cutoffMode === 'auto' ? '⚡ Automatic Default' : '🗓️ Custom Chosen Date'}
                         </span>
                       </div>
-                      <span className="text-[11px] text-zinc-300 font-medium">
-                        Choose whether to automatically use the current default closing date or select a specific custom date.
+                      <span className="text-[11px] text-zinc-300 font-medium block">
+                        Choose whether to automatically use the current default closing date or choose a specific date.
                       </span>
                     </div>
                   </div>
 
-                  {/* Dual Mode Switcher Button Group */}
-                  <div className="flex items-center gap-1.5 p-1 bg-black/80 rounded-xl border border-white/15 shrink-0 self-start sm:self-auto shadow-inner">
+                  {/* Dual Mode Switcher: Equal Grid on Mobile, Flex on Desktop */}
+                  <div className="grid grid-cols-2 sm:flex items-center gap-1.5 p-1 bg-black/80 rounded-xl border border-white/15 shrink-0 shadow-inner w-full sm:w-auto">
                     <button
                       type="button"
                       disabled={existingClosing && !isEditMode}
@@ -527,7 +773,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                         setCutoffMode('auto');
                         setCutoffDate(autoDefaultCutoff);
                       }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 ${
+                      className={`px-3 py-2 sm:py-1.5 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
                         cutoffMode === 'auto'
                           ? 'bg-gradient-to-r from-orange-500 to-amber-400 text-black shadow-md shadow-orange-500/40'
                           : 'text-zinc-400 hover:text-white'
@@ -541,7 +787,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                       type="button"
                       disabled={existingClosing && !isEditMode}
                       onClick={() => setCutoffMode('custom')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 ${
+                      className={`px-3 py-2 sm:py-1.5 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
                         cutoffMode === 'custom'
                           ? 'bg-gradient-to-r from-orange-500 to-amber-400 text-black shadow-md shadow-orange-500/40'
                           : 'text-zinc-400 hover:text-white'
@@ -553,70 +799,70 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                   </div>
                 </div>
 
-                {/* Mode Details & Preset Picker */}
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-2.5 border-t border-white/10 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="text-zinc-400 font-bold">Effective Cutoff Date:</span>
+                {/* Active Cutoff Status & Custom Date Picker Controls */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 pt-2.5 border-t border-white/10 text-xs">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-zinc-400 font-bold">Effective Cutoff:</span>
                     <span className="text-sm font-black text-orange-400 px-3 py-0.5 rounded-lg bg-orange-500/15 border border-orange-500/30">
                       {cutoffDate}
                     </span>
                     {cutoffMode === 'auto' ? (
                       <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                        ✓ Locked to system default ({cutoffDate === todayStr ? 'Today' : 'Month-End'})
+                        ✓ Default ({cutoffDate === todayStr ? 'Today' : 'Month-End'})
                       </span>
                     ) : (
                       <span className="text-[10px] text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
-                        ✓ Custom date selected
+                        ✓ Custom chosen
                       </span>
                     )}
                   </div>
 
-                  {/* Custom Date Controls when in Choose Date mode */}
+                  {/* Quick Presets & Picker (Shown when in Choose Date mode) */}
                   {cutoffMode === 'custom' && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[10px] text-zinc-400 font-black uppercase tracking-wider">Quick Presets:</span>
-                      
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                      <span className="text-[10px] text-zinc-400 font-black uppercase tracking-wider">Presets:</span>
+
                       <button
                         type="button"
                         disabled={existingClosing && !isEditMode}
                         onClick={() => setCutoffDate(todayStr)}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                        className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${
                           cutoffDate === todayStr
-                            ? 'bg-orange-500 text-black border-orange-400 font-black shadow-sm'
+                            ? 'bg-orange-500 text-black border-orange-400 font-black'
                             : 'bg-white/5 text-zinc-300 border-white/10 hover:bg-white/10'
                         }`}
                       >
-                        Today ({todayStr})
+                        Today
                       </button>
 
                       <button
                         type="button"
                         disabled={existingClosing && !isEditMode}
                         onClick={() => setCutoffDate(threeDaysBeforeMonthEndStr)}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                        className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${
                           cutoffDate === threeDaysBeforeMonthEndStr
-                            ? 'bg-orange-500 text-black border-orange-400 font-black shadow-sm'
+                            ? 'bg-orange-500 text-black border-orange-400 font-black'
                             : 'bg-white/5 text-zinc-300 border-white/10 hover:bg-white/10'
                         }`}
                       >
-                        3 Days Before End ({threeDaysBeforeMonthEndStr})
+                        3 Days Before End
                       </button>
 
                       <button
                         type="button"
                         disabled={existingClosing && !isEditMode}
                         onClick={() => setCutoffDate(monthEndStr)}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                        className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${
                           cutoffDate === monthEndStr
-                            ? 'bg-orange-500 text-black border-orange-400 font-black shadow-sm'
+                            ? 'bg-orange-500 text-black border-orange-400 font-black'
                             : 'bg-white/5 text-zinc-300 border-white/10 hover:bg-white/10'
                         }`}
                       >
-                        Month End ({monthEndStr})
+                        Month End
                       </button>
 
-                      {/* Explicit Date Picker Input */}
-                      <div className="flex items-center gap-1.5 bg-black/90 px-3 py-1 rounded-xl border border-orange-500/40 shadow-inner">
+                      {/* Custom Date Input */}
+                      <div className="flex items-center gap-1.5 bg-black/90 px-2.5 py-1 rounded-xl border border-orange-500/40 shadow-inner">
                         <Calendar size={13} className="text-orange-400" />
                         <input
                           type="date"
@@ -638,18 +884,18 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
 
               {/* Status Banner if Already Closed + Edit Mode Actions */}
               {existingClosing && (
-                <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition-colors ${
+                <div className={`p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition-colors ${
                   isEditMode
                     ? 'bg-amber-950/70 border-amber-500/60 text-amber-200'
                     : 'bg-emerald-950/70 border-emerald-500/50 text-emerald-200'
                 }`}>
                   <div className="flex items-center gap-2.5">
                     {isEditMode ? (
-                      <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                      <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
                         <Edit3 size={15} />
                       </div>
                     ) : (
-                      <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
                         <CheckCircle2 size={15} />
                       </div>
                     )}
@@ -660,17 +906,17 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                           : `${formatMonthDisplay(selectedMonth)} Finalized & Closed`}
                       </span>
                       <span className="text-zinc-300 text-[11px]">
-                        Closed on {new Date(existingClosing.closedAt).toLocaleString()} by {existingClosing.closedByName}
+                        Closed on {new Date(existingClosing.closedAt).toLocaleDateString()} by {existingClosing.closedByName}
                         {existingClosing.updatedAt && (
                           <span className="ml-1.5 text-amber-300">
-                            (Last edited {new Date(existingClosing.updatedAt).toLocaleDateString()} by {existingClosing.updatedByName})
+                            (Edited {new Date(existingClosing.updatedAt).toLocaleDateString()} by {existingClosing.updatedByName})
                           </span>
                         )}
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 self-end sm:self-center">
+                  <div className="flex items-center gap-2 self-stretch sm:self-center justify-end">
                     {(currentUser.role === 'ADMIN' || currentUser.role === 'MANAGER') && (
                       <>
                         {isEditMode ? (
@@ -686,7 +932,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                             className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-400 text-black text-xs font-black shadow-md shadow-orange-500/30 flex items-center gap-1.5 card-3d active:scale-95 transition-all hover:scale-105"
                           >
                             <Edit3 size={13} />
-                            <span>Edit Closing & Invoices</span>
+                            <span>Edit Closing</span>
                           </button>
                         )}
 
@@ -704,11 +950,11 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                 </div>
               )}
 
-              {/* Metrics Grid with Show & Update Form Inputs */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Metrics Grid with Show & Update Form Inputs (1 column on mobile, 2/3 cols on desktop) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 
                 {/* 1. Monthly Revenue */}
-                <div className="p-4 rounded-2xl glass-ultra border border-white/15 card-3d relative overflow-hidden group">
+                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-white/15 card-3d relative overflow-hidden group">
                   <div className="flex items-center justify-between mb-2">
                     <div className="p-2 rounded-xl bg-orange-500/15 text-orange-400 border border-orange-500/30">
                       <DollarSign size={16} />
@@ -727,14 +973,14 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                       setRevenue(parseFloat(e.target.value) || 0);
                       setIsManualOverride(true);
                     }}
-                    className={`w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-lg font-black text-white focus:border-orange-500 outline-none shadow-inner ${
+                    className={`w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-base sm:text-lg font-black text-white focus:border-orange-500 outline-none shadow-inner ${
                       existingClosing && !isEditMode ? 'opacity-70 cursor-not-allowed' : ''
                     }`}
                   />
                 </div>
 
                 {/* 2. Gross Profit Details */}
-                <div className="p-4 rounded-2xl glass-ultra border border-white/15 card-3d relative overflow-hidden group">
+                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-white/15 card-3d relative overflow-hidden group">
                   <div className="flex items-center justify-between mb-2">
                     <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                       <TrendingUp size={16} />
@@ -753,14 +999,14 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                       setGrossProfit(parseFloat(e.target.value) || 0);
                       setIsManualOverride(true);
                     }}
-                    className={`w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-lg font-black text-emerald-400 focus:border-orange-500 outline-none shadow-inner ${
+                    className={`w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-base sm:text-lg font-black text-emerald-400 focus:border-orange-500 outline-none shadow-inner ${
                       existingClosing && !isEditMode ? 'opacity-70 cursor-not-allowed' : ''
                     }`}
                   />
                 </div>
 
                 {/* 3. Vendor Payments of the Month */}
-                <div className="p-4 rounded-2xl glass-ultra border border-white/15 card-3d relative overflow-hidden group">
+                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-white/15 card-3d relative overflow-hidden group">
                   <div className="flex items-center justify-between mb-2">
                     <div className="p-2 rounded-xl bg-blue-500/15 text-blue-400 border border-blue-500/30">
                       <Truck size={16} />
@@ -779,14 +1025,14 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                       setVendorPayments(parseFloat(e.target.value) || 0);
                       setIsManualOverride(true);
                     }}
-                    className={`w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-lg font-black text-blue-300 focus:border-orange-500 outline-none shadow-inner ${
+                    className={`w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-base sm:text-lg font-black text-blue-300 focus:border-orange-500 outline-none shadow-inner ${
                       existingClosing && !isEditMode ? 'opacity-70 cursor-not-allowed' : ''
                     }`}
                   />
                 </div>
 
                 {/* 4. Commission Payments of the Month */}
-                <div className="p-4 rounded-2xl glass-ultra border border-white/15 card-3d relative overflow-hidden group">
+                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-white/15 card-3d relative overflow-hidden group">
                   <div className="flex items-center justify-between mb-2">
                     <div className="p-2 rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/30">
                       <Users size={16} />
@@ -805,14 +1051,14 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                       setCommissionPayments(parseFloat(e.target.value) || 0);
                       setIsManualOverride(true);
                     }}
-                    className={`w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-lg font-black text-purple-300 focus:border-orange-500 outline-none shadow-inner ${
+                    className={`w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-base sm:text-lg font-black text-purple-300 focus:border-orange-500 outline-none shadow-inner ${
                       existingClosing && !isEditMode ? 'opacity-70 cursor-not-allowed' : ''
                     }`}
                   />
                 </div>
 
                 {/* 5. Company Expenses of the Month */}
-                <div className="p-4 rounded-2xl glass-ultra border border-white/15 card-3d relative overflow-hidden group">
+                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-white/15 card-3d relative overflow-hidden group">
                   <div className="flex items-center justify-between mb-2">
                     <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30">
                       <Wallet size={16} />
@@ -831,14 +1077,14 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                       setCompanyExpenses(parseFloat(e.target.value) || 0);
                       setIsManualOverride(true);
                     }}
-                    className={`w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-lg font-black text-amber-300 focus:border-orange-500 outline-none shadow-inner ${
+                    className={`w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-base sm:text-lg font-black text-amber-300 focus:border-orange-500 outline-none shadow-inner ${
                       existingClosing && !isEditMode ? 'opacity-70 cursor-not-allowed' : ''
                     }`}
                   />
                 </div>
 
                 {/* 6. Dynamic Calculated Net Profit */}
-                <div className="p-4 rounded-2xl glass-ultra border border-orange-500/30 bg-gradient-to-br from-orange-950/40 via-black to-zinc-950 card-3d relative overflow-hidden">
+                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-orange-500/30 bg-gradient-to-br from-orange-950/40 via-black to-zinc-950 card-3d relative overflow-hidden">
                   <div className="flex items-center justify-between mb-2">
                     <div className="p-2 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/40">
                       <Sparkles size={16} />
@@ -849,24 +1095,24 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                     Calculated Net Profit
                   </label>
                   <p className="text-[10px] text-zinc-400 mb-2">Gross Profit − Company Expenses</p>
-                  <div className="text-2xl font-black text-white mt-2">
+                  <div className="text-xl sm:text-2xl font-black text-white mt-1 sm:mt-2">
                     {formatCurrency(dynamicNetProfit)}
                   </div>
                 </div>
 
               </div>
 
-              {/* 7. Confirmed Month Closing Balance / Profit Balance (Highlight Box) */}
-              <div className="p-5 rounded-2xl bg-gradient-to-r from-orange-950/80 via-black to-amber-950/80 border-2 border-orange-500/70 shadow-[0_10px_35px_rgba(234,88,12,0.25)] relative overflow-hidden card-3d">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              {/* 7. Confirmed Month Closing Balance (Highlighted Card, Touch-Friendly on Mobile) */}
+              <div className="p-3.5 sm:p-5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-orange-950/80 via-black to-amber-950/80 border-2 border-orange-500/70 shadow-[0_10px_35px_rgba(234,88,12,0.25)] relative overflow-hidden card-3d">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-orange-400 shadow-[0_0_10px_rgba(251,146,60,1)]"></span>
-                      <h4 className="text-base font-black text-white uppercase tracking-wider">
+                      <h4 className="text-sm sm:text-base font-black text-white uppercase tracking-wider">
                         Confirmed Profit Balance / Month Closing Balance (AED)
                       </h4>
                     </div>
-                    <p className="text-xs text-zinc-300 font-medium">
+                    <p className="text-[11px] sm:text-xs text-zinc-300 font-medium">
                       Enter or confirm the final profit balance in hand/bank to officially seal {formatMonthDisplay(selectedMonth)}.
                     </p>
                   </div>
@@ -877,7 +1123,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                       value={closingBalance}
                       disabled={existingClosing && !isEditMode}
                       onChange={(e) => setClosingBalance(parseFloat(e.target.value) || 0)}
-                      className={`w-full bg-black/90 border-2 border-orange-400 rounded-xl px-4 py-2.5 text-2xl font-black text-orange-400 outline-none focus:ring-2 focus:ring-orange-500 shadow-inner text-right ${
+                      className={`w-full bg-black/90 border-2 border-orange-400 rounded-xl px-4 py-2.5 text-xl sm:text-2xl font-black text-orange-400 outline-none focus:ring-2 focus:ring-orange-500 shadow-inner text-right ${
                         existingClosing && !isEditMode ? 'opacity-70 cursor-not-allowed' : ''
                       }`}
                       placeholder="0.00"
@@ -886,13 +1132,13 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                 </div>
 
                 {isManualOverride && (!existingClosing || isEditMode) && (
-                  <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between text-[11px]">
+                  <div className="mt-3 pt-3 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px]">
                     <span className="text-amber-400 font-medium">
-                      * You have customized figures or invoice selections. Click reset to restore auto-calculated values.
+                      * You have customized figures or invoice selections.
                     </span>
                     <button
                       onClick={handleResetToAuto}
-                      className="text-orange-400 hover:underline font-bold"
+                      className="text-orange-400 hover:underline font-bold self-start sm:self-auto"
                     >
                       Reset to Auto Values
                     </button>
@@ -917,11 +1163,11 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                 />
               </div>
 
-              {/* INVOICE MANAGEMENT PANEL: ADD OR REMOVE INVOICES */}
-              <div className="border border-white/15 rounded-2xl overflow-hidden bg-black/40 shadow-xl">
-                <div className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-black/60 border-b border-white/10">
+              {/* INVOICE MANAGEMENT PANEL: ADD OR REMOVE INVOICES (Mobile Optimized) */}
+              <div className="border border-white/15 rounded-xl sm:rounded-2xl overflow-hidden bg-black/40 shadow-xl">
+                <div className="p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-black/60 border-b border-white/10">
                   <div className="flex items-center gap-2">
-                    <FileText size={16} className="text-orange-400" />
+                    <FileText size={16} className="text-orange-400 shrink-0" />
                     <div>
                       <span className="text-xs font-black text-white block">
                         Manage Invoices in {formatMonthDisplay(selectedMonth)} ({selectedInvoiceIds.length} Included)
@@ -932,21 +1178,21 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
                     {(!existingClosing || isEditMode) && (
                       <button
                         onClick={handleRecalculateFromSelectedInvoices}
-                        className="px-2.5 py-1 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-500/30 text-[10px] font-black flex items-center gap-1 transition-all active:scale-95"
+                        className="px-2.5 py-1.5 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-500/30 text-[10px] font-black flex items-center gap-1 transition-all active:scale-95 flex-1 sm:flex-initial justify-center"
                         title="Update Revenue, Profit, and Vendor figures from the selected invoices"
                       >
                         <RefreshCw size={11} />
-                        <span>Recalculate Totals from Selection</span>
+                        <span>Recalculate from Selection</span>
                       </button>
                     )}
 
                     <button
                       onClick={() => setShowInvoicesList(!showInvoicesList)}
-                      className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300"
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300"
                     >
                       {showInvoicesList ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </button>
@@ -955,33 +1201,33 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
 
                 {/* Collapsible Panel */}
                 {showInvoicesList && (
-                  <div className="p-4 space-y-3">
+                  <div className="p-3 sm:p-4 space-y-3">
                     {/* Subtabs for Included vs Available to Add + Search */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-2.5">
-                      <div className="flex items-center gap-2">
+                      <div className="grid grid-cols-2 sm:flex items-center gap-1.5 w-full sm:w-auto">
                         <button
                           onClick={() => setInvoiceDrawerTab('included')}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                             invoiceDrawerTab === 'included'
                               ? 'bg-orange-500 text-black font-black shadow-md shadow-orange-500/30'
                               : 'bg-white/5 text-zinc-300 hover:bg-white/10'
                           }`}
                         >
                           <Check size={13} />
-                          <span>Included Invoices ({selectedInvoiceIds.length})</span>
+                          <span>Included ({selectedInvoiceIds.length})</span>
                         </button>
 
                         {(!existingClosing || isEditMode) && (
                           <button
                             onClick={() => setInvoiceDrawerTab('available')}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                               invoiceDrawerTab === 'available'
                                 ? 'bg-orange-500 text-black font-black shadow-md shadow-orange-500/30'
                                 : 'bg-white/5 text-zinc-300 hover:bg-white/10'
                             }`}
                           >
                             <Plus size={13} />
-                            <span>Add Other Invoices ({availableToAddInvoices.length})</span>
+                            <span>Add ({availableToAddInvoices.length})</span>
                           </button>
                         )}
                       </div>
@@ -994,14 +1240,14 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                           value={invoiceSearchQuery}
                           onChange={(e) => setInvoiceSearchQuery(e.target.value)}
                           placeholder="Search invoice # or client..."
-                          className="w-full bg-black/60 border border-white/10 rounded-xl pl-8 pr-3 py-1 text-xs text-white placeholder-zinc-500 outline-none focus:border-orange-500"
+                          className="w-full bg-black/60 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 outline-none focus:border-orange-500"
                         />
                       </div>
                     </div>
 
                     {/* Tab 1: Included Invoices */}
                     {invoiceDrawerTab === 'included' && (
-                      <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1">
+                      <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1 touch-pan-y">
                         {filteredIncludedInvoices.length === 0 ? (
                           <div className="text-center py-8 text-zinc-500 text-xs">
                             No invoices included. Switch to "Add Other Invoices" tab to attach consignments to this month.
@@ -1010,23 +1256,25 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                           filteredIncludedInvoices.map(inv => (
                             <div
                               key={inv.id}
-                              className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5 text-xs hover:border-white/15 transition-all"
+                              className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5 text-xs hover:border-white/15 transition-all gap-1.5 sm:gap-0"
                             >
-                              <div className="flex items-center gap-2.5">
-                                <span className="font-black text-white">{inv.invoiceNumber}</span>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="font-black text-white shrink-0">{inv.invoiceNumber}</span>
                                 <span className="text-zinc-500">|</span>
-                                <span className="text-zinc-300 font-medium truncate max-w-[150px]">{inv.customerName}</span>
-                                <span className="text-[10px] text-zinc-400">({inv.date?.slice(0, 10)})</span>
+                                <span className="text-zinc-300 font-medium truncate">{inv.customerName}</span>
+                                <span className="text-[10px] text-zinc-400 shrink-0">({inv.date?.slice(0, 10)})</span>
                               </div>
 
-                              <div className="flex items-center gap-3">
-                                <span className="text-white font-bold">{formatCurrency(inv.totalAmount)}</span>
-                                <span className="text-emerald-400 font-bold text-[11px]">(Profit: {formatCurrency(inv.profit || 0)})</span>
+                              <div className="flex items-center justify-between sm:justify-end gap-3 pt-1 sm:pt-0 border-t sm:border-0 border-white/5">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-white font-bold">{formatCurrency(inv.totalAmount)}</span>
+                                  <span className="text-emerald-400 font-bold text-[11px]">(Profit: {formatCurrency(inv.profit || 0)})</span>
+                                </div>
 
                                 {(!existingClosing || isEditMode) && (
                                   <button
                                     onClick={() => handleRemoveInvoice(inv.id)}
-                                    className="p-1 rounded-lg bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 text-[10px] font-bold flex items-center gap-1 transition-all active:scale-95 ml-1"
+                                    className="px-2 py-1 rounded-lg bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 text-[10px] font-bold flex items-center gap-1 transition-all active:scale-95"
                                     title="Remove this invoice from this month (will roll forward into next month)"
                                   >
                                     <Trash2 size={12} />
@@ -1042,7 +1290,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
 
                     {/* Tab 2: Available Invoices to Add */}
                     {invoiceDrawerTab === 'available' && (!existingClosing || isEditMode) && (
-                      <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1">
+                      <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1 touch-pan-y">
                         {filteredAvailableInvoices.length === 0 ? (
                           <div className="text-center py-8 text-zinc-500 text-xs">
                             No additional unclosed invoices found. All relevant invoices are already included or in other closed periods.
@@ -1051,22 +1299,24 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                           filteredAvailableInvoices.map(inv => (
                             <div
                               key={inv.id}
-                              className="flex items-center justify-between p-2.5 rounded-xl bg-amber-950/20 border border-amber-500/20 text-xs hover:border-amber-500/40 transition-all"
+                              className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 rounded-xl bg-amber-950/20 border border-amber-500/20 text-xs hover:border-amber-500/40 transition-all gap-1.5 sm:gap-0"
                             >
-                              <div className="flex items-center gap-2.5">
-                                <span className="font-bold text-amber-200">{inv.invoiceNumber}</span>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="font-bold text-amber-200 shrink-0">{inv.invoiceNumber}</span>
                                 <span className="text-zinc-500">|</span>
-                                <span className="text-zinc-300 truncate max-w-[150px]">{inv.customerName}</span>
-                                <span className="text-[10px] text-zinc-400">({inv.date?.slice(0, 10)})</span>
+                                <span className="text-zinc-300 truncate">{inv.customerName}</span>
+                                <span className="text-[10px] text-zinc-400 shrink-0">({inv.date?.slice(0, 10)})</span>
                               </div>
 
-                              <div className="flex items-center gap-3">
-                                <span className="text-white font-bold">{formatCurrency(inv.totalAmount)}</span>
-                                <span className="text-emerald-400 font-bold text-[11px]">(Profit: {formatCurrency(inv.profit || 0)})</span>
+                              <div className="flex items-center justify-between sm:justify-end gap-3 pt-1 sm:pt-0 border-t sm:border-0 border-white/5">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-white font-bold">{formatCurrency(inv.totalAmount)}</span>
+                                  <span className="text-emerald-400 font-bold text-[11px]">(Profit: {formatCurrency(inv.profit || 0)})</span>
+                                </div>
 
                                 <button
                                   onClick={() => handleAddInvoice(inv.id)}
-                                  className="px-2 py-1 rounded-lg bg-gradient-to-r from-orange-500 to-amber-400 text-black text-[10px] font-black flex items-center gap-1 shadow-md shadow-orange-500/20 transition-all active:scale-95 ml-1"
+                                  className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-orange-500 to-amber-400 text-black text-[10px] font-black flex items-center gap-1 shadow-md shadow-orange-500/20 transition-all active:scale-95"
                                   title="Add this invoice to this monthly closing"
                                 >
                                   <Plus size={12} />
@@ -1112,11 +1362,11 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                     .map(closing => (
                       <div
                         key={closing.id}
-                        className="p-5 rounded-2xl glass-ultra border border-white/15 card-3d space-y-3 relative overflow-hidden"
+                        className="p-4 sm:p-5 rounded-2xl glass-ultra border border-white/15 card-3d space-y-3 relative overflow-hidden"
                       >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-white/10 pb-3">
                           <div className="flex items-center gap-2.5">
-                            <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
                               <Lock size={16} />
                             </div>
                             <div>
@@ -1132,10 +1382,20 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-black px-3 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-500/40">
-                              Closing Balance: {formatCurrency(closing.closingBalance)}
+                          <div className="flex flex-wrap items-center gap-2 self-stretch sm:self-auto justify-end">
+                            <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-500/40">
+                              Balance: {formatCurrency(closing.closingBalance)}
                             </span>
+
+                            {/* Download PDF button on past closing card */}
+                            <button
+                              onClick={() => handleDownloadPDF(closing)}
+                              className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/15 text-[11px] font-bold flex items-center gap-1 transition-all active:scale-95"
+                              title="Download Closing Report PDF"
+                            >
+                              <Download size={12} />
+                              <span>PDF</span>
+                            </button>
 
                             {(currentUser.role === 'ADMIN' || currentUser.role === 'MANAGER') && (
                               <>
@@ -1154,7 +1414,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
 
                                 <button
                                   onClick={() => handleReopenClosing(closing.month)}
-                                  className="p-1.5 rounded-lg bg-white/5 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 border border-white/10 transition-colors"
+                                  className="p-1 rounded-lg bg-white/5 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 border border-white/10 transition-colors"
                                   title="Re-open Closing"
                                 >
                                   <Unlock size={14} />
@@ -1164,8 +1424,8 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                           </div>
                         </div>
 
-                        {/* Breakdown Metrics */}
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+                        {/* Breakdown Metrics: Grid 2/3/5 */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-xs">
                           <div className="p-2.5 rounded-xl bg-black/40 border border-white/5">
                             <span className="text-[10px] text-zinc-400 uppercase block font-bold">Revenue</span>
                             <span className="text-sm font-black text-white">{formatCurrency(closing.totalRevenue)}</span>
@@ -1182,7 +1442,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                             <span className="text-[10px] text-zinc-400 uppercase block font-bold">Expenses</span>
                             <span className="text-sm font-black text-amber-300">{formatCurrency(closing.companyExpenses)}</span>
                           </div>
-                          <div className="p-2.5 rounded-xl bg-black/40 border border-white/5">
+                          <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 col-span-2 sm:col-span-1">
                             <span className="text-[10px] text-zinc-400 uppercase block font-bold">Net Profit</span>
                             <span className="text-sm font-black text-orange-400">{formatCurrency(closing.netProfit)}</span>
                           </div>
@@ -1201,22 +1461,31 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
           )}
         </div>
 
-        {/* Modal Footer */}
-        <div className="p-4 sm:p-5 border-t border-white/10 flex items-center justify-between bg-black/50 relative z-10">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-zinc-300 hover:text-white text-xs font-bold transition-all card-3d active:scale-95 border border-white/10"
-          >
-            Cancel / Remind Later
-          </button>
+        {/* Modal Footer: Mobile-Friendly Flex Stacking */}
+        <div className="p-3 sm:p-5 border-t border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-black/50 relative z-10">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={onClose}
+              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-zinc-300 hover:text-white text-xs font-bold transition-all card-3d active:scale-95 border border-white/10 flex-1 sm:flex-initial text-center"
+            >
+              Cancel / Close
+            </button>
+
+            {/* Download PDF button in footer */}
+            <button
+              onClick={() => handleDownloadPDF()}
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-zinc-800 to-zinc-900 hover:from-zinc-700 hover:to-zinc-800 text-white text-xs font-bold transition-all card-3d active:scale-95 border border-white/15 flex items-center justify-center gap-1.5 flex-1 sm:flex-initial shadow-md"
+              title="Download PDF Closing Statement"
+            >
+              <Download size={13} className="text-orange-400" />
+              <span>Download PDF</span>
+            </button>
+          </div>
 
           {activeTab === 'close-month' && (!existingClosing || isEditMode) && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               {confirmPrompt ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-orange-400 font-bold hidden sm:inline">
-                    Confirm saving {formatMonthDisplay(selectedMonth)}?
-                  </span>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   <button
                     onClick={() => setConfirmPrompt(false)}
                     className="px-3 py-2 rounded-xl bg-white/10 text-zinc-300 text-xs font-bold"
@@ -1225,7 +1494,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                   </button>
                   <button
                     onClick={handleSaveOrUpdateClosing}
-                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-500 text-black font-black text-xs shadow-lg shadow-orange-500/50 card-3d active:scale-95 flex items-center gap-1.5"
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-500 text-black font-black text-xs shadow-lg shadow-orange-500/50 card-3d active:scale-95 flex items-center justify-center gap-1.5 flex-1 sm:flex-initial"
                   >
                     <Save size={14} />
                     <span>Confirm & Save</span>
@@ -1234,13 +1503,13 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
               ) : (
                 <button
                   onClick={() => setConfirmPrompt(true)}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-400 hover:from-orange-400 hover:to-amber-300 text-black font-black text-xs shadow-lg shadow-orange-500/40 card-3d active:scale-95 flex items-center gap-1.5 transition-all"
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-400 hover:from-orange-400 hover:to-amber-300 text-black font-black text-xs shadow-lg shadow-orange-500/40 card-3d active:scale-95 flex items-center justify-center gap-1.5 transition-all"
                 >
                   <Save size={15} />
                   <span>
                     {existingClosing
-                      ? `Update & Save ${formatMonthDisplay(selectedMonth)} Closing (${selectedInvoiceIds.length} Invoices)`
-                      : `Finalize & Save ${formatMonthDisplay(selectedMonth)} Sales Closing`}
+                      ? `Update & Save Closing (${selectedInvoiceIds.length} Invoices)`
+                      : `Finalize & Save ${formatMonthDisplay(selectedMonth)} Closing`}
                   </span>
                 </button>
               )}

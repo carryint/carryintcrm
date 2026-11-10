@@ -2448,6 +2448,7 @@ const App: React.FC = () => {
           closings={monthlyClosings}
           currentUser={currentUser}
           defaultMonth={closingModalTargetMonth}
+          companyInfo={companyInfo}
           onClosingsUpdated={(updated) => {
             setMonthlyClosings(updated);
           }}
