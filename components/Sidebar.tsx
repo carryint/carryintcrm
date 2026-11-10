@@ -13,7 +13,8 @@ import {
   FileCheck,
   ShieldCheck,
   BookOpen,
-  UserCheck
+  UserCheck,
+  Lock
 } from 'lucide-react';
 import { User, UserRole } from '../types';
 
@@ -46,6 +47,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
       return [
         { id: 'accounting-suite', label: 'Accountant Suite', icon: BookOpen },
         { id: 'dashboard', label: 'Operations Dashboard', icon: LayoutDashboard },
+        { id: 'monthly-closing', label: 'Monthly Sales Closing', icon: Lock },
         { id: 'invoices', label: 'Invoices', icon: Receipt },
         { id: 'tracking', label: 'Shipment Tracking', icon: Truck },
         { id: 'customers', label: 'Customers & AR', icon: Users },
@@ -60,6 +62,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
     if (role === 'MANAGER') {
       return [
         { id: 'dashboard', label: 'Business Dashboard', icon: LayoutDashboard },
+        { id: 'monthly-closing', label: 'Monthly Sales Closing', icon: Lock },
         { id: 'invoices', label: 'Invoices (Edit & Manage)', icon: Receipt },
         { id: 'tracking', label: 'Shipment Tracking & WP', icon: Truck },
         { id: 'quotations', label: 'Quotations', icon: FileCheck },
@@ -77,6 +80,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
     // Default: ADMIN (System Administrator)
     return [
       { id: 'dashboard', label: 'Executive Dashboard', icon: LayoutDashboard },
+      { id: 'monthly-closing', label: 'Monthly Sales Closing', icon: Lock },
       { id: 'user-analytics', label: 'Users & Work Reports', icon: UserCheck },
       { id: 'invoices', label: 'Invoices', icon: Receipt },
       { id: 'tracking', label: 'Shipment Tracking & WP', icon: Truck },

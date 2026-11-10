@@ -8,12 +8,13 @@ import {
   Wallet, X, FileText, ExternalLink, Calendar as CalendarIcon, Download, 
   UserCheck, Users, ArrowUpRight, ArrowDownRight, Sparkles, Layers, 
   Globe, ChevronLeft, ChevronRight, Filter, BarChart3, PieChart, 
-  Activity, Search, ShieldAlert, RefreshCw, Compass
+  Activity, Search, ShieldAlert, RefreshCw, Compass, Lock, AlertTriangle, CalendarCheck
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatCurrency, sortInvoicesByNewestCreated } from '../utils';
-import { Invoice, Expense, AdjustmentNote, User, Customer, Vendor } from '../types';
+import { Invoice, Expense, AdjustmentNote, User, Customer, Vendor, MonthlySalesClosing } from '../types';
+import { filterInvoicesByCycle, filterExpensesByCycle, filterAdjustmentsByCycle, formatMonthDisplay, checkClosingWindow } from '../monthlyClosingService';
 
 interface DashboardProps {
   invoices: Invoice[];
@@ -23,6 +24,8 @@ interface DashboardProps {
   customers?: Customer[];
   vendors?: Vendor[];
   onInvoiceClick: (invoice: Invoice) => void;
+  closings?: MonthlySalesClosing[];
+  onOpenClosingModal?: (month?: string) => void;
 }
 
 // ---------------------------------------------------------
@@ -585,7 +588,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   users = [], 
   customers = [],
   vendors = [],
-  onInvoiceClick 
+  onInvoiceClick,
+  closings = [],
+  onOpenClosingModal
 }) => {
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -601,9 +606,30 @@ const Dashboard: React.FC<DashboardProps> = ({
   // Advanced Analytics Active View Tab
   const [activeAnalyticsTab, setActiveAnalyticsTab] = useState<'overview' | 'aging' | 'lanes' | 'customers'>('overview');
 
-  // Filter Invoices
+  // Sales Cycle Selection ('active' = new sales report only; or specific closed month e.g. '2026-11'; or 'all')
+  const finalizedClosings = useMemo(() => {
+    return closings.filter(c => c.isClosed).sort((a, b) => b.month.localeCompare(a.month));
+  }, [closings]);
+
+  const latestClosedMonth = finalizedClosings[0] || null;
+  const [selectedCycle, setSelectedCycle] = useState<string>('active');
+
+  // Filter items by Sales Cycle (enforces roll-forward of sales entered after cutoff date)
+  const cycleInvoices = useMemo(() => {
+    return filterInvoicesByCycle(invoices, selectedCycle, closings);
+  }, [invoices, selectedCycle, closings]);
+
+  const cycleExpenses = useMemo(() => {
+    return filterExpensesByCycle(expenses, selectedCycle, closings);
+  }, [expenses, selectedCycle, closings]);
+
+  const cycleAdjustments = useMemo(() => {
+    return filterAdjustmentsByCycle(adjustmentNotes, selectedCycle, closings);
+  }, [adjustmentNotes, selectedCycle, closings]);
+
+  // Filter Invoices (applied on cycle-filtered invoices)
   const filteredInvoices = useMemo(() => {
-    return invoices.filter(inv => {
+    return cycleInvoices.filter(inv => {
       // 1. Creator filter
       if (selectedCreatorFilter !== 'all') {
         const matchCreator = inv.createdBy === selectedCreatorFilter || 
@@ -656,11 +682,11 @@ const Dashboard: React.FC<DashboardProps> = ({
       }
       return true;
     });
-  }, [invoices, selectedCreatorFilter, selectedCalendarDate, dateFilter, customStartDate, customEndDate]);
+  }, [cycleInvoices, selectedCreatorFilter, selectedCalendarDate, dateFilter, customStartDate, customEndDate]);
 
   // Filter Expenses
   const filteredExpenses = useMemo(() => {
-    return expenses.filter(exp => {
+    return cycleExpenses.filter(exp => {
       if (selectedCreatorFilter !== 'all') {
         const matchCreator = exp.createdBy === selectedCreatorFilter ||
           exp.createdByName?.toLowerCase() === selectedCreatorFilter.toLowerCase();
@@ -710,11 +736,11 @@ const Dashboard: React.FC<DashboardProps> = ({
       }
       return true;
     });
-  }, [expenses, selectedCreatorFilter, selectedCalendarDate, dateFilter, customStartDate, customEndDate]);
+  }, [cycleExpenses, selectedCreatorFilter, selectedCalendarDate, dateFilter, customStartDate, customEndDate]);
 
   // Filter Adjustments
   const filteredAdjustments = useMemo(() => {
-    return adjustmentNotes.filter(adj => {
+    return cycleAdjustments.filter(adj => {
       if (selectedCalendarDate) {
         const adjDateKey = adj.date?.slice(0, 10);
         if (adjDateKey !== selectedCalendarDate) return false;
@@ -762,7 +788,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       }
       return true;
     });
-  }, [adjustmentNotes, selectedCalendarDate, dateFilter, customStartDate, customEndDate]);
+  }, [cycleAdjustments, selectedCalendarDate, dateFilter, customStartDate, customEndDate]);
 
   // Financial Computations
   const debitAdjustments = filteredAdjustments.filter(n => n.type === 'DEBIT').reduce((sum, n) => sum + n.amount, 0);
@@ -1210,6 +1236,63 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
+      </div>
+
+      {/* 3D SALES CYCLE & MONTHLY CLOSING STATUS BAR */}
+      <div className="relative z-10 glass-ultra p-3 sm:p-4 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.85)] flex flex-col md:flex-row gap-3 items-center justify-between card-3d no-print border border-orange-500/30">
+        <div className="scrawl-beam-wrapper">
+          <div className="scrawl-beam"></div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto relative z-10">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/70 border border-white/10 card-3d">
+            <Lock size={13} className="text-orange-400" />
+            <span className="text-[11px] font-black uppercase tracking-wider text-zinc-300">Sales Cycle:</span>
+            <select
+              value={selectedCycle}
+              onChange={(e) => setSelectedCycle(e.target.value)}
+              className="bg-transparent text-xs font-black text-orange-400 outline-none cursor-pointer"
+            >
+              <option value="active" className="bg-zinc-950 text-white">
+                ⚡ Active Cycle ({latestClosedMonth ? `Showing New Sales after ${latestClosedMonth.cutoffDate}` : 'Open Month'})
+              </option>
+              {finalizedClosings.map(c => (
+                <option key={c.id} value={c.month} className="bg-zinc-950 text-white">
+                  🔒 {c.monthName} (Finalized: {c.cutoffDate} • AED {c.closingBalance.toLocaleString()})
+                </option>
+              ))}
+              <option value="all" className="bg-zinc-950 text-white">
+                🌐 All Invoices (All Time Combined)
+              </option>
+            </select>
+          </div>
+
+          {selectedCycle === 'active' && latestClosedMonth && (
+            <div className="hidden xl:flex items-center gap-1.5 text-[11px] text-zinc-300 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span>
+                <strong>{latestClosedMonth.monthName}</strong> finalized as of {latestClosedMonth.cutoffDate}. Dashboard is displaying <strong>new sales and profit reports only</strong>.
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 w-full md:w-auto justify-end relative z-10">
+          {onOpenClosingModal && (
+            <button
+              onClick={() => onOpenClosingModal()}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-400 text-black text-xs font-black shadow-md shadow-orange-500/30 card-3d active:scale-95 flex items-center gap-1.5 transition-all hover:scale-105"
+            >
+              <CalendarCheck size={13} />
+              <span>Monthly Sales Closing</span>
+              {finalizedClosings.length > 0 && (
+                <span className="ml-1 text-[9px] font-black px-1.5 py-0.2 rounded-full bg-black/30 text-white">
+                  {finalizedClosings.length} Closed
+                </span>
+              )}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 3D FILTER & EXPORT BAR */}

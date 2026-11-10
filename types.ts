@@ -159,6 +159,27 @@ export interface PeriodClosing {
   };
 }
 
+export interface MonthlySalesClosing {
+  id: string;                      // Unique ID e.g. "MSC-2026-11"
+  month: string;                   // Format: "YYYY-MM" (e.g. "2026-11")
+  monthName: string;               // e.g. "November 2026"
+  startDate: string;               // Start date of period (YYYY-MM-DD)
+  cutoffDate: string;              // Date sales were closed (YYYY-MM-DD)
+  closedAt: string;                // ISO timestamp when finalized
+  closedBy: string;                // User ID who performed closing
+  closedByName: string;            // User display name
+  totalRevenue: number;            // Finalized monthly revenue (AED)
+  grossProfit: number;             // Finalized gross profit (AED)
+  vendorPayments: number;          // Vendor payments made / incurred for the month (AED)
+  commissionPayments: number;      // Commission payments made / incurred for the month (AED)
+  companyExpenses: number;         // Company expenses logged for the month (AED)
+  netProfit: number;               // Calculated net profit of the month (AED)
+  closingBalance: number;          // Confirmed / entered month closing balance or profit balance (AED)
+  notes?: string;                  // Manager / auditor remarks
+  isClosed: boolean;               // True when finalized
+  includedInvoiceIds: string[];    // IDs of invoices finalized in this month
+}
+
 export interface AccountingApproval {
   id: string;
   type: 'INVOICE_EDIT' | 'EXPENSE_CLAIM' | 'ADJUSTMENT_NOTE' | 'JOURNAL_ENTRY' | 'PERIOD_CLOSING';

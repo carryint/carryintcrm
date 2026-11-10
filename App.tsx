@@ -20,7 +20,10 @@ import CarrierAwbModal from './components/CarrierAwbModal';
 import TrackingManagement from './components/TrackingManagement';
 import { supabase } from './supabase';
 import { safeStorage } from './safeStorage';
-import { Customer, Vendor, Invoice, CompanyInfo, User, Expense, AdjustmentNote, Quotation, PaymentStatus } from './types';
+import { Customer, Vendor, Invoice, CompanyInfo, User, Expense, AdjustmentNote, Quotation, PaymentStatus, MonthlySalesClosing } from './types';
+import { MonthlySalesClosingModal } from './components/MonthlySalesClosingModal';
+import { MonthlySalesClosingBanner } from './components/MonthlySalesClosingBanner';
+import { getStoredMonthlyClosings, saveMonthlyClosingToStorage, checkClosingWindow } from './monthlyClosingService';
 import { COMPANY_INFO as DEFAULT_COMPANY_INFO } from './constants';
 import {
   Bell, Search,
@@ -79,6 +82,9 @@ const App: React.FC = () => {
   const [invoiceFilterDate, setInvoiceFilterDate] = useState('');
   const [invoiceFilterMonth, setInvoiceFilterMonth] = useState('');
   const [invoiceFilterCreator, setInvoiceFilterCreator] = useState('ALL');
+  const [monthlyClosings, setMonthlyClosings] = useState<MonthlySalesClosing[]>(() => getStoredMonthlyClosings());
+  const [isClosingModalOpen, setIsClosingModalOpen] = useState(false);
+  const [closingModalTargetMonth, setClosingModalTargetMonth] = useState<string | undefined>(undefined);
 
   // Load initial data from Supabase Cloud with resilient multi-tier offline caching
   const loadData = async (forceCloud = false) => {
@@ -109,6 +115,9 @@ const App: React.FC = () => {
 
       const cachedQuotes = safeStorage.getJSON<Quotation[]>('carryint_quotations', null);
       if (cachedQuotes && cachedQuotes.length > 0) setQuotations(cachedQuotes);
+
+      const cachedClosings = safeStorage.getJSON<MonthlySalesClosing[]>('carryint_monthly_closings', null);
+      if (cachedClosings && cachedClosings.length > 0) setMonthlyClosings(cachedClosings);
 
       // 2. Fetch all live data from Supabase Cloud in parallel using Promise.allSettled
       // Guarantees mobile network fluctuations or missing tables never abort data loading
@@ -249,6 +258,38 @@ const App: React.FC = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Automatic Monthly Sales Closing Popup (Triggered within 3 days of month end or unclosed past month)
+  useEffect(() => {
+    if (!currentUser) return;
+    const windowStatus = checkClosingWindow(new Date(), monthlyClosings);
+    const sessionPopupKey = 'carryint_closing_popup_shown_' + windowStatus.currentMonthStr;
+    
+    if (windowStatus.isClosingWindowActive || windowStatus.isPrevMonthUnclosed) {
+      try {
+        const alreadyShown = sessionStorage.getItem(sessionPopupKey);
+        if (!alreadyShown) {
+          sessionStorage.setItem(sessionPopupKey, 'true');
+          setIsClosingModalOpen(true);
+          setClosingModalTargetMonth(
+            windowStatus.isPrevMonthUnclosed && !windowStatus.isClosingWindowActive
+              ? windowStatus.prevMonthStr
+              : windowStatus.currentMonthStr
+          );
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, [monthlyClosings, currentUser]);
+
+  // Handle sidebar navigation to monthly sales closing
+  useEffect(() => {
+    if (activeTab === 'monthly-closing') {
+      setIsClosingModalOpen(true);
+      setActiveTab('dashboard');
+    }
+  }, [activeTab]);
 
   const handleLogin = async (emailInput: string, passInput: string) => {
     setAuthError('');
@@ -967,42 +1008,6 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        if (currentUser?.role === 'STAFF') {
-          return (
-            <StaffDashboard
-              currentUser={currentUser}
-              invoices={invoices}
-              quotations={quotations}
-              onNavigate={setActiveTab}
-              onInvoiceClick={(inv) => {
-                setSelectedInvoice(inv);
-                setActiveTab('view-invoice');
-              }}
-              onQuotationClick={(q) => {
-                setSelectedQuotation(q);
-                setActiveTab('view-quotation');
-              }}
-            />
-          );
-        }
-        if (currentUser?.role === 'ACCOUNTANT') {
-          return (
-            <AccountantDashboard
-              invoices={invoices}
-              customers={customers}
-              vendors={vendors}
-              companyInfo={companyInfo}
-              expenses={expenses}
-              adjustmentNotes={adjustmentNotes}
-              currentUser={currentUser}
-              onNavigate={setActiveTab}
-              onInvoiceClick={(inv) => {
-                setSelectedInvoice(inv);
-                setActiveTab('view-invoice');
-              }}
-            />
-          );
-        }
         return (
           <Dashboard 
             invoices={invoices} 
@@ -1011,9 +1016,31 @@ const App: React.FC = () => {
             users={users} 
             customers={customers} 
             vendors={vendors} 
+            closings={monthlyClosings}
+            onOpenClosingModal={(m) => {
+              setClosingModalTargetMonth(m);
+              setIsClosingModalOpen(true);
+            }}
             onInvoiceClick={(inv) => {
               setSelectedInvoice(inv);
               setActiveTab('view-invoice');
+            }}
+          />
+        );
+      case 'staff-dashboard':
+        return (
+          <StaffDashboard
+            currentUser={currentUser!}
+            invoices={invoices}
+            quotations={quotations}
+            onNavigate={setActiveTab}
+            onInvoiceClick={(inv) => {
+              setSelectedInvoice(inv);
+              setActiveTab('view-invoice');
+            }}
+            onQuotationClick={(q) => {
+              setSelectedQuotation(q);
+              setActiveTab('view-quotation');
             }}
           />
         );
@@ -2386,6 +2413,15 @@ const App: React.FC = () => {
           </div>
         </header>
 
+        {/* Monthly Sales Closing Notification Banner */}
+        <MonthlySalesClosingBanner
+          closings={monthlyClosings}
+          onOpenClosingModal={(m) => {
+            setClosingModalTargetMonth(m);
+            setIsClosingModalOpen(true);
+          }}
+        />
+
         <div className="p-3 sm:p-4 lg:p-6 max-w-full">
           {renderContent()}
         </div>
@@ -2398,6 +2434,23 @@ const App: React.FC = () => {
           currentUser={currentUser}
           onClose={() => setCarrierModalInvoice(null)}
           onSave={handleQuickUpdateCarrier}
+        />
+      )}
+
+      {/* Monthly Sales Closing & Finalization Modal */}
+      {currentUser && (
+        <MonthlySalesClosingModal
+          isOpen={isClosingModalOpen}
+          onClose={() => setIsClosingModalOpen(false)}
+          invoices={invoices}
+          expenses={expenses}
+          adjustmentNotes={adjustmentNotes}
+          closings={monthlyClosings}
+          currentUser={currentUser}
+          defaultMonth={closingModalTargetMonth}
+          onClosingsUpdated={(updated) => {
+            setMonthlyClosings(updated);
+          }}
         />
       )}
     </div>
