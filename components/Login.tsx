@@ -18,7 +18,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, error, companyName }) => {
     };
 
     return (
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="min-h-screen crm-black-orange-bg flex items-center justify-center p-4 relative overflow-hidden">
             <div className="max-w-md w-full animate-in fade-in zoom-in duration-300">
                 <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
                     <div className="bg-orange-600 p-8 text-white text-center">
@@ -46,7 +46,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, error, companyName }) => {
                                         required
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
-                                        className="w-full pl-12 pr-4 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-orange-500 outline-none transition-all font-medium"
+                                        className="w-full pl-12 pr-4 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-orange-500 outline-none transition-all font-medium text-gray-900"
                                         placeholder="name@company.com"
                                         autoCapitalize="none"
                                         autoCorrect="off"
@@ -65,7 +65,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, error, companyName }) => {
                                         required
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
-                                        className="w-full pl-12 pr-12 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-orange-500 outline-none transition-all font-medium"
+                                        className="w-full pl-12 pr-12 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-orange-500 outline-none transition-all font-medium text-gray-900"
                                         placeholder="••••••••"
                                         autoCapitalize="none"
                                         autoCorrect="off"

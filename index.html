@@ -135,6 +135,20 @@
     .no-scrollbar::-webkit-scrollbar {
       display: none;
     }
+    
+    /* High contrast text readability for forms, inputs, and cards */
+    input, select, textarea {
+      color: #0f172a;
+    }
+    header input,
+    .dark-glass-input,
+    [class*="text-white"] input:not([class*="text-slate-"]):not([class*="text-gray-"]):not([class*="text-black"]) {
+      color: #ffffff;
+    }
+    .bg-white, .bg-gray-50, .bg-slate-50, .bg-amber-50, .bg-amber-100 {
+      color: #0f172a;
+    }
+
     .no-scrollbar {
       -ms-overflow-style: none;
       scrollbar-width: none;
@@ -333,7 +347,7 @@
 
 </head>
 
-<body class="crm-black-orange-bg text-white min-h-screen">
+<body class="crm-black-orange-bg text-gray-900 min-h-screen">
   <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>

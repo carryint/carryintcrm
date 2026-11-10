@@ -32,7 +32,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
   const getMenuItems = () => {
     if (role === 'STAFF') {
       return [
-        { id: 'dashboard', label: 'My Sales Dashboard', icon: LayoutDashboard },
+        { id: 'dashboard', label: 'Operations Dashboard', icon: LayoutDashboard },
+        { id: 'staff-dashboard', label: 'My Sales Workspace', icon: UserCheck },
         { id: 'invoices', label: 'Invoices', icon: Receipt },
         { id: 'tracking', label: 'Shipment Tracking', icon: Truck },
         { id: 'create-invoice', label: 'Create Invoice', icon: PlusCircle },

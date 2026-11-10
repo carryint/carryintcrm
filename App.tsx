@@ -2335,7 +2335,7 @@ const App: React.FC = () => {
         currentUser={currentUser}
       />
 
-      <main className={`lg:pl-64 min-h-screen ${activeTab === 'view-invoice' ? 'bg-white text-gray-900' : 'crm-black-orange-bg text-white'}`}>
+      <main className={`lg:pl-64 min-h-screen ${activeTab === 'dashboard' ? 'crm-black-orange-bg text-white' : activeTab === 'view-invoice' ? 'bg-white text-gray-900' : 'crm-black-orange-bg text-gray-900'}`}>
         <header className={`h-14 ${activeTab === 'view-invoice' ? 'bg-white border-b border-gray-200 text-gray-900' : 'bg-black/75 backdrop-blur-2xl border-b border-orange-500/20 text-white shadow-lg shadow-black/40'} flex items-center justify-between px-3 sm:px-6 sticky top-0 z-10 no-print transition-colors`}>
           <div className="flex items-center gap-3">
             <button

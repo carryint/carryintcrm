@@ -262,12 +262,24 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({ invoices, selecte
   const handleToday = () => {
     const today = new Date();
     setCurrentMonthDate(today);
-    const todayStr = today.toISOString().slice(0, 10);
+    const getLocalDateStr = (d: Date = new Date()) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+    const todayStr = getLocalDateStr(today);
     onSelectDate(todayStr);
   };
 
   const monthLabel = currentMonthDate.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const getLocalDateStr = (d: Date = new Date()) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  const todayStr = getLocalDateStr(new Date());
 
   const calendarCells = [];
   for (let i = 0; i < firstDayIndex; i++) {
@@ -567,9 +579,9 @@ const RatioIndicator = ({ label, value, colorGradient, tooltip }: { label: strin
 // MAIN DASHBOARD COMPONENT
 // ---------------------------------------------------------
 const Dashboard: React.FC<DashboardProps> = ({ 
-  invoices, 
-  expenses, 
-  adjustmentNotes, 
+  invoices = [], 
+  expenses = [], 
+  adjustmentNotes = [], 
   users = [], 
   customers = [],
   vendors = [],
