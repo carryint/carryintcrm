@@ -141,22 +141,20 @@ export const isInvoiceInFinalizedClosing = (
 ): MonthlySalesClosing | null => {
   if (!invoice || !closings || closings.length === 0) return null;
 
-  // Check by explicit included invoice IDs first
   for (const closing of closings) {
     if (!closing.isClosed) continue;
-    if (closing.includedInvoiceIds && closing.includedInvoiceIds.includes(invoice.id)) {
-      return closing;
-    }
-  }
-
-  // Check by date range
-  const invDate = (invoice.date || '').slice(0, 10);
-  for (const closing of closings) {
-    if (!closing.isClosed) continue;
-    const start = (closing.startDate || `${closing.month}-01`).slice(0, 10);
-    const end = (closing.cutoffDate || `${closing.month}-31`).slice(0, 10);
-    if (invDate >= start && invDate <= end) {
-      return closing;
+    // When includedInvoiceIds exists, it is authoritative!
+    if (Array.isArray(closing.includedInvoiceIds)) {
+      if (closing.includedInvoiceIds.includes(invoice.id)) {
+        return closing;
+      }
+    } else {
+      const invDate = (invoice.date || '').slice(0, 10);
+      const start = (closing.startDate || `${closing.month}-01`).slice(0, 10);
+      const end = (closing.cutoffDate || `${closing.month}-31`).slice(0, 10);
+      if (invDate >= start && invDate <= end) {
+        return closing;
+      }
     }
   }
 
@@ -179,25 +177,15 @@ export const filterInvoicesByCycle = (
   if (cycle === 'all') return invoices;
 
   if (cycle === 'active') {
-    // Find latest finalized closing
     const closedList = closings.filter(c => c.isClosed).sort((a, b) => b.month.localeCompare(a.month));
     if (closedList.length === 0) {
-      // No closings yet: all invoices are part of the active cycle
       return invoices;
     }
 
-    const latestClosing = closedList[0];
     return invoices.filter(inv => {
       // Exclude if locked into any closed period
       if (isInvoiceInFinalizedClosing(inv, closings)) return false;
-
-      // Include if dated after latest cutoff date or in future months
-      const invDate = (inv.date || '').slice(0, 10);
-      if (invDate > latestClosing.cutoffDate) return true;
-
-      // If dated before latest cutoff date but not in any closed month (e.g. from an unclosed previous month)
-      const effectiveMonth = getEffectiveSalesMonth(inv.date, closings);
-      return effectiveMonth > latestClosing.month;
+      return true;
     });
   }
 
@@ -448,5 +436,43 @@ export const checkClosingWindow = (
     isPrevMonthUnclosed,
     prevMonthStr,
     prevMonthName
+  };
+};
+
+
+/**
+ * Dynamically calculates financials from an arbitrary set of selected invoices
+ */
+export const calculateTotalsForInvoices = (
+  targetInvoices: Invoice[],
+  eligibleAdjustments: AdjustmentNote[] = [],
+  companyExpensesAmt: number = 0
+) => {
+  const debitAdj = eligibleAdjustments.filter(a => a.type === 'DEBIT').reduce((s, a) => s + a.amount, 0);
+  const creditAdj = eligibleAdjustments.filter(a => a.type === 'CREDIT').reduce((s, a) => s + a.amount, 0);
+  const netAdj = debitAdj - creditAdj;
+
+  const totalRevenue = targetInvoices.reduce((s, i) => s + (i.totalAmount || 0), 0) + netAdj;
+  const grossProfit = targetInvoices.reduce((s, i) => s + (i.profit || 0), 0) + netAdj;
+
+  const vendorPayments = targetInvoices.reduce((s, i) => {
+    if (i.vendorStatus === 'PAID') return s + (i.vendorCost || 0);
+    if (i.vendorStatus === 'PARTIAL') return s + (i.vendorPaidAmount || 0);
+    return s;
+  }, 0);
+
+  const commissionPayments = targetInvoices.reduce((s, i) => {
+    if (i.agentStatus === 'PAID') return s + (i.agentCommission || 0);
+    return s;
+  }, 0);
+
+  const netProfit = grossProfit - companyExpensesAmt;
+
+  return {
+    totalRevenue,
+    grossProfit,
+    vendorPayments,
+    commissionPayments,
+    netProfit
   };
 };

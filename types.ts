@@ -167,7 +167,10 @@ export interface MonthlySalesClosing {
   cutoffDate: string;              // Date sales were closed (YYYY-MM-DD)
   closedAt: string;                // ISO timestamp when finalized
   closedBy: string;                // User ID who performed closing
-  closedByName: string;            // User display name
+  closedByName: string;
+  updatedAt?: string;
+  updatedBy?: string;
+  updatedByName?: string;            // User display name
   totalRevenue: number;            // Finalized monthly revenue (AED)
   grossProfit: number;             // Finalized gross profit (AED)
   vendorPayments: number;          // Vendor payments made / incurred for the month (AED)
