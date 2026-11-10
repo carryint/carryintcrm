@@ -1007,8 +1007,10 @@ const App: React.FC = () => {
           <Dashboard 
             invoices={invoices} 
             expenses={expenses} 
-            adjustmentNotes={adjustmentNotes}
-            users={users}
+            adjustmentNotes={adjustmentNotes} 
+            users={users} 
+            customers={customers} 
+            vendors={vendors} 
             onInvoiceClick={(inv) => {
               setSelectedInvoice(inv);
               setActiveTab('view-invoice');
@@ -2298,7 +2300,10 @@ const App: React.FC = () => {
           <Dashboard 
             invoices={invoices} 
             expenses={expenses} 
-            adjustmentNotes={adjustmentNotes}
+            adjustmentNotes={adjustmentNotes} 
+            users={users} 
+            customers={customers} 
+            vendors={vendors} 
             onInvoiceClick={(inv) => {
               setSelectedInvoice(inv);
               setActiveTab('view-invoice');
@@ -2330,34 +2335,34 @@ const App: React.FC = () => {
         currentUser={currentUser}
       />
 
-      <main className={`lg:pl-64 min-h-screen bg-gray-50 ${activeTab === 'view-invoice' ? 'bg-white' : ''}`}>
-        <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-3 sm:px-6 sticky top-0 z-10 no-print">
+      <main className={`lg:pl-64 min-h-screen ${activeTab === 'dashboard' ? 'bg-[#07080c]' : activeTab === 'view-invoice' ? 'bg-white' : 'bg-gray-50'}`}>
+        <header className={`h-14 ${activeTab === 'dashboard' ? 'bg-black/70 backdrop-blur-xl border-b border-white/10 text-white' : 'bg-white border-b border-gray-200'} flex items-center justify-between px-3 sm:px-6 sticky top-0 z-10 no-print transition-colors`}>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg"
+              className={`lg:hidden p-1.5 ${activeTab === 'dashboard' ? 'text-zinc-300 hover:bg-white/10' : 'text-gray-500 hover:bg-gray-100'} rounded-lg`}
             >
               <Menu size={20} />
             </button>
             <div className="relative w-44 sm:w-72 lg:w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${activeTab === 'dashboard' ? 'text-zinc-400' : 'text-gray-400'}`} size={16} />
               <input
                 placeholder={`Search in ${activeTab.replace('-', ' ')}...`}
-                className="w-full bg-gray-50 border border-gray-100 rounded-lg pl-9 pr-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-orange-500 transition-all font-medium"
+                className={`w-full ${activeTab === 'dashboard' ? 'bg-white/10 border-white/15 text-white placeholder-zinc-400' : 'bg-gray-50 border-gray-100 text-gray-900'} rounded-lg pl-9 pr-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-orange-500 transition-all font-medium`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
           </div>
           <div className="flex items-center gap-2 lg:gap-5">
-            <div className="relative cursor-pointer text-gray-500 hover:text-orange-600 p-1.5">
+            <div className={`relative cursor-pointer ${activeTab === 'dashboard' ? 'text-zinc-300 hover:text-orange-400' : 'text-gray-500 hover:text-orange-600'} p-1.5`}>
               <Bell size={18} />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full border-2 border-white"></span>
             </div>
-            <div className="flex items-center gap-2.5 lg:pl-5 lg:border-l border-gray-200">
+            <div className={`flex items-center gap-2.5 lg:pl-5 lg:border-l ${activeTab === 'dashboard' ? 'border-white/10' : 'border-gray-200'}`}>
               <div className="text-right hidden sm:block">
                 <div className="flex items-center justify-end gap-1.5">
-                  <p className="text-xs font-bold text-gray-900 leading-none">{currentUser.name}</p>
+                  <p className={`text-xs font-bold ${activeTab === 'dashboard' ? 'text-white' : 'text-gray-900'} leading-none`}>{currentUser.name}</p>
                   <span className={`text-[8.5px] font-black uppercase px-1.5 py-0.5 rounded-full border ${
                     currentUser.role === 'ADMIN' ? 'bg-purple-100 text-purple-800 border-purple-200' :
                     currentUser.role === 'MANAGER' ? 'bg-blue-100 text-blue-800 border-blue-200' :
