@@ -38,15 +38,99 @@
       height: 6px;
     }
     ::-webkit-scrollbar-track {
-      background: #f1f5f9;
+      background: #06070a;
     }
     ::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
+      background: #2a150c;
       border-radius: 4px;
+      border: 1px solid rgba(234, 88, 12, 0.3);
     }
     ::-webkit-scrollbar-thumb:hover {
-      background: #94a3b8;
+      background: #ea580c;
     }
+    /* CRM Black & Orange Deep Gradient Background */
+    .crm-black-orange-bg {
+      background: 
+        radial-gradient(circle at 10% 15%, rgba(234, 88, 12, 0.22) 0%, transparent 40%),
+        radial-gradient(circle at 90% 25%, rgba(194, 65, 12, 0.16) 0%, transparent 45%),
+        radial-gradient(circle at 50% 85%, rgba(249, 115, 22, 0.14) 0%, transparent 50%),
+        radial-gradient(circle at 80% 90%, rgba(154, 52, 18, 0.15) 0%, transparent 40%),
+        linear-gradient(145deg, #040507 0%, #0d0705 30%, #170b05 60%, #06070a 100%);
+      background-attachment: fixed;
+    }
+
+    /* 3D Depth, Perspective & Interactive Tactile Feedback */
+    .perspective-container {
+      perspective: 1200px;
+    }
+
+    .card-3d {
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
+      transform-style: preserve-3d;
+      will-change: transform, box-shadow;
+    }
+
+    .card-3d:hover {
+      transform: translateY(-6px) scale(1.012);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9), 0 0 35px rgba(234, 88, 12, 0.28);
+    }
+
+    .card-3d:active {
+      transform: translateY(-1px) scale(0.975);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.95), 0 0 15px rgba(234, 88, 12, 0.2);
+    }
+
+    /* Scrawling / Laser Light Shimmer Beam */
+    @keyframes crawl-beam {
+      0% {
+        transform: translateX(-150%);
+      }
+      50% {
+        transform: translateX(150%);
+      }
+      100% {
+        transform: translateX(300%);
+      }
+    }
+
+    .scrawl-beam-wrapper {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      border-radius: inherit;
+      z-index: 5;
+    }
+
+    .scrawl-beam {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 45%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(249, 115, 22, 0.9), rgba(254, 215, 170, 1), rgba(249, 115, 22, 0.9), transparent);
+      animation: crawl-beam 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      box-shadow: 0 0 14px rgba(249, 115, 22, 0.95);
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 0.2; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(1.06); }
+    }
+
+    .animate-pulse-glow {
+      animation: pulse-glow 5s ease-in-out infinite;
+    }
+
+    @keyframes rotate-slow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .animate-rotate-slow {
+      animation: rotate-slow 20s linear infinite;
+    }
+
 
     .no-scrollbar::-webkit-scrollbar {
       display: none;
@@ -247,10 +331,10 @@
     }
   </style>
 
-  <script type="module" crossorigin src="./assets/index-DQ4cm8Jn.js"></script>
+  <script type="module" crossorigin src="./assets/index-CmhrU-4h.js"></script>
 </head>
 
-<body class="bg-gray-50 text-gray-900">
+<body class="crm-black-orange-bg text-white min-h-screen">
   <div id="root"></div>
 </body>
 
