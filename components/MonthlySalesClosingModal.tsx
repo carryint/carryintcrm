@@ -73,27 +73,53 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
   const [activeTab, setActiveTab] = useState<'close-month' | 'closing-history'>('close-month');
   const [selectedMonth, setSelectedMonth] = useState<string>(initialMonth);
 
-  // Default cutoff date
-  const defaultCutoff = useMemo(() => {
+  // Today formatted as YYYY-MM-DD
+  const todayStr = useMemo(() => {
     const now = new Date();
-    const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    if (selectedMonth === currentMonthStr) {
-      const y = now.getFullYear();
-      const m = String(now.getMonth() + 1).padStart(2, '0');
-      const d = String(now.getDate()).padStart(2, '0');
-      return `${y}-${m}-${d}`;
-    }
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }, []);
+
+  // 3 days before month-end formatted as YYYY-MM-DD (e.g. 28th for 30-day month)
+  const threeDaysBeforeMonthEndStr = useMemo(() => {
     const [yStr, mStr] = selectedMonth.split('-');
-    const lastDay = new Date(parseInt(yStr, 10), parseInt(mStr, 10), 0).getDate();
+    const y = parseInt(yStr, 10);
+    const m = parseInt(mStr, 10);
+    const lastDay = new Date(y, m, 0).getDate();
+    const targetDay = Math.max(1, lastDay - 2);
+    return `${selectedMonth}-${String(targetDay).padStart(2, '0')}`;
+  }, [selectedMonth]);
+
+  // Last day of month formatted as YYYY-MM-DD
+  const monthEndStr = useMemo(() => {
+    const [yStr, mStr] = selectedMonth.split('-');
+    const y = parseInt(yStr, 10);
+    const m = parseInt(mStr, 10);
+    const lastDay = new Date(y, m, 0).getDate();
     return `${selectedMonth}-${String(lastDay).padStart(2, '0')}`;
   }, [selectedMonth]);
 
-  const [cutoffDate, setCutoffDate] = useState<string>(defaultCutoff);
+  // Automatic default cutoff date for closing
+  const autoDefaultCutoff = useMemo(() => {
+    const currentMonthStr = todayStr.slice(0, 7);
+    if (selectedMonth === currentMonthStr) {
+      return todayStr;
+    }
+    return monthEndStr;
+  }, [selectedMonth, todayStr, monthEndStr]);
 
-  // Sync cutoff date when month changes
+  // Cutoff Date Selection Mode: 'auto' (automatic default date) | 'custom' (choose date)
+  const [cutoffMode, setCutoffMode] = useState<'auto' | 'custom'>('auto');
+  const [cutoffDate, setCutoffDate] = useState<string>(autoDefaultCutoff);
+
+  // Sync cutoff date when month changes or when in auto mode
   useEffect(() => {
-    setCutoffDate(defaultCutoff);
-  }, [defaultCutoff]);
+    if (cutoffMode === 'auto') {
+      setCutoffDate(autoDefaultCutoff);
+    }
+  }, [autoDefaultCutoff, cutoffMode]);
 
   // Existing closing record for selected month
   const existingClosing = useMemo(() => {
@@ -155,6 +181,11 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
       setClosingBalance(existingClosing.closingBalance);
       setNotes(existingClosing.notes || '');
       setCutoffDate(existingClosing.cutoffDate);
+      if (existingClosing.cutoffDate === autoDefaultCutoff) {
+        setCutoffMode('auto');
+      } else {
+        setCutoffMode('custom');
+      }
       setIsManualOverride(true);
     } else {
       setRevenue(preview.totalRevenue);
@@ -164,6 +195,8 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
       setCompanyExpenses(preview.companyExpenses);
       setClosingBalance(preview.defaultClosingBalance);
       setNotes('');
+      setCutoffMode('auto');
+      setCutoffDate(autoDefaultCutoff);
       setIsManualOverride(false);
     }
   }, [existingClosing, preview]);
@@ -454,17 +487,152 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                 <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
                   <div className="flex items-center gap-1.5 bg-black/60 px-3 py-1.5 rounded-xl border border-white/10 text-[11px]">
                     <Clock size={12} className="text-orange-400" />
-                    <span className="text-zinc-400">Cutoff Date:</span>
-                    <input
-                      type="date"
-                      value={cutoffDate}
-                      disabled={existingClosing && !isEditMode}
-                      onChange={(e) => setCutoffDate(e.target.value)}
-                      className={`bg-transparent text-white font-black outline-none ${
-                        existingClosing && !isEditMode ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
-                      }`}
-                    />
+                    <span className="text-zinc-400">Cutoff:</span>
+                    <span className="text-white font-black">{cutoffDate}</span>
+                    <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-orange-500/20 text-orange-300 border border-orange-500/40">
+                      {cutoffMode === 'auto' ? 'Auto Default' : 'Custom'}
+                    </span>
                   </div>
+                </div>
+              </div>
+
+              {/* DEDICATED CUTOFF DATE SELECTION OPTION: AUTOMATIC DEFAULT VS CHOOSE DATE */}
+              <div className="p-4 rounded-2xl glass-ultra border border-white/15 card-3d space-y-3 relative overflow-hidden">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                      <Clock size={16} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-white block uppercase tracking-wider">
+                          Cutoff Date Selection Mode
+                        </span>
+                        <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/10">
+                          {cutoffMode === 'auto' ? '⚡ Automatic Default Active' : '🗓️ Custom Chosen Date'}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-zinc-300 font-medium">
+                        Choose whether to automatically use the current default closing date or select a specific custom date.
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Dual Mode Switcher Button Group */}
+                  <div className="flex items-center gap-1.5 p-1 bg-black/80 rounded-xl border border-white/15 shrink-0 self-start sm:self-auto shadow-inner">
+                    <button
+                      type="button"
+                      disabled={existingClosing && !isEditMode}
+                      onClick={() => {
+                        setCutoffMode('auto');
+                        setCutoffDate(autoDefaultCutoff);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 ${
+                        cutoffMode === 'auto'
+                          ? 'bg-gradient-to-r from-orange-500 to-amber-400 text-black shadow-md shadow-orange-500/40'
+                          : 'text-zinc-400 hover:text-white'
+                      } ${existingClosing && !isEditMode ? 'opacity-60 cursor-not-allowed' : 'active:scale-95'}`}
+                    >
+                      <Sparkles size={12} />
+                      <span>Automatic Default</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={existingClosing && !isEditMode}
+                      onClick={() => setCutoffMode('custom')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 ${
+                        cutoffMode === 'custom'
+                          ? 'bg-gradient-to-r from-orange-500 to-amber-400 text-black shadow-md shadow-orange-500/40'
+                          : 'text-zinc-400 hover:text-white'
+                      } ${existingClosing && !isEditMode ? 'opacity-60 cursor-not-allowed' : 'active:scale-95'}`}
+                    >
+                      <Calendar size={12} />
+                      <span>Choose Date</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Mode Details & Preset Picker */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-2.5 border-t border-white/10 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-zinc-400 font-bold">Effective Cutoff Date:</span>
+                    <span className="text-sm font-black text-orange-400 px-3 py-0.5 rounded-lg bg-orange-500/15 border border-orange-500/30">
+                      {cutoffDate}
+                    </span>
+                    {cutoffMode === 'auto' ? (
+                      <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                        ✓ Locked to system default ({cutoffDate === todayStr ? 'Today' : 'Month-End'})
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                        ✓ Custom date selected
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Custom Date Controls when in Choose Date mode */}
+                  {cutoffMode === 'custom' && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[10px] text-zinc-400 font-black uppercase tracking-wider">Quick Presets:</span>
+                      
+                      <button
+                        type="button"
+                        disabled={existingClosing && !isEditMode}
+                        onClick={() => setCutoffDate(todayStr)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                          cutoffDate === todayStr
+                            ? 'bg-orange-500 text-black border-orange-400 font-black shadow-sm'
+                            : 'bg-white/5 text-zinc-300 border-white/10 hover:bg-white/10'
+                        }`}
+                      >
+                        Today ({todayStr})
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={existingClosing && !isEditMode}
+                        onClick={() => setCutoffDate(threeDaysBeforeMonthEndStr)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                          cutoffDate === threeDaysBeforeMonthEndStr
+                            ? 'bg-orange-500 text-black border-orange-400 font-black shadow-sm'
+                            : 'bg-white/5 text-zinc-300 border-white/10 hover:bg-white/10'
+                        }`}
+                      >
+                        3 Days Before End ({threeDaysBeforeMonthEndStr})
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={existingClosing && !isEditMode}
+                        onClick={() => setCutoffDate(monthEndStr)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                          cutoffDate === monthEndStr
+                            ? 'bg-orange-500 text-black border-orange-400 font-black shadow-sm'
+                            : 'bg-white/5 text-zinc-300 border-white/10 hover:bg-white/10'
+                        }`}
+                      >
+                        Month End ({monthEndStr})
+                      </button>
+
+                      {/* Explicit Date Picker Input */}
+                      <div className="flex items-center gap-1.5 bg-black/90 px-3 py-1 rounded-xl border border-orange-500/40 shadow-inner">
+                        <Calendar size={13} className="text-orange-400" />
+                        <input
+                          type="date"
+                          value={cutoffDate}
+                          disabled={existingClosing && !isEditMode}
+                          onChange={(e) => {
+                            setCutoffDate(e.target.value);
+                            setCutoffMode('custom');
+                          }}
+                          className={`bg-transparent text-xs text-white font-black outline-none ${
+                            existingClosing && !isEditMode ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+                          }`}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
