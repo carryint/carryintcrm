@@ -2335,34 +2335,34 @@ const App: React.FC = () => {
         currentUser={currentUser}
       />
 
-      <main className={`lg:pl-64 min-h-screen ${activeTab === 'dashboard' ? 'bg-[#07080c]' : activeTab === 'view-invoice' ? 'bg-white' : 'bg-gray-50'}`}>
-        <header className={`h-14 ${activeTab === 'dashboard' ? 'bg-black/70 backdrop-blur-xl border-b border-white/10 text-white' : 'bg-white border-b border-gray-200'} flex items-center justify-between px-3 sm:px-6 sticky top-0 z-10 no-print transition-colors`}>
+      <main className={`lg:pl-64 min-h-screen ${activeTab === 'view-invoice' ? 'bg-white text-gray-900' : 'crm-black-orange-bg text-white'}`}>
+        <header className={`h-14 ${activeTab === 'view-invoice' ? 'bg-white border-b border-gray-200 text-gray-900' : 'bg-black/75 backdrop-blur-2xl border-b border-orange-500/20 text-white shadow-lg shadow-black/40'} flex items-center justify-between px-3 sm:px-6 sticky top-0 z-10 no-print transition-colors`}>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className={`lg:hidden p-1.5 ${activeTab === 'dashboard' ? 'text-zinc-300 hover:bg-white/10' : 'text-gray-500 hover:bg-gray-100'} rounded-lg`}
+              className={`lg:hidden p-1.5 ${activeTab === 'view-invoice' ? 'text-gray-500 hover:bg-gray-100' : 'text-zinc-300 hover:bg-white/10'} rounded-lg card-3d active:scale-95`}
             >
               <Menu size={20} />
             </button>
             <div className="relative w-44 sm:w-72 lg:w-80">
-              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${activeTab === 'dashboard' ? 'text-zinc-400' : 'text-gray-400'}`} size={16} />
+              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${activeTab === 'view-invoice' ? 'text-gray-400' : 'text-zinc-400'}`} size={16} />
               <input
                 placeholder={`Search in ${activeTab.replace('-', ' ')}...`}
-                className={`w-full ${activeTab === 'dashboard' ? 'bg-white/10 border-white/15 text-white placeholder-zinc-400' : 'bg-gray-50 border-gray-100 text-gray-900'} rounded-lg pl-9 pr-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-orange-500 transition-all font-medium`}
+                className={`w-full ${activeTab === 'view-invoice' ? 'bg-gray-50 border-gray-100 text-gray-900' : 'bg-white/10 border-white/15 text-white placeholder-zinc-400 focus:border-orange-500/50 shadow-inner'} rounded-lg pl-9 pr-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-orange-500 transition-all font-medium`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
           </div>
           <div className="flex items-center gap-2 lg:gap-5">
-            <div className={`relative cursor-pointer ${activeTab === 'dashboard' ? 'text-zinc-300 hover:text-orange-400' : 'text-gray-500 hover:text-orange-600'} p-1.5`}>
+            <div className={`relative cursor-pointer ${activeTab === 'view-invoice' ? 'text-gray-500 hover:text-orange-600' : 'text-zinc-300 hover:text-orange-400'} p-1.5 card-3d active:scale-95`}>
               <Bell size={18} />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full border-2 border-white"></span>
             </div>
             <div className={`flex items-center gap-2.5 lg:pl-5 lg:border-l ${activeTab === 'dashboard' ? 'border-white/10' : 'border-gray-200'}`}>
               <div className="text-right hidden sm:block">
                 <div className="flex items-center justify-end gap-1.5">
-                  <p className={`text-xs font-bold ${activeTab === 'dashboard' ? 'text-white' : 'text-gray-900'} leading-none`}>{currentUser.name}</p>
+                  <p className={`text-xs font-bold ${activeTab === 'view-invoice' ? 'text-gray-900' : 'text-white'} leading-none`}>{currentUser.name}</p>
                   <span className={`text-[8.5px] font-black uppercase px-1.5 py-0.5 rounded-full border ${
                     currentUser.role === 'ADMIN' ? 'bg-purple-100 text-purple-800 border-purple-200' :
                     currentUser.role === 'MANAGER' ? 'bg-blue-100 text-blue-800 border-blue-200' :
@@ -2376,12 +2376,12 @@ const App: React.FC = () => {
               </div>
               <button
                 onClick={handleLogout}
-                className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
+                className={`p-1.5 ${activeTab === 'view-invoice' ? 'text-gray-400 hover:text-red-600' : 'text-zinc-400 hover:text-rose-400'} transition-colors card-3d active:scale-95`}
                 title="Logout"
               >
                 <LogOut size={18} />
               </button>
-              <UserCircle size={28} className="text-gray-300" />
+              <UserCircle size={28} className={activeTab === 'view-invoice' ? 'text-gray-300' : 'text-zinc-400'} />
             </div>
           </div>
         </header>

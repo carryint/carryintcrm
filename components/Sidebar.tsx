@@ -96,14 +96,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
   const getRoleBadgeStyle = (r: UserRole) => {
     switch (r) {
       case 'ADMIN':
-        return 'bg-purple-900/60 text-purple-300 border-purple-700';
+        return 'bg-purple-950/80 text-purple-300 border-purple-500/40';
       case 'MANAGER':
-        return 'bg-blue-900/60 text-blue-300 border-blue-700';
+        return 'bg-blue-950/80 text-blue-300 border-blue-500/40';
       case 'ACCOUNTANT':
-        return 'bg-amber-900/60 text-amber-300 border-amber-700';
+        return 'bg-amber-950/80 text-amber-300 border-amber-500/40';
       case 'STAFF':
       default:
-        return 'bg-emerald-900/60 text-emerald-300 border-emerald-700';
+        return 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40';
     }
   };
 
@@ -123,61 +123,95 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
 
   return (
     <>
-      {/* Mobile Backdrop */}
+      {/* Mobile Backdrop with Blur */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-slate-900/60 z-40 lg:hidden no-print backdrop-blur-sm"
+          className="fixed inset-0 bg-black/80 z-40 lg:hidden no-print backdrop-blur-md transition-opacity duration-300"
           onClick={onClose}
         />
       )}
 
+      {/* Glassy Sidebar with 3D Depth & Crawling Glow */}
       <div className={`
-        w-64 bg-slate-900 h-screen fixed left-0 top-0 text-white flex flex-col z-50 no-print transition-transform duration-300
+        w-64 bg-black/80 backdrop-blur-2xl border-r border-orange-500/20 h-screen fixed left-0 top-0 text-white flex flex-col z-50 no-print transition-transform duration-300 shadow-[10px_0_40px_rgba(0,0,0,0.85)]
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-        <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+        {/* Scrawling edge beam */}
+        <div className="scrawl-beam-wrapper">
+          <div className="scrawl-beam"></div>
+        </div>
+
+        {/* Brand Header */}
+        <div className="p-5 border-b border-orange-500/20 flex items-center justify-between bg-black/40 relative">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center font-black text-xl shadow-lg shadow-orange-600/30">C</div>
+            <div className="w-10 h-10 bg-gradient-to-br from-orange-500 via-orange-600 to-amber-200 rounded-xl flex items-center justify-center font-black text-xl text-black shadow-lg shadow-orange-500/40 card-3d">
+              C
+            </div>
             <div>
-              <span className="font-black text-base tracking-tight block leading-tight">Carryint CRM</span>
-              <span className="text-[10px] text-slate-400 font-medium">Invoicing & Accounting</span>
+              <span className="font-black text-base tracking-tight block leading-tight text-white drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)]">
+                Carryint CRM
+              </span>
+              <span className="text-[10px] text-orange-400 font-extrabold tracking-wider uppercase">
+                Invoicing & Logistics
+              </span>
             </div>
           </div>
-          <button onClick={onClose} className="lg:hidden text-slate-400 hover:text-white">
-            <X size={24} />
+          <button 
+            onClick={onClose} 
+            className="lg:hidden text-zinc-400 hover:text-white p-1 hover:bg-white/10 rounded-lg transition-colors"
+          >
+            <X size={20} />
           </button>
         </div>
 
+        {/* Menu Navigation */}
         <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                setActiveTab(item.id);
-                onClose();
-              }}
-              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl transition-all ${
-                activeTab === item.id
-                  ? 'bg-orange-600 text-white font-bold shadow-md shadow-orange-600/20'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white font-medium'
-              }`}
-            >
-              <item.icon size={18} className={activeTab === item.id ? 'text-white' : 'text-slate-400'} />
-              <span className="text-sm">{item.label}</span>
-            </button>
-          ))}
+          {menuItems.map((item) => {
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveTab(item.id);
+                  onClose();
+                }}
+                className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 card-3d active:scale-95 group text-left ${
+                  isActive
+                    ? 'bg-gradient-to-r from-orange-600 via-orange-500 to-amber-200 text-black font-black shadow-lg shadow-orange-500/35 border border-white/20'
+                    : 'text-zinc-300 hover:bg-white/10 hover:text-white hover:border-orange-500/30 border border-transparent font-medium'
+                }`}
+              >
+                <item.icon 
+                  size={18} 
+                  className={`transition-colors shrink-0 ${
+                    isActive ? 'text-black' : 'text-zinc-400 group-hover:text-orange-400'
+                  }`} 
+                />
+                <span className="text-xs sm:text-sm truncate">{item.label}</span>
+                {isActive && (
+                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-black shadow-sm"></span>
+                )}
+              </button>
+            );
+          })}
         </nav>
 
         {/* User Role Card in Footer */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950/40">
+        <div className="p-4 border-t border-orange-500/20 bg-black/60 relative">
           <div className="flex items-center justify-between">
             <div className="truncate pr-2">
-              <p className="text-xs font-bold text-slate-200 truncate">{currentUser?.name || 'User'}</p>
+              <p className="text-xs font-bold text-white truncate">{currentUser?.name || 'User'}</p>
               <span className={`inline-block text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border mt-1 ${getRoleBadgeStyle(role)}`}>
                 {getRoleDisplay(role)}
               </span>
             </div>
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="System Online"></div>
+            {/* Pulsing online status indicator */}
+            <div className="flex items-center gap-1.5" title="System Online">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+            </div>
           </div>
         </div>
       </div>
