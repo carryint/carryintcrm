@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 
 interface LogoProps {
   className?: string;
@@ -7,19 +7,24 @@ interface LogoProps {
 }
 
 const Logo: React.FC<LogoProps> = ({ className = "h-16", src }) => {
-  // If a custom image URL is provided and it's not the default placeholder/empty
-  if (src && src.startsWith('data:image') || (src && src.includes('http'))) {
-    return (
-      <img 
-        src={src} 
-        className={`block w-auto max-w-full ${className} object-contain`} 
-        alt="Company Logo" 
-        onError={(e) => {
-          // Fallback if image fails to load
-          e.currentTarget.style.display = 'none';
-        }}
-      />
-    );
+  const [hasError, setHasError] = useState(false);
+
+  // If a custom image URL is provided (e.g. from Brand Identity) and hasn't errored
+  if (!hasError && src && typeof src === 'string' && src.trim().length > 0) {
+    const isDataOrUrl = src.startsWith('data:image') || src.startsWith('http') || src.startsWith('/') || src.startsWith('blob:');
+    if (isDataOrUrl) {
+      return (
+        <img 
+          src={src} 
+          className={`block w-auto max-w-full ${className} object-contain`} 
+          alt="Company Logo" 
+          onError={() => {
+            // Fallback gracefully to official SVG logo if image fails
+            setHasError(true);
+          }}
+        />
+      );
+    }
   }
 
   // Default Carryint SVG Logo

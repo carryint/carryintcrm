@@ -1139,7 +1139,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   };
 
   return (
-    <div className="relative -m-3 sm:-m-4 lg:-m-6 p-3 sm:p-4 lg:p-6 min-h-[calc(100vh-3.5rem)] crm-black-orange-bg text-white overflow-hidden space-y-5 perspective-container">
+    <div className="relative -m-3 sm:-m-4 lg:-m-6 p-3 sm:p-4 lg:p-6 min-h-[calc(100vh-3.5rem)] bg-transparent text-white overflow-hidden space-y-5 perspective-container">
       
       {/* HYPER-VIBRANT AMBIENT GRADIENT MESH LIGHTS (Luminous behind frosted glass) */}
       <div className="pointer-events-none absolute top-0 left-6 w-[44rem] h-[44rem] bg-gradient-to-br from-orange-600/35 via-orange-500/22 to-amber-500/12 rounded-full blur-[140px] animate-pulse-glow" />

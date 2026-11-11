@@ -24,6 +24,7 @@ import { Customer, Vendor, Invoice, CompanyInfo, User, Expense, AdjustmentNote, 
 import { MonthlySalesClosingModal } from './components/MonthlySalesClosingModal';
 import { MonthlySalesClosingBanner } from './components/MonthlySalesClosingBanner';
 import { MonthlyClosingDashboard } from './components/MonthlyClosingDashboard';
+import Logo from './components/Logo';
 import { getStoredMonthlyClosings, saveMonthlyClosingToStorage, checkClosingWindow } from './monthlyClosingService';
 import { COMPANY_INFO as DEFAULT_COMPANY_INFO } from './constants';
 import {
@@ -2363,7 +2364,7 @@ const App: React.FC = () => {
   }
 
   if (!currentUser) {
-    return <Login onLogin={handleLogin} error={authError} companyName={companyInfo.name} />;
+    return <Login onLogin={handleLogin} error={authError} companyName={companyInfo.name} logoUrl={companyInfo?.logoUrl} />;
   }
 
   return (
@@ -2376,7 +2377,17 @@ const App: React.FC = () => {
         currentUser={currentUser}
       />
 
-      <main className={`lg:pl-64 min-h-screen ${activeTab === 'dashboard' || activeTab === 'monthly-closing' ? 'crm-black-orange-bg text-white' : activeTab === 'view-invoice' ? 'bg-white text-gray-900' : 'crm-black-orange-bg text-gray-900'}`}>
+      <main className={`lg:pl-64 min-h-screen relative overflow-hidden ${activeTab === 'view-invoice' ? 'bg-white text-gray-900' : 'crm-black-orange-bg text-white'}`}>
+        {/* Ambient Company Brand Logo Blurred Behind Glassmorphism */}
+        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden flex items-center justify-center lg:pl-64 select-none">
+          <div className="w-[500px] h-[500px] sm:w-[750px] sm:h-[750px] opacity-30 blur-[20px] sm:blur-[28px] transform -rotate-12 scale-110">
+            <Logo src={companyInfo?.logoUrl} className="w-full h-full object-contain filter drop-shadow-[0_0_100px_rgba(255,107,0,0.85)]" />
+          </div>
+          <div className="absolute top-10 right-4 w-60 h-60 sm:w-80 sm:h-80 opacity-20 blur-[24px] pointer-events-none transform rotate-12">
+            <Logo src={companyInfo?.logoUrl} className="w-full h-full object-contain filter drop-shadow-[0_0_60px_rgba(255,122,0,0.6)]" />
+          </div>
+        </div>
+
         <header className={`h-14 ${activeTab === 'view-invoice' ? 'bg-white border-b border-gray-200 text-gray-900' : 'glass-ultra border-b border-white/15 text-white shadow-xl shadow-black/50'} flex items-center justify-between px-3 sm:px-6 sticky top-0 z-10 no-print transition-colors`}>
           <div className="flex items-center gap-3">
             <button
@@ -2437,7 +2448,7 @@ const App: React.FC = () => {
           onNavigate={setActiveTab}
         />
 
-        <div className="p-3 sm:p-4 lg:p-6 max-w-full">
+        <div className="p-3 sm:p-4 lg:p-6 max-w-full relative z-10">
           {renderContent()}
         </div>
       </main>
