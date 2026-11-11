@@ -21,28 +21,41 @@ const Login: React.FC<LoginProps> = ({ onLogin, error, companyName, logoUrl }) =
 
     return (
         <div className="min-h-screen crm-black-orange-bg flex items-center justify-center p-4 relative overflow-hidden select-none">
-            {/* Ambient Company Brand Logo Blurred Behind Glassmorphism */}
-            <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden flex items-center justify-center">
-                <div className="w-[450px] h-[450px] sm:w-[650px] sm:h-[650px] opacity-30 blur-[24px] sm:blur-[32px] transform -rotate-12 scale-110">
-                    <Logo src={logoUrl} className="w-full h-full object-contain filter drop-shadow-[0_0_100px_rgba(255,107,0,0.85)]" />
+            {/* Oversized Blurred Orange Gradient Circles & Soft Glowing Ambient Light Effects */}
+            <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+                {/* Large Orange & Amber Glow (Top Left) */}
+                <div className="absolute -top-32 -left-20 w-[550px] h-[550px] sm:w-[700px] sm:h-[700px] rounded-full bg-gradient-to-br from-orange-500/35 via-amber-500/25 to-transparent blur-[120px] sm:blur-[140px]" />
+
+                {/* Peach & Golden Glow (Top Right) */}
+                <div className="absolute -top-10 -right-24 w-[480px] h-[480px] sm:w-[620px] sm:h-[620px] rounded-full bg-gradient-to-bl from-amber-400/30 via-orange-400/22 to-rose-400/15 blur-[130px]" />
+
+                {/* Lower Depth Glow */}
+                <div className="absolute -bottom-36 left-1/3 w-[520px] h-[520px] sm:w-[660px] sm:h-[660px] rounded-full bg-gradient-to-tr from-orange-600/25 via-amber-500/18 to-transparent blur-[140px]" />
+
+                {/* Ambient Blurred Brand Logo Behind Glass */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-[450px] h-[450px] sm:w-[620px] sm:h-[620px] opacity-18 blur-[24px] sm:blur-[32px] transform -rotate-12 scale-110">
+                        <Logo src={logoUrl} className="w-full h-full object-contain filter drop-shadow-[0_0_80px_rgba(249,115,22,0.65)]" />
+                    </div>
                 </div>
             </div>
 
             <div className="max-w-md w-full relative z-10 animate-in fade-in zoom-in duration-300">
-                <div className="glass-ultra rounded-3xl border border-orange-500/50 shadow-[0_25px_80px_rgba(0,0,0,0.9),0_0_40px_rgba(234,88,12,0.35)] overflow-hidden text-white backdrop-blur-2xl">
+                {/* Large Translucent Frosted-Glass Panel with Thin Glowing White Borders */}
+                <div className="glass-ultra rounded-3xl border border-white/20 shadow-[0_30px_90px_rgba(0,0,0,0.65),0_0_40px_rgba(249,115,22,0.20)] overflow-hidden text-white backdrop-blur-3xl">
                     
-                    {/* Card Header with Brand Logo */}
-                    <div className="p-8 text-center border-b border-white/10 bg-black/40 relative">
-                        <div className="w-20 h-20 bg-gradient-to-br from-orange-500/25 via-amber-500/15 to-transparent rounded-2xl flex items-center justify-center mx-auto mb-4 border border-orange-500/40 shadow-inner backdrop-blur-md p-2.5">
+                    {/* Card Header with Brand Logo & Specular Glass Reflection */}
+                    <div className="p-8 text-center border-b border-white/10 bg-white/[0.03] relative">
+                        <div className="w-20 h-20 bg-white/[0.06] rounded-2xl flex items-center justify-center mx-auto mb-4 border border-white/25 shadow-inner backdrop-blur-md p-2.5">
                             <Logo src={logoUrl} className="w-full h-full object-contain filter drop-shadow-md" />
                         </div>
                         <h1 className="text-2xl font-black text-white tracking-tight drop-shadow-sm">{companyName}</h1>
-                        <p className="text-orange-300 font-bold text-xs uppercase tracking-wider mt-1">Enterprise CRM & Invoicing Access</p>
+                        <p className="text-orange-400 font-bold text-xs uppercase tracking-wider mt-1">Enterprise CRM & Invoicing Access</p>
                     </div>
 
                     <div className="p-6 sm:p-8 space-y-6">
                         {error && (
-                            <div className="bg-red-950/80 text-red-200 p-4 rounded-xl text-xs sm:text-sm font-bold border border-red-500/60 shadow-lg animate-bounce">
+                            <div className="bg-red-950/70 text-red-200 p-4 rounded-xl text-xs sm:text-sm font-bold border border-red-500/50 shadow-lg animate-bounce">
                                 {error}
                             </div>
                         )}
@@ -59,7 +72,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, error, companyName, logoUrl }) =
                                         required
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
-                                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-orange-500/30 bg-black/60 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/40 outline-none transition-all font-semibold text-white placeholder-zinc-400 shadow-inner text-sm"
+                                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-white/15 bg-white/[0.05] focus:border-orange-400 focus:ring-2 focus:ring-orange-500/40 outline-none transition-all font-semibold text-white placeholder-zinc-400 shadow-inner text-sm backdrop-blur-md"
                                         placeholder="name@company.com"
                                         autoCapitalize="none"
                                         autoCorrect="off"
@@ -80,7 +93,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, error, companyName, logoUrl }) =
                                         required
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
-                                        className="w-full pl-11 pr-12 py-3.5 rounded-xl border border-orange-500/30 bg-black/60 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/40 outline-none transition-all font-semibold text-white placeholder-zinc-400 shadow-inner text-sm"
+                                        className="w-full pl-11 pr-12 py-3.5 rounded-xl border border-white/15 bg-white/[0.05] focus:border-orange-400 focus:ring-2 focus:ring-orange-500/40 outline-none transition-all font-semibold text-white placeholder-zinc-400 shadow-inner text-sm backdrop-blur-md"
                                         placeholder="••••••••"
                                         autoCapitalize="none"
                                         autoCorrect="off"

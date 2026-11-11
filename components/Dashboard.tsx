@@ -517,7 +517,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, trend, isHero =
       onClick={onClick}
       className={`relative overflow-hidden rounded-3xl glass-ultra glass-sheen p-5 text-left card-3d transition-all duration-300 ${
         isClickable
-          ? 'hover:border-orange-500/50 hover:bg-black/85 active:scale-95 group cursor-pointer'
+          ? 'hover:border-white/30 hover:shadow-[0_25px_50px_-10px_rgba(0,0,0,0.6),0_0_25px_rgba(249,115,22,0.18)] active:scale-95 group cursor-pointer'
           : 'hover:border-white/20'
       }`}
     >
@@ -1141,11 +1141,11 @@ const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="relative -m-3 sm:-m-4 lg:-m-6 p-3 sm:p-4 lg:p-6 min-h-[calc(100vh-3.5rem)] bg-transparent text-white overflow-hidden space-y-5 perspective-container">
       
-      {/* HYPER-VIBRANT AMBIENT GRADIENT MESH LIGHTS (Luminous behind frosted glass) */}
-      <div className="pointer-events-none absolute top-0 left-6 w-[44rem] h-[44rem] bg-gradient-to-br from-orange-600/35 via-orange-500/22 to-amber-500/12 rounded-full blur-[140px] animate-pulse-glow" />
-      <div className="pointer-events-none absolute top-1/4 right-8 w-[40rem] h-[40rem] bg-gradient-to-br from-amber-400/28 via-orange-500/20 to-transparent rounded-full blur-[130px] animate-pulse-glow" style={{ animationDelay: '2.5s' }} />
-      <div className="pointer-events-none absolute bottom-10 left-1/4 w-[42rem] h-[42rem] bg-gradient-to-tr from-orange-800/35 via-orange-600/22 to-transparent rounded-full blur-[160px]" />
-      <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[28rem] h-[28rem] bg-amber-300/12 rounded-full blur-[110px]" />
+      {/* Oversized Blurred Orange Gradient Circles & Soft Glowing Ambient Light Effects */}
+      <div className="pointer-events-none absolute -top-20 left-4 w-[48rem] h-[48rem] bg-gradient-to-br from-orange-500/30 via-amber-500/20 to-peach-400/10 rounded-full blur-[140px] animate-pulse-glow" />
+      <div className="pointer-events-none absolute top-1/4 -right-10 w-[42rem] h-[42rem] bg-gradient-to-bl from-amber-400/25 via-orange-400/18 to-rose-400/10 rounded-full blur-[130px] animate-pulse-glow" style={{ animationDelay: '2.5s' }} />
+      <div className="pointer-events-none absolute bottom-10 left-1/4 w-[44rem] h-[44rem] bg-gradient-to-tr from-orange-600/20 via-amber-500/15 to-transparent rounded-full blur-[160px]" />
+      <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[32rem] h-[32rem] bg-peach-300/10 rounded-full blur-[120px]" />
 
       {/* TOP ROW: REALISTIC CHRONOMETER CLOCK, 3D CALENDAR & VELOCITY SNAPSHOT */}
       <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">

@@ -600,7 +600,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
 
       {/* Modal Container: Full Screen Height on Mobile, Touch-Friendly (Removed touch-manipulation to eliminate click jump) */}
       <div 
-        className="relative z-50 w-full max-w-4xl glass-ultra rounded-2xl sm:rounded-3xl border border-orange-500/50 shadow-[0_25px_80px_rgba(0,0,0,0.95),0_0_50px_rgba(234,88,12,0.3)] overflow-hidden my-auto text-white h-[94vh] sm:h-auto max-h-[94vh] flex flex-col pointer-events-auto"
+        className="relative z-50 w-full max-w-4xl glass-ultra rounded-2xl sm:rounded-3xl border border-white/20 shadow-[0_25px_80px_rgba(0,0,0,0.7),0_0_50px_rgba(249,115,22,0.25)] overflow-hidden my-auto text-white h-[94vh] sm:h-auto max-h-[94vh] flex flex-col pointer-events-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Scrawling Laser Beam Accent */}
@@ -613,7 +613,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
         <div className="absolute -top-16 -left-16 w-48 h-48 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
         {/* Modal Header: Responsive Flex */}
-        <div className="p-3.5 sm:p-5 border-b border-white/10 flex items-start sm:items-center justify-between relative z-10 bg-black/40 gap-2">
+        <div className="p-3.5 sm:p-5 border-b border-white/10 flex items-start sm:items-center justify-between relative z-10 bg-white/[0.03] gap-2">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-400 flex items-center justify-center text-black font-black shadow-lg shadow-orange-500/40 touch-manipulation shrink-0">
               <Lock size={18} className="sm:w-5 sm:h-5" />
@@ -978,7 +978,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                   <label className="text-xs font-bold text-zinc-300 block uppercase tracking-wider">
                     Monthly Revenue (AED)
                   </label>
-                  <p className="text-[10px] text-zinc-400 mb-2">Total eligible invoice amounts & net notes</p>
+                  <p className="text-[10px] text-zinc-300 mb-2">Total eligible invoice amounts & net notes</p>
                   <input
                     type="number"
                     value={revenue}
@@ -987,7 +987,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                       setRevenue(parseFloat(e.target.value) || 0);
                       setIsManualOverride(true);
                     }}
-                    className={`w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-base sm:text-lg font-black text-white focus:border-orange-500 outline-none shadow-inner ${
+                    className={`w-full bg-white/[0.06] border border-white/15 rounded-xl px-3 py-2 text-base sm:text-lg font-black text-white focus:border-orange-400 outline-none shadow-inner backdrop-blur-md ${
                       existingClosing && !isEditMode ? 'opacity-70 cursor-not-allowed' : ''
                     }`}
                   />
@@ -999,12 +999,12 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                     <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                       <TrendingUp size={16} />
                     </div>
-                    <span className="text-[10px] text-zinc-400 font-bold">Auto: {formatCurrency(preview.grossProfit)}</span>
+                    <span className="text-[10px] text-zinc-300 font-bold">Auto: {formatCurrency(preview.grossProfit)}</span>
                   </div>
-                  <label className="text-xs font-bold text-zinc-300 block uppercase tracking-wider">
+                  <label className="text-xs font-bold text-zinc-200 block uppercase tracking-wider">
                     Gross Profit (AED)
                   </label>
-                  <p className="text-[10px] text-zinc-400 mb-2">Revenue minus direct shipment costs</p>
+                  <p className="text-[10px] text-zinc-300 mb-2">Revenue minus direct shipment costs</p>
                   <input
                     type="number"
                     value={grossProfit}
@@ -1013,7 +1013,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                       setGrossProfit(parseFloat(e.target.value) || 0);
                       setIsManualOverride(true);
                     }}
-                    className={`w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-base sm:text-lg font-black text-emerald-400 focus:border-orange-500 outline-none shadow-inner ${
+                    className={`w-full bg-white/[0.06] border border-white/15 rounded-xl px-3 py-2 text-base sm:text-lg font-black text-emerald-300 focus:border-orange-400 outline-none shadow-inner backdrop-blur-md ${
                       existingClosing && !isEditMode ? 'opacity-70 cursor-not-allowed' : ''
                     }`}
                   />
@@ -1025,12 +1025,12 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                     <div className="p-2 rounded-xl bg-blue-500/15 text-blue-400 border border-blue-500/30">
                       <Truck size={16} />
                     </div>
-                    <span className="text-[10px] text-zinc-400 font-bold">Auto: {formatCurrency(preview.vendorPayments)}</span>
+                    <span className="text-[10px] text-zinc-300 font-bold">Auto: {formatCurrency(preview.vendorPayments)}</span>
                   </div>
-                  <label className="text-xs font-bold text-zinc-300 block uppercase tracking-wider">
+                  <label className="text-xs font-bold text-zinc-200 block uppercase tracking-wider">
                     Vendor Payments (AED)
                   </label>
-                  <p className="text-[10px] text-zinc-400 mb-2">Carrier & vendor bills paid this month</p>
+                  <p className="text-[10px] text-zinc-300 mb-2">Carrier & vendor bills paid this month</p>
                   <input
                     type="number"
                     value={vendorPayments}
@@ -1039,7 +1039,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                       setVendorPayments(parseFloat(e.target.value) || 0);
                       setIsManualOverride(true);
                     }}
-                    className={`w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-base sm:text-lg font-black text-blue-300 focus:border-orange-500 outline-none shadow-inner ${
+                    className={`w-full bg-white/[0.06] border border-white/15 rounded-xl px-3 py-2 text-base sm:text-lg font-black text-blue-300 focus:border-orange-400 outline-none shadow-inner backdrop-blur-md ${
                       existingClosing && !isEditMode ? 'opacity-70 cursor-not-allowed' : ''
                     }`}
                   />
@@ -1051,12 +1051,12 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                     <div className="p-2 rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/30">
                       <Users size={16} />
                     </div>
-                    <span className="text-[10px] text-zinc-400 font-bold">Auto: {formatCurrency(preview.commissionPayments)}</span>
+                    <span className="text-[10px] text-zinc-300 font-bold">Auto: {formatCurrency(preview.commissionPayments)}</span>
                   </div>
-                  <label className="text-xs font-bold text-zinc-300 block uppercase tracking-wider">
+                  <label className="text-xs font-bold text-zinc-200 block uppercase tracking-wider">
                     Commission Payments (AED)
                   </label>
-                  <p className="text-[10px] text-zinc-400 mb-2">Broker & agent commissions disbursed</p>
+                  <p className="text-[10px] text-zinc-300 mb-2">Broker & agent commissions disbursed</p>
                   <input
                     type="number"
                     value={commissionPayments}
@@ -1065,7 +1065,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                       setCommissionPayments(parseFloat(e.target.value) || 0);
                       setIsManualOverride(true);
                     }}
-                    className={`w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-base sm:text-lg font-black text-purple-300 focus:border-orange-500 outline-none shadow-inner ${
+                    className={`w-full bg-white/[0.06] border border-white/15 rounded-xl px-3 py-2 text-base sm:text-lg font-black text-purple-300 focus:border-orange-400 outline-none shadow-inner backdrop-blur-md ${
                       existingClosing && !isEditMode ? 'opacity-70 cursor-not-allowed' : ''
                     }`}
                   />
@@ -1077,12 +1077,12 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                     <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30">
                       <Wallet size={16} />
                     </div>
-                    <span className="text-[10px] text-zinc-400 font-bold">Auto: {formatCurrency(preview.companyExpenses)}</span>
+                    <span className="text-[10px] text-zinc-300 font-bold">Auto: {formatCurrency(preview.companyExpenses)}</span>
                   </div>
-                  <label className="text-xs font-bold text-zinc-300 block uppercase tracking-wider">
+                  <label className="text-xs font-bold text-zinc-200 block uppercase tracking-wider">
                     Company Expenses (AED)
                   </label>
-                  <p className="text-[10px] text-zinc-400 mb-2">Rent, utilities, salaries, and office overhead</p>
+                  <p className="text-[10px] text-zinc-300 mb-2">Rent, utilities, salaries, and office overhead</p>
                   <input
                     type="number"
                     value={companyExpenses}
@@ -1091,24 +1091,24 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                       setCompanyExpenses(parseFloat(e.target.value) || 0);
                       setIsManualOverride(true);
                     }}
-                    className={`w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-base sm:text-lg font-black text-amber-300 focus:border-orange-500 outline-none shadow-inner ${
+                    className={`w-full bg-white/[0.06] border border-white/15 rounded-xl px-3 py-2 text-base sm:text-lg font-black text-amber-300 focus:border-orange-400 outline-none shadow-inner backdrop-blur-md ${
                       existingClosing && !isEditMode ? 'opacity-70 cursor-not-allowed' : ''
                     }`}
                   />
                 </div>
 
                 {/* 6. Dynamic Calculated Net Profit */}
-                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-orange-500/30 bg-gradient-to-br from-orange-950/40 via-black to-zinc-950 touch-manipulation relative overflow-hidden">
+                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-white/15 bg-white/[0.03] touch-manipulation relative overflow-hidden">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="p-2 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/40">
+                    <div className="p-2 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/30">
                       <Sparkles size={16} />
                     </div>
                     <span className="text-[10px] text-orange-400 font-black">FORMULA RESULT</span>
                   </div>
-                  <label className="text-xs font-bold text-zinc-300 block uppercase tracking-wider">
+                  <label className="text-xs font-bold text-zinc-200 block uppercase tracking-wider">
                     Calculated Net Profit
                   </label>
-                  <p className="text-[10px] text-zinc-400 mb-2">Gross Profit − Company Expenses</p>
+                  <p className="text-[10px] text-zinc-300 mb-2">Gross Profit − Company Expenses</p>
                   <div className="text-xl sm:text-2xl font-black text-white mt-1 sm:mt-2">
                     {formatCurrency(dynamicNetProfit)}
                   </div>
@@ -1117,7 +1117,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
               </div>
 
               {/* 7. Confirmed Month Closing Balance (Highlighted Card, Touch-Friendly on Mobile) */}
-              <div className="p-3.5 sm:p-5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-orange-950/80 via-black to-amber-950/80 border-2 border-orange-500/70 shadow-[0_10px_35px_rgba(234,88,12,0.25)] relative overflow-hidden touch-manipulation">
+              <div className="p-3.5 sm:p-5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-orange-500/15 via-white/[0.05] to-amber-500/10 border-2 border-orange-500/60 shadow-[0_10px_35px_rgba(249,115,22,0.25)] relative overflow-hidden touch-manipulation backdrop-blur-xl">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -1137,7 +1137,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                       value={closingBalance}
                       disabled={existingClosing && !isEditMode}
                       onChange={(e) => setClosingBalance(parseFloat(e.target.value) || 0)}
-                      className={`w-full bg-black/90 border-2 border-orange-400 rounded-xl px-4 py-2.5 text-xl sm:text-2xl font-black text-orange-400 outline-none focus:ring-2 focus:ring-orange-500 shadow-inner text-right ${
+                      className={`w-full bg-black/60 border-2 border-orange-400 rounded-xl px-4 py-2.5 text-xl sm:text-2xl font-black text-orange-400 outline-none focus:ring-2 focus:ring-orange-500 shadow-inner text-right backdrop-blur-md ${
                         existingClosing && !isEditMode ? 'opacity-70 cursor-not-allowed' : ''
                       }`}
                       placeholder="0.00"

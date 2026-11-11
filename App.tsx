@@ -2378,13 +2378,25 @@ const App: React.FC = () => {
       />
 
       <main className={`lg:pl-64 min-h-screen relative overflow-hidden ${activeTab === 'view-invoice' ? 'bg-white text-gray-900' : 'crm-black-orange-bg text-white'}`}>
-        {/* Ambient Company Brand Logo Blurred Behind Glassmorphism */}
-        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden flex items-center justify-center lg:pl-64 select-none">
-          <div className="w-[500px] h-[500px] sm:w-[750px] sm:h-[750px] opacity-30 blur-[20px] sm:blur-[28px] transform -rotate-12 scale-110">
-            <Logo src={companyInfo?.logoUrl} className="w-full h-full object-contain filter drop-shadow-[0_0_100px_rgba(255,107,0,0.85)]" />
-          </div>
-          <div className="absolute top-10 right-4 w-60 h-60 sm:w-80 sm:h-80 opacity-20 blur-[24px] pointer-events-none transform rotate-12">
-            <Logo src={companyInfo?.logoUrl} className="w-full h-full object-contain filter drop-shadow-[0_0_60px_rgba(255,122,0,0.6)]" />
+        {/* Oversized Blurred Orange Gradient Circles & Soft Glowing Ambient Light Effects Behind Glass Panels */}
+        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden lg:pl-64 select-none">
+          {/* Orb 1: Oversized Warm Orange & Amber Gradient Circle (Top Left) */}
+          <div className="absolute -top-24 -left-16 w-[620px] h-[620px] sm:w-[780px] sm:h-[780px] rounded-full bg-gradient-to-br from-orange-500/35 via-amber-500/25 to-transparent blur-[120px] sm:blur-[140px] transform -translate-x-1/4 animate-pulse-slow" />
+
+          {/* Orb 2: Peach & Golden-Yellow Radiant Ambient Circle (Top Right) */}
+          <div className="absolute top-8 -right-28 w-[540px] h-[540px] sm:w-[680px] sm:h-[680px] rounded-full bg-gradient-to-bl from-amber-400/30 via-orange-400/22 to-rose-400/15 blur-[130px] sm:blur-[150px]" />
+
+          {/* Orb 3: Central Soft Peach & Amber Ambient Light Effect */}
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] sm:w-[680px] sm:h-[680px] rounded-full bg-gradient-to-r from-orange-400/20 via-amber-300/18 to-transparent blur-[130px]" />
+
+          {/* Orb 4: Slate Charcoal & Warm Golden Lower Depth Ambient Light */}
+          <div className="absolute -bottom-32 left-1/4 w-[600px] h-[600px] sm:w-[750px] sm:h-[750px] rounded-full bg-gradient-to-tr from-orange-600/25 via-amber-500/18 to-slate-800/40 blur-[150px]" />
+
+          {/* Ambient Company Brand Logo Blurred Behind Glassmorphism */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-[450px] h-[450px] sm:w-[680px] sm:h-[680px] opacity-18 blur-[24px] sm:blur-[32px] transform -rotate-12 scale-110">
+              <Logo src={companyInfo?.logoUrl} className="w-full h-full object-contain filter drop-shadow-[0_0_80px_rgba(249,115,22,0.65)]" />
+            </div>
           </div>
         </div>
 

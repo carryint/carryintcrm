@@ -586,10 +586,10 @@ export const MonthlyClosingDashboard: React.FC<MonthlyClosingDashboardProps> = (
                   className={`
                     glass-ultra rounded-2xl border p-4 sm:p-4.5 flex flex-col justify-between relative overflow-hidden transition-all duration-200 cursor-pointer touch-manipulation ${
                       isSelectedInDownBar
-                        ? 'border-orange-400 ring-2 ring-orange-400/50 shadow-[0_0_30px_rgba(234,88,12,0.45)] scale-[1.01]'
+                        ? 'border-orange-400/80 ring-2 ring-orange-400/40 shadow-[0_0_35px_rgba(249,115,22,0.35)] scale-[1.01]'
                         : box.isClosed
-                        ? 'border-orange-500/30 hover:border-orange-400/70 hover:shadow-[0_0_25px_rgba(234,88,12,0.35)]'
-                        : 'border-orange-500/50 hover:border-orange-400 hover:shadow-[0_0_25px_rgba(234,88,12,0.35)]'
+                        ? 'border-white/15 hover:border-white/30 hover:shadow-[0_20px_45px_-10px_rgba(0,0,0,0.5),0_0_20px_rgba(255,255,255,0.04)]'
+                        : 'border-orange-400/40 hover:border-orange-400 hover:shadow-[0_20px_45px_-10px_rgba(0,0,0,0.5),0_0_25px_rgba(249,115,22,0.25)]'
                     }
                   `}
                 >
@@ -597,14 +597,14 @@ export const MonthlyClosingDashboard: React.FC<MonthlyClosingDashboardProps> = (
                   <div
                     className={`absolute top-0 left-0 right-0 h-1 ${
                       box.isClosed
-                        ? 'bg-gradient-to-r from-emerald-500 via-orange-400 to-amber-500'
-                        : 'bg-gradient-to-r from-orange-500 to-amber-400 animate-pulse'
+                        ? 'bg-gradient-to-r from-emerald-400 via-orange-400 to-amber-400'
+                        : 'bg-gradient-to-r from-orange-500 via-amber-400 to-orange-400 animate-pulse'
                     }`}
                   />
 
                   <div>
                     {/* Header: Month Name + Status + Cutoff */}
-                    <div className="flex items-start justify-between gap-1.5 pb-2.5 border-b border-orange-500/20">
+                    <div className="flex items-start justify-between gap-1.5 pb-2.5 border-b border-white/10">
                       <div>
                         <h3 className="text-sm sm:text-base font-black text-white tracking-tight flex items-center gap-1.5">
                           {box.monthName}
@@ -631,7 +631,7 @@ export const MonthlyClosingDashboard: React.FC<MonthlyClosingDashboardProps> = (
                     {/* SHORT DATA: REVENUE, INVOICES, NET PROFIT, CLOSING AMOUNT */}
                     <div className="mt-3 space-y-2">
                       {/* 1. Revenue */}
-                      <div className="p-2.5 rounded-xl bg-black/40 border border-orange-500/25 flex items-center justify-between backdrop-blur-sm">
+                      <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-between backdrop-blur-sm">
                         <span className="text-[11px] text-zinc-100 font-bold flex items-center gap-1.5">
                           <DollarSign size={13} className="text-orange-400" />
                           <span>Revenue</span>
@@ -642,7 +642,7 @@ export const MonthlyClosingDashboard: React.FC<MonthlyClosingDashboardProps> = (
                       </div>
 
                       {/* 2. Total Invoices */}
-                      <div className="p-2.5 rounded-xl bg-black/40 border border-orange-500/25 flex items-center justify-between backdrop-blur-sm">
+                      <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-between backdrop-blur-sm">
                         <span className="text-[11px] text-zinc-100 font-bold flex items-center gap-1.5">
                           <Receipt size={13} className="text-amber-400" />
                           <span>Total Invoices</span>
@@ -653,7 +653,7 @@ export const MonthlyClosingDashboard: React.FC<MonthlyClosingDashboardProps> = (
                       </div>
 
                       {/* 3. Net Profit */}
-                      <div className="p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-between backdrop-blur-sm">
+                      <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between backdrop-blur-sm">
                         <span className="text-[11px] text-emerald-200 font-bold flex items-center gap-1.5">
                           <TrendingUp size={13} className="text-emerald-400" />
                           <span>Net Profit</span>
@@ -664,7 +664,7 @@ export const MonthlyClosingDashboard: React.FC<MonthlyClosingDashboardProps> = (
                       </div>
 
                       {/* 4. Month Closing Amount */}
-                      <div className="p-2.5 rounded-xl bg-amber-950/40 border border-amber-500/40 flex items-center justify-between backdrop-blur-sm">
+                      <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between backdrop-blur-sm">
                         <span className="text-[11px] text-amber-100 font-black flex items-center gap-1.5">
                           <ShieldCheck size={13} className="text-amber-400" />
                           <span>Closing Balance</span>
@@ -677,7 +677,7 @@ export const MonthlyClosingDashboard: React.FC<MonthlyClosingDashboardProps> = (
                   </div>
 
                   {/* Box Bottom Action Buttons */}
-                  <div className="mt-3 pt-2.5 border-t border-orange-500/20 flex items-center gap-2">
+                  <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center gap-2">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -745,7 +745,7 @@ export const MonthlyClosingDashboard: React.FC<MonthlyClosingDashboardProps> = (
       {/* 4. PERSISTENT DASHBOARD DOWN BAR (BOTTOM DOCK BAR)        */}
       {/* Allows Editing Saved Sales Data & Creating New Closing    */}
       {/* ========================================================= */}
-      <div className="fixed bottom-0 left-0 right-0 lg:left-64 z-30 glass-ultra border-t border-orange-500/40 p-3 sm:px-6 shadow-[0_-12px_40px_rgba(0,0,0,0.95)] backdrop-blur-xl">
+      <div className="fixed bottom-0 left-0 right-0 lg:left-64 z-30 glass-ultra border-t border-white/20 p-3 sm:px-6 shadow-[0_-15px_45px_rgba(0,0,0,0.65)] backdrop-blur-2xl">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           {/* Left: Selected Month Quick Chooser */}
           <div className="flex items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-start">
@@ -754,14 +754,14 @@ export const MonthlyClosingDashboard: React.FC<MonthlyClosingDashboardProps> = (
                 <Clock size={15} />
               </span>
               <div>
-                <span className="text-[10px] text-amber-200 uppercase tracking-wider block font-black leading-tight">
+                <span className="text-[10px] text-zinc-300 uppercase tracking-wider block font-black leading-tight">
                   Selected Month (Down Bar)
                 </span>
                 <div className="flex items-center gap-1.5">
                   <select
                     value={selectedDownBarMonth}
                     onChange={(e) => setSelectedDownBarMonth(e.target.value)}
-                    className="bg-black/80 border border-orange-500/50 text-white font-black text-xs sm:text-sm rounded-lg px-2 py-0.5 outline-none cursor-pointer focus:border-orange-400 shadow-md"
+                    className="bg-white/[0.08] border border-white/20 text-white font-black text-xs sm:text-sm rounded-lg px-2 py-0.5 outline-none cursor-pointer focus:border-orange-400 shadow-md backdrop-blur-md"
                   >
                     {allAvailableMonths.map(m => {
                       const isClosed = closings.some(c => c.month === m && c.isClosed);
@@ -774,8 +774,8 @@ export const MonthlyClosingDashboard: React.FC<MonthlyClosingDashboardProps> = (
                   </select>
                   <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
                     selectedDownBarBox?.isClosed
-                      ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/50'
-                      : 'bg-orange-950 text-orange-300 border border-orange-500/50'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      : 'bg-orange-500/20 text-orange-300 border border-orange-500/40'
                   }`}>
                     {selectedDownBarBox?.isClosed ? 'Saved / Closed' : 'Open / Active'}
                   </span>
@@ -785,7 +785,7 @@ export const MonthlyClosingDashboard: React.FC<MonthlyClosingDashboardProps> = (
 
             {/* Quick Balance Preview in Down Bar */}
             <div className="hidden md:block pl-3 border-l border-white/20 text-right">
-              <span className="text-[10px] text-zinc-100 block font-bold">Month Closing Balance</span>
+              <span className="text-[10px] text-zinc-300 block font-bold">Month Closing Balance</span>
               <span className="text-xs sm:text-sm font-black text-amber-300">
                 AED {formatCurrency(selectedDownBarBox?.closingBalance || 0)}
               </span>
@@ -797,7 +797,7 @@ export const MonthlyClosingDashboard: React.FC<MonthlyClosingDashboardProps> = (
             {/* Button 1: Edit Saved Sales Closing */}
             <button
               onClick={() => handleEditSavedClosing(selectedDownBarMonth)}
-              className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-gradient-to-r from-orange-900/90 to-zinc-900 hover:from-orange-800 hover:to-zinc-800 text-white border border-orange-400/60 text-xs sm:text-sm font-black flex items-center justify-center gap-1.5 cursor-pointer touch-manipulation hover:brightness-110 transition-all shadow-md"
+              className="flex-1 sm:flex-initial px-4 py-2 rounded-xl glass-pill hover:bg-white/15 text-white border border-white/20 text-xs sm:text-sm font-black flex items-center justify-center gap-1.5 cursor-pointer touch-manipulation hover:brightness-110 transition-all shadow-md"
               title="Edit Saved Sales Closing (Invoices, Cutoff & Financials)"
             >
               <Edit3 size={15} className="text-orange-400" />
@@ -807,7 +807,7 @@ export const MonthlyClosingDashboard: React.FC<MonthlyClosingDashboardProps> = (
             {/* Button 2: Create Monthly Sales Closing */}
             <button
               onClick={handleCreateNewClosing}
-              className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-400 text-black text-xs sm:text-sm font-black flex items-center justify-center gap-1.5 cursor-pointer touch-manipulation hover:brightness-110 transition-all shadow-lg shadow-orange-500/50 border border-orange-300"
+              className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-400 text-black text-xs sm:text-sm font-black flex items-center justify-center gap-1.5 cursor-pointer touch-manipulation hover:brightness-110 transition-all shadow-lg shadow-orange-500/40 border border-orange-300"
               title="Open Monthly Sales Closing Popup"
             >
               <Plus size={16} />

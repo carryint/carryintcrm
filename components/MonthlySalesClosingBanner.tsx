@@ -58,7 +58,7 @@ export const MonthlySalesClosingBanner: React.FC<MonthlySalesClosingBannerProps>
   const daysLeft = windowStatus.daysRemaining;
 
   return (
-    <div className="relative z-30 no-print overflow-hidden bg-gradient-to-r from-orange-950/95 via-black/90 to-amber-950/95 border-b border-orange-500/50 shadow-[0_8px_25px_rgba(234,88,12,0.25)] text-white animate-in slide-in-from-top duration-300">
+    <div className="relative z-30 no-print overflow-hidden glass-ultra border-b border-white/20 shadow-[0_8px_30px_rgba(0,0,0,0.5)] text-white animate-in slide-in-from-top duration-300 backdrop-blur-2xl">
       {/* Scrawling Laser Beam Accent */}
       <div className="scrawl-beam-wrapper">
         <div className="scrawl-beam"></div>

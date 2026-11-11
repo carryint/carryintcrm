@@ -138,7 +138,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
 
       {/* Glassy Sidebar with 3D Depth & Crawling Glow */}
       <div className={`
-        w-64 glass-ultra h-screen fixed left-0 top-0 text-white flex flex-col z-50 no-print transition-transform duration-300 shadow-[15px_0_50px_rgba(0,0,0,0.9)]
+        w-64 glass-ultra h-screen fixed left-0 top-0 text-white flex flex-col z-50 no-print transition-transform duration-300 shadow-[15px_0_50px_rgba(0,0,0,0.5)] border-r border-white/10
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Scrawling edge beam */}
@@ -147,9 +147,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
         </div>
 
         {/* Brand Header */}
-        <div className="p-5 border-b border-orange-500/20 flex items-center justify-between bg-black/40 relative">
+        <div className="p-5 border-b border-white/10 flex items-center justify-between bg-white/[0.03] relative">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-orange-500 via-orange-600 to-amber-200 rounded-xl flex items-center justify-center font-black text-xl text-black shadow-lg shadow-orange-500/40 card-3d">
+            <div className="w-10 h-10 bg-gradient-to-br from-orange-500 via-orange-600 to-amber-400 rounded-xl flex items-center justify-center font-black text-xl text-black shadow-lg shadow-orange-500/40 card-3d">
               C
             </div>
             <div>
@@ -202,7 +202,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
         </nav>
 
         {/* User Role Card in Footer */}
-        <div className="p-4 border-t border-orange-500/20 bg-black/60 relative">
+        <div className="p-4 border-t border-white/10 bg-white/[0.03] relative">
           <div className="flex items-center justify-between">
             <div className="truncate pr-2">
               <p className="text-xs font-bold text-white truncate">{currentUser?.name || 'User'}</p>
