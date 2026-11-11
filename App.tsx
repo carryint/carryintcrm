@@ -2433,9 +2433,9 @@ const App: React.FC = () => {
         onLogout={handleLogout}
       />
 
-      <main className={`min-h-screen relative overflow-hidden transition-[padding] duration-300 ease-out ${(!isMobileOrShort && isSidebarOpen) ? 'xl:pl-64' : 'pl-0'} ${activeTab === 'view-invoice' ? 'bg-white text-gray-900' : 'crm-black-orange-bg text-white'}`}>
+      <main className={`min-h-screen relative overflow-hidden transition-[padding] duration-300 ease-out ${(!isMobileOrShort && isSidebarOpen) ? 'xl:pl-72' : 'pl-0'} ${activeTab === 'view-invoice' ? 'bg-white text-gray-900' : 'crm-black-orange-bg text-white'}`}>
         {/* Oversized Blurred Orange Gradient Circles & Soft Glowing Ambient Light Effects Behind Glass Panels */}
-        <div className={`fixed inset-0 pointer-events-none z-0 overflow-hidden select-none transition-[padding] duration-300 ease-out ${(!isMobileOrShort && isSidebarOpen) ? 'xl:pl-64' : 'pl-0'}`}>
+        <div className={`fixed inset-0 pointer-events-none z-0 overflow-hidden select-none transition-[padding] duration-300 ease-out ${(!isMobileOrShort && isSidebarOpen) ? 'xl:pl-72' : 'pl-0'}`}>
           {/* Orb 1: Warm Orange & Amber Ambient Halo (Top Left) */}
           <div className="absolute -top-32 -left-20 w-[620px] h-[620px] sm:w-[780px] sm:h-[780px] rounded-full bg-gradient-to-br from-orange-500/22 via-amber-500/14 to-transparent blur-[140px] transform -translate-x-1/4" />
 
@@ -2458,18 +2458,23 @@ const App: React.FC = () => {
 
         <header className={`h-14 sm:h-16 ${activeTab === 'view-invoice' ? 'bg-white border-b border-gray-200 text-gray-900' : 'glass-ultra border-b border-white/15 text-white shadow-xl shadow-black/50'} flex items-center justify-between px-2.5 sm:px-6 sticky top-0 z-20 no-print transition-colors pt-[env(safe-area-inset-top)]`}>
           <div className="flex items-center gap-2 sm:gap-3 shrink min-w-0">
-            {/* Sidebar Toggle / Minimize Icon Button on Top Bar */}
+            {/* Sidebar Toggle / Close Icon Button on Top Bar (Shows X when open, Menu when closed) */}
             <button
+              type="button"
               onClick={() => setIsSidebarOpen(prev => !prev)}
               className={`p-2 sm:p-2.5 ${
                 activeTab === 'view-invoice' 
                   ? 'text-gray-700 hover:bg-gray-100 hover:text-orange-600 border border-gray-200 shadow-sm' 
                   : 'text-zinc-200 hover:text-white hover:bg-white/10 hover:border-orange-500/40 border border-white/10'
-              } rounded-xl card-3d active:scale-90 flex items-center justify-center transition-all shrink-0 min-w-[38px] min-h-[38px] sm:min-w-[42px] sm:min-h-[42px]`}
-              aria-label={isSidebarOpen ? "Minimize navigation menu" : "Open navigation menu"}
-              title={isSidebarOpen ? "Minimize menu" : "Open menu"}
+              } rounded-xl card-3d active:scale-90 flex items-center justify-center transition-all shrink-0 min-w-[38px] min-h-[38px] sm:min-w-[42px] sm:min-h-[42px] cursor-pointer`}
+              aria-label={isSidebarOpen ? "Close navigation menu" : "Open navigation menu"}
+              title={isSidebarOpen ? "Close menu (X)" : "Open menu"}
             >
-              <Menu size={20} className="text-orange-400 transition-transform group-hover:scale-110" />
+              {isSidebarOpen ? (
+                <X size={20} className="text-orange-400 transition-transform hover:rotate-90 duration-150" />
+              ) : (
+                <Menu size={20} className="text-orange-400 transition-transform group-hover:scale-110 duration-150" />
+              )}
             </button>
 
             {/* Compact Brand Logo & Title on Top Bar (Visible when sidebar is minimized / on mobile & short screens) */}

@@ -35,10 +35,15 @@ export const MonthlySalesClosingBanner: React.FC<MonthlySalesClosingBannerProps>
     }
   }, [sessionDismissKey]);
 
-  const handleDismiss = () => {
+  const handleDismiss = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setIsDismissed(true);
     try {
       sessionStorage.setItem(sessionDismissKey, 'true');
+      localStorage.setItem(sessionDismissKey, 'true');
     } catch (e) {
       // ignore
     }

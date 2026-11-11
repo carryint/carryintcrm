@@ -166,9 +166,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       {/* Mobile, Tablet & Short-Screen Backdrop with Blur */}
-      {isOpen && isMobileOrShort && (
+      {isOpen && (
         <div
-          className="fixed inset-0 bg-black/80 z-40 no-print backdrop-blur-md transition-opacity duration-300"
+          className={`fixed inset-0 bg-black/80 z-40 no-print backdrop-blur-md transition-opacity duration-300 ${!isMobileOrShort ? 'xl:hidden' : ''}`}
           onClick={onClose}
           aria-hidden="true"
         />
@@ -178,9 +178,10 @@ const Sidebar: React.FC<SidebarProps> = ({
       <aside 
         aria-label="Sidebar Navigation"
         className={`
-          w-[290px] sm:w-68 max-w-[85vw] glass-ultra fixed left-0 top-0 bottom-0 inset-y-0 text-white flex flex-col z-50 no-print transition-transform duration-300 ease-out shadow-[20px_0_60px_rgba(0,0,0,0.75)] border-r border-white/10 select-none overflow-hidden
-          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+          w-[290px] sm:w-72 max-w-[85vw] glass-ultra fixed left-0 top-0 bottom-0 inset-y-0 text-white flex flex-col z-50 no-print transition-all duration-300 ease-out shadow-[20px_0_60px_rgba(0,0,0,0.75)] border-r border-white/10 select-none overflow-hidden
+          ${isOpen ? 'sidebar-drawer-open translate-x-0' : 'sidebar-drawer-closed -translate-x-full'}
         `}
+        style={!isOpen ? { transform: 'translateX(-100%)', left: '-9999px', visibility: 'hidden', opacity: 0, pointerEvents: 'none' } : { transform: 'translateX(0)', left: '0', visibility: 'visible', opacity: 1, pointerEvents: 'auto' }}
       >
         {/* Scrawling edge beam */}
         <div className="scrawl-beam-wrapper">
@@ -203,10 +204,15 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
           <button 
-            onClick={onClose} 
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClose();
+            }} 
             aria-label="Close menu"
-            title="Close menu"
-            className="text-zinc-400 hover:text-white p-2 hover:bg-white/10 rounded-xl transition-colors active:scale-90 shrink-0"
+            title="Close menu (X)"
+            className="text-zinc-400 hover:text-white p-2 hover:bg-white/10 rounded-xl transition-colors active:scale-90 shrink-0 cursor-pointer"
           >
             <X size={20} />
           </button>
