@@ -24,14 +24,22 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser?: User | null;
+  isMobileOrShort?: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onClose, currentUser }) => {
+const Sidebar: React.FC<SidebarProps> = ({ 
+  activeTab, 
+  setActiveTab, 
+  isOpen, 
+  onClose, 
+  currentUser,
+  isMobileOrShort = false 
+}) => {
   const role: UserRole = currentUser?.role || 'STAFF';
 
-  // Prevent background scrolling on mobile when sidebar is open and allow closing with ESC key
+  // Prevent background scrolling on mobile & short-screen drawer when open and allow closing with ESC key
   React.useEffect(() => {
-    if (isOpen) {
+    if (isOpen && isMobileOrShort) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -46,7 +54,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
       document.body.style.overflow = '';
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, isMobileOrShort, onClose]);
 
   // Build menu items dynamically per role
   const getMenuItems = () => {
@@ -147,27 +155,30 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
 
   return (
     <>
-      {/* Mobile & Tablet Backdrop with Blur */}
-      {isOpen && (
+      {/* Mobile, Tablet & Short-Screen Backdrop with Blur */}
+      {isOpen && isMobileOrShort && (
         <div
-          className="fixed inset-0 bg-black/80 z-40 xl:hidden no-print backdrop-blur-md transition-opacity duration-300"
+          className="fixed inset-0 bg-black/80 z-40 no-print backdrop-blur-md transition-opacity duration-300"
           onClick={onClose}
           aria-hidden="true"
         />
       )}
 
-      {/* Glassy Sidebar with 3D Depth, Mobile & Tab View Responsive Layout */}
-      <aside className={`
-        w-[280px] sm:w-64 max-w-[85vw] glass-ultra h-screen h-[100dvh] max-h-[100dvh] fixed left-0 top-0 text-white flex flex-col z-50 no-print transition-transform duration-300 ease-out shadow-[15px_0_50px_rgba(0,0,0,0.6)] border-r border-white/10 select-none
-        ${isOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0'}
-      `}>
+      {/* Glassy Sidebar with 3D Depth, Responsive Drawer for Mobile & Short Screens */}
+      <aside 
+        aria-label="Sidebar Navigation"
+        className={`
+          w-[280px] sm:w-64 max-w-[85vw] glass-ultra h-screen h-[100dvh] max-h-[100dvh] fixed left-0 top-0 text-white flex flex-col z-50 no-print transition-transform duration-300 ease-out shadow-[15px_0_50px_rgba(0,0,0,0.6)] border-r border-white/10 select-none
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}
+      >
         {/* Scrawling edge beam */}
         <div className="scrawl-beam-wrapper">
           <div className="scrawl-beam"></div>
         </div>
 
         {/* Brand Header with Safe Area Top Padding & Compact Short-Screen Height */}
-        <div className="pt-[max(0.75rem,env(safe-area-inset-top))] px-3.5 pb-3 sm:px-4 sm:py-3.5 border-b border-white/10 flex items-center justify-between bg-white/[0.03] relative shrink-0">
+        <div className="pt-[max(0.75rem,env(safe-area-inset-top))] px-3.5 pb-3 sm:px-4 sm:py-3.5 border-b border-white/10 flex items-center justify-between bg-white/[0.03] relative shrink-0 short-screen-header">
           <div className="flex items-center space-x-2.5 sm:space-x-3 truncate">
             <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-orange-500 via-orange-600 to-amber-400 rounded-xl flex items-center justify-center font-black text-base sm:text-lg text-black shadow-lg shadow-orange-500/40 card-3d shrink-0">
               C
@@ -183,8 +194,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
           </div>
           <button 
             onClick={onClose} 
-            aria-label="Close menu"
-            className="xl:hidden text-zinc-400 hover:text-white p-2 hover:bg-white/10 rounded-xl transition-colors active:scale-90 shrink-0"
+            aria-label="Minimize menu"
+            title="Minimize menu"
+            className="text-zinc-400 hover:text-white p-2 hover:bg-white/10 rounded-xl transition-colors active:scale-90 shrink-0"
           >
             <X size={20} />
           </button>
@@ -199,9 +211,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
                 key={item.id}
                 onClick={() => {
                   setActiveTab(item.id);
-                  onClose();
+                  if (isMobileOrShort) {
+                    onClose();
+                  }
                 }}
-                className={`w-full flex items-center space-x-2.5 sm:space-x-3 px-3 py-2 sm:py-2.5 rounded-xl transition-all duration-150 active:scale-95 group text-left touch-manipulation min-h-[38px] sm:min-h-[42px] ${
+                className={`w-full flex items-center space-x-2.5 sm:space-x-3 px-3 py-2 sm:py-2.5 rounded-xl transition-all duration-150 active:scale-95 group text-left touch-manipulation min-h-[38px] sm:min-h-[42px] short-screen-compact ${
                   isActive
                     ? 'bg-gradient-to-r from-orange-600 via-orange-500 to-amber-200 text-black font-black shadow-lg shadow-orange-500/35 border border-white/20'
                     : 'text-zinc-300 hover:bg-white/10 hover:text-white hover:border-orange-500/30 border border-transparent font-medium'
@@ -223,7 +237,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
         </nav>
 
         {/* User Role Card in Footer with Safe Area Bottom Padding */}
-        <div className="p-3 sm:p-3.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-white/[0.03] relative shrink-0">
+        <div className="p-3 sm:p-3.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-white/[0.03] relative shrink-0 short-screen-footer">
           <div className="flex items-center justify-between">
             <div className="truncate pr-2">
               <p className="text-xs font-bold text-white truncate">{currentUser?.name || 'User'}</p>

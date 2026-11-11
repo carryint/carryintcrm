@@ -61,7 +61,26 @@ const getInvoiceAging = (dateStr: string, isPaid: boolean, paidDateStr?: string)
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Responsive check: mobile device OR short-screen viewport (compact laptops, low height monitors, mobile landscape)
+  const checkIsMobileOrShort = () => {
+    if (typeof window === 'undefined') return true;
+    return window.innerWidth < 1280 || window.innerHeight <= 800;
+  };
+
+  const [isMobileOrShort, setIsMobileOrShort] = useState(checkIsMobileOrShort);
+
+  // In Mobile and short-screen views: ALWAYS MINIMIZED BY DEFAULT to icon button on top bar!
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      if (window.innerWidth < 1280 || window.innerHeight <= 800) {
+        return false;
+      }
+      const saved = localStorage.getItem('carryint_desktop_sidebar_open');
+      return saved !== null ? saved === 'true' : true;
+    }
+    return false;
+  });
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -283,6 +302,39 @@ const App: React.FC = () => {
       }
     }
   }, [monthlyClosings, currentUser]);
+
+  // Responsive viewport and orientation tracking for Mobile & Short-Screen views
+  useEffect(() => {
+    let prevIsMobileOrShort = typeof window !== 'undefined' ? (window.innerWidth < 1280 || window.innerHeight <= 800) : false;
+
+    const handleResize = () => {
+      const current = window.innerWidth < 1280 || window.innerHeight <= 800;
+      setIsMobileOrShort(current);
+      // When viewport becomes mobile or short-screen, automatically minimize sidebar
+      if (current && !prevIsMobileOrShort) {
+        setIsSidebarOpen(false);
+      }
+      prevIsMobileOrShort = current;
+    };
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
+  }, []);
+
+  // Save desktop user preference when toggled on large desktop
+  useEffect(() => {
+    if (!isMobileOrShort) {
+      try {
+        localStorage.setItem('carryint_desktop_sidebar_open', String(isSidebarOpen));
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, [isSidebarOpen, isMobileOrShort]);
 
   const handleLogin = async (emailInput: string, passInput: string) => {
     setAuthError('');
@@ -2375,11 +2427,12 @@ const App: React.FC = () => {
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         currentUser={currentUser}
+        isMobileOrShort={isMobileOrShort}
       />
 
-      <main className={`xl:pl-64 min-h-screen relative overflow-hidden ${activeTab === 'view-invoice' ? 'bg-white text-gray-900' : 'crm-black-orange-bg text-white'}`}>
+      <main className={`min-h-screen relative overflow-hidden transition-[padding] duration-300 ease-out ${(!isMobileOrShort && isSidebarOpen) ? 'xl:pl-64' : 'pl-0'} ${activeTab === 'view-invoice' ? 'bg-white text-gray-900' : 'crm-black-orange-bg text-white'}`}>
         {/* Oversized Blurred Orange Gradient Circles & Soft Glowing Ambient Light Effects Behind Glass Panels */}
-        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden xl:pl-64 select-none">
+        <div className={`fixed inset-0 pointer-events-none z-0 overflow-hidden select-none transition-[padding] duration-300 ease-out ${(!isMobileOrShort && isSidebarOpen) ? 'xl:pl-64' : 'pl-0'}`}>
           {/* Orb 1: Warm Orange & Amber Ambient Halo (Top Left) */}
           <div className="absolute -top-32 -left-20 w-[620px] h-[620px] sm:w-[780px] sm:h-[780px] rounded-full bg-gradient-to-br from-orange-500/22 via-amber-500/14 to-transparent blur-[140px] transform -translate-x-1/4" />
 
@@ -2400,32 +2453,73 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <header className={`h-14 ${activeTab === 'view-invoice' ? 'bg-white border-b border-gray-200 text-gray-900' : 'glass-ultra border-b border-white/15 text-white shadow-xl shadow-black/50'} flex items-center justify-between px-3 sm:px-6 sticky top-0 z-10 no-print transition-colors`}>
-          <div className="flex items-center gap-3">
+        <header className={`h-14 sm:h-16 ${activeTab === 'view-invoice' ? 'bg-white border-b border-gray-200 text-gray-900' : 'glass-ultra border-b border-white/15 text-white shadow-xl shadow-black/50'} flex items-center justify-between px-2.5 sm:px-6 sticky top-0 z-20 no-print transition-colors pt-[env(safe-area-inset-top)]`}>
+          <div className="flex items-center gap-2 sm:gap-3 shrink min-w-0">
+            {/* Sidebar Toggle / Minimize Icon Button on Top Bar */}
             <button
-              onClick={() => setIsSidebarOpen(true)}
-              className={`xl:hidden p-2 ${activeTab === 'view-invoice' ? 'text-gray-700 hover:bg-gray-100' : 'text-zinc-200 hover:text-white hover:bg-white/10'} rounded-xl card-3d active:scale-95 flex items-center justify-center`}
-              aria-label="Open Navigation Menu"
-              title="Open menu"
+              onClick={() => setIsSidebarOpen(prev => !prev)}
+              className={`p-2 sm:p-2.5 ${
+                activeTab === 'view-invoice' 
+                  ? 'text-gray-700 hover:bg-gray-100 hover:text-orange-600 border border-gray-200 shadow-sm' 
+                  : 'text-zinc-200 hover:text-white hover:bg-white/10 hover:border-orange-500/40 border border-white/10'
+              } rounded-xl card-3d active:scale-90 flex items-center justify-center transition-all shrink-0 min-w-[38px] min-h-[38px] sm:min-w-[42px] sm:min-h-[42px]`}
+              aria-label={isSidebarOpen ? "Minimize navigation menu" : "Open navigation menu"}
+              title={isSidebarOpen ? "Minimize menu" : "Open menu"}
             >
-              <Menu size={22} className="text-orange-400" />
+              <Menu size={20} className="text-orange-400 transition-transform group-hover:scale-110" />
             </button>
-            <div className="relative w-44 sm:w-72 lg:w-80">
-              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${activeTab === 'view-invoice' ? 'text-gray-400' : 'text-zinc-400'}`} size={16} />
+
+            {/* Compact Brand Logo & Title on Top Bar (Visible when sidebar is minimized / on mobile & short screens) */}
+            <div 
+              onClick={() => { setActiveTab('dashboard'); if (isMobileOrShort) setIsSidebarOpen(false); }}
+              className={`flex items-center gap-1.5 sm:gap-2 cursor-pointer select-none group shrink-0 ${(!isMobileOrShort && isSidebarOpen) ? 'hidden' : 'flex'}`}
+              title="Carryint CRM - Go to Operations Dashboard"
+            >
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-400 flex items-center justify-center font-black text-xs sm:text-sm text-black shadow-md shadow-orange-500/30 group-hover:scale-105 transition-transform shrink-0 card-3d">
+                C
+              </div>
+              <div className="hidden xs:block sm:block leading-tight truncate">
+                <div className="flex items-center gap-1">
+                  <span className={`font-black text-xs sm:text-sm tracking-tight ${activeTab === 'view-invoice' ? 'text-gray-900' : 'text-white'} block leading-tight truncate`}>
+                    Carryint
+                  </span>
+                  <span className="text-[9px] sm:text-[10px] text-orange-400 font-black uppercase tracking-wider block">
+                    CRM
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Active Tab Badge (Context indicator on mobile & short screens) */}
+            <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-xs font-semibold text-zinc-300 capitalize shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse"></span>
+              <span className="truncate max-w-[130px]">{activeTab.replace(/-/g, ' ')}</span>
+            </div>
+
+            {/* Search Input Box */}
+            <div className="relative w-28 xs:w-36 sm:w-56 md:w-64 lg:w-72 transition-all">
+              <Search className={`absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 ${activeTab === 'view-invoice' ? 'text-gray-400' : 'text-zinc-400'}`} size={14} />
               <input
-                placeholder={`Search in ${activeTab.replace('-', ' ')}...`}
-                className={`w-full ${activeTab === 'view-invoice' ? 'bg-gray-50 border-gray-100 text-gray-900' : 'glass-pill text-white placeholder-zinc-400 focus:border-orange-400/80 focus:shadow-[0_0_15px_rgba(234,88,12,0.35)] shadow-inner'} rounded-xl pl-9 pr-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-orange-500 transition-all font-medium`}
+                placeholder={`Search ${activeTab.replace(/-/g, ' ')}...`}
+                className={`w-full ${activeTab === 'view-invoice' ? 'bg-gray-50 border-gray-100 text-gray-900' : 'glass-pill text-white placeholder-zinc-400 focus:border-orange-400/80 focus:shadow-[0_0_15px_rgba(234,88,12,0.35)] shadow-inner'} rounded-xl pl-8 sm:pl-9 pr-2.5 sm:pr-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-orange-500 transition-all font-medium`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
           </div>
-          <div className="flex items-center gap-2 lg:gap-5">
-            <div className={`relative cursor-pointer ${activeTab === 'view-invoice' ? 'text-gray-500 hover:text-orange-600' : 'text-zinc-300 hover:text-orange-400'} p-1.5 card-3d active:scale-95`}>
+
+          <div className="flex items-center gap-1.5 sm:gap-2.5 lg:gap-4 shrink-0">
+            {/* Notification Bell */}
+            <div 
+              className={`relative cursor-pointer ${activeTab === 'view-invoice' ? 'text-gray-500 hover:text-orange-600 hover:bg-gray-100' : 'text-zinc-300 hover:text-orange-400 hover:bg-white/10'} p-1.5 sm:p-2 rounded-xl card-3d active:scale-95 transition-all`}
+              title="Notifications"
+            >
               <Bell size={18} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full border-2 border-white"></span>
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full border-2 border-white shadow-sm"></span>
             </div>
-            <div className={`flex items-center gap-2.5 xl:pl-5 xl:border-l ${activeTab === 'dashboard' || activeTab === 'monthly-closing' ? 'border-white/10' : 'border-gray-200'}`}>
+
+            {/* User Profile & Logout */}
+            <div className={`flex items-center gap-2 sm:gap-2.5 ${activeTab === 'dashboard' || activeTab === 'monthly-closing' ? 'border-white/10' : 'border-gray-200'}`}>
               <div className="text-right hidden sm:block">
                 <div className="flex items-center justify-end gap-1.5">
                   <p className={`text-xs font-bold ${activeTab === 'view-invoice' ? 'text-gray-900' : 'text-white'} leading-none`}>{currentUser.name}</p>
@@ -2438,16 +2532,24 @@ const App: React.FC = () => {
                     {currentUser.role}
                   </span>
                 </div>
-                <p className="text-[9px] text-orange-600 font-bold mt-0.5 uppercase">{companyInfo.name}</p>
+                <p className="text-[9px] text-orange-500 font-bold mt-0.5 uppercase tracking-wider">{companyInfo.name}</p>
               </div>
+
+              {/* Logout Button */}
               <button
                 onClick={handleLogout}
-                className={`p-1.5 ${activeTab === 'view-invoice' ? 'text-gray-400 hover:text-red-600' : 'text-zinc-400 hover:text-rose-400'} transition-colors card-3d active:scale-95`}
+                className={`p-1.5 sm:p-2 ${activeTab === 'view-invoice' ? 'text-gray-400 hover:text-red-600 hover:bg-gray-100' : 'text-zinc-400 hover:text-rose-400 hover:bg-white/10'} rounded-xl transition-colors card-3d active:scale-95`}
                 title="Logout"
+                aria-label="Logout"
               >
                 <LogOut size={18} />
               </button>
-              <UserCircle size={28} className={activeTab === 'view-invoice' ? 'text-gray-300' : 'text-zinc-400'} />
+
+              {/* User Avatar */}
+              <div className="relative">
+                <UserCircle size={28} className={activeTab === 'view-invoice' ? 'text-gray-400' : 'text-zinc-400'} />
+                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border border-black sm:hidden" title="Online"></span>
+              </div>
             </div>
           </div>
         </header>
