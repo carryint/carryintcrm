@@ -71,15 +71,15 @@ const RealTimeClock: React.FC = () => {
   const strokeDashoffset = circumference - secondProgress;
 
   return (
-    <div className="relative overflow-hidden rounded-3xl glass-ultra glass-sheen card-3d p-4 sm:p-5 flex flex-col justify-between group hover:border-orange-500/50 transition-all duration-300">
+    <div className="relative overflow-hidden rounded-3xl glass-ultra glass-sheen card-3d p-4 sm:p-5 flex flex-col justify-between group hover:border-white/30 transition-all duration-300 border border-white/14">
       
       {/* Animated Scrawling Laser Light Beam */}
       <div className="scrawl-beam-wrapper">
         <div className="scrawl-beam"></div>
       </div>
 
-      {/* Top Ambient Glow Orb */}
-      <div className="absolute -top-14 -right-14 w-36 h-36 bg-gradient-to-br from-orange-600/30 to-amber-500/10 rounded-full blur-3xl pointer-events-none group-hover:scale-125 transition-transform duration-700"></div>
+      {/* Top Subtle Ambient Glow */}
+      <div className="absolute -top-14 -right-14 w-32 h-32 bg-orange-500/10 rounded-full blur-2xl pointer-events-none group-hover:scale-125 transition-transform duration-700"></div>
 
       {/* Header Info */}
       <div className="flex items-center justify-between mb-3 relative z-10">
@@ -479,33 +479,33 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, trend, isHero =
 
   if (isHero) {
     return (
-      <div className="relative overflow-hidden rounded-3xl glass-ultra glass-sheen border border-orange-500/60 p-5 shadow-[0_25px_60px_rgba(0,0,0,0.95),0_0_40px_rgba(234,88,12,0.3)] card-3d group hover:border-orange-400 transition-all duration-300 text-left">
+      <div className="relative overflow-hidden rounded-3xl glass-ultra glass-sheen border border-white/18 p-5 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_20px_rgba(249,115,22,0.12)] card-3d group hover:border-white/30 transition-all duration-300 text-left">
         
         {/* Scrawling Laser Light Beam */}
         <div className="scrawl-beam-wrapper">
           <div className="scrawl-beam"></div>
         </div>
 
-        {/* Ambient Glow Orb */}
-        <div className="absolute -top-12 -right-12 w-36 h-36 bg-gradient-to-br from-orange-600/35 to-amber-500/10 rounded-full blur-3xl pointer-events-none group-hover:scale-125 transition-transform duration-700"></div>
+        {/* Ambient Subtle Accent Glow */}
+        <div className="absolute -top-12 -right-12 w-32 h-32 bg-gradient-to-br from-orange-500/18 to-transparent rounded-full blur-2xl pointer-events-none group-hover:scale-125 transition-transform duration-700"></div>
 
         <div className="flex items-center justify-between mb-3 relative z-10">
-          <div className="p-2.5 rounded-xl bg-gradient-to-br from-orange-500/30 to-amber-500/10 text-orange-400 border border-orange-500/40 shadow-inner card-3d">
+          <div className="p-2.5 rounded-xl bg-white/[0.06] text-orange-400 border border-white/12 shadow-inner">
             {icon}
           </div>
-          {/* Dark Orange & Off-White Gradient Pill Badge */}
-          <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-gradient-to-r from-orange-500 via-orange-400 to-amber-200 text-black shadow-md shadow-orange-500/35 tracking-tight">
+          {/* Vibrant Orange & Golden Pill Badge */}
+          <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-gradient-to-r from-orange-500 via-orange-600 to-amber-400 text-black shadow-md shadow-orange-500/30 tracking-tight">
             {trend}
           </span>
         </div>
 
         <div className="relative z-10">
-          <p className="text-zinc-200 text-xs font-bold uppercase tracking-wider">{title}</p>
-          <h3 className="text-2xl sm:text-3xl font-black text-white mt-1 tracking-tight truncate drop-shadow-[0_2px_10px_rgba(255,255,255,0.25)]" title={value}>
+          <p className="text-zinc-300 text-xs font-bold uppercase tracking-wider">{title}</p>
+          <h3 className="text-2xl sm:text-3xl font-black text-white mt-1 tracking-tight truncate drop-shadow-sm" title={value}>
             {value}
           </h3>
           {subtitle && (
-            <p className="text-[11px] text-zinc-300 font-medium mt-1">{subtitle}</p>
+            <p className="text-[11px] text-zinc-400 font-medium mt-1">{subtitle}</p>
           )}
         </div>
       </div>
@@ -515,10 +515,10 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, trend, isHero =
   return (
     <CardWrapper
       onClick={onClick}
-      className={`relative overflow-hidden rounded-3xl glass-ultra glass-sheen p-5 text-left card-3d transition-all duration-300 ${
+      className={`relative overflow-hidden rounded-3xl glass-ultra glass-sheen p-5 text-left card-3d transition-all duration-300 border border-white/14 ${
         isClickable
-          ? 'hover:border-white/30 hover:shadow-[0_25px_50px_-10px_rgba(0,0,0,0.6),0_0_25px_rgba(249,115,22,0.18)] active:scale-95 group cursor-pointer'
-          : 'hover:border-white/20'
+          ? 'hover:border-white/30 hover:shadow-[0_25px_50px_-10px_rgba(0,0,0,0.85),0_0_20px_rgba(249,115,22,0.15)] active:scale-95 group cursor-pointer'
+          : 'hover:border-white/22'
       }`}
     >
       {/* Scrawling Laser Light Beam */}
@@ -527,16 +527,16 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, trend, isHero =
       </div>
 
       <div className="flex items-center justify-between mb-3 relative z-10">
-        <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-zinc-200 group-hover:text-orange-400 group-hover:bg-orange-500/15 group-hover:border-orange-500/40 transition-colors shadow-inner">
+        <div className="p-2.5 rounded-xl bg-white/[0.05] border border-white/10 text-zinc-300 group-hover:text-orange-400 group-hover:bg-orange-500/15 group-hover:border-orange-500/40 transition-colors shadow-inner">
           {icon}
         </div>
-        <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-white/10 text-zinc-200 border border-white/15 tracking-wide">
+        <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-white/[0.08] text-zinc-200 border border-white/15 tracking-wide">
           {trend}
         </span>
       </div>
 
       <div className="relative z-10">
-        <p className="text-zinc-200 text-xs font-bold uppercase tracking-wider">{title}</p>
+        <p className="text-zinc-300 text-xs font-bold uppercase tracking-wider">{title}</p>
         <div className="flex items-baseline justify-between mt-1">
           <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight truncate drop-shadow-sm" title={value}>
             {value}
@@ -1141,11 +1141,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="relative -m-3 sm:-m-4 lg:-m-6 p-3 sm:p-4 lg:p-6 min-h-[calc(100vh-3.5rem)] bg-transparent text-white overflow-hidden space-y-5 perspective-container">
       
-      {/* Oversized Blurred Orange Gradient Circles & Soft Glowing Ambient Light Effects */}
-      <div className="pointer-events-none absolute -top-20 left-4 w-[48rem] h-[48rem] bg-gradient-to-br from-orange-500/30 via-amber-500/20 to-peach-400/10 rounded-full blur-[140px] animate-pulse-glow" />
-      <div className="pointer-events-none absolute top-1/4 -right-10 w-[42rem] h-[42rem] bg-gradient-to-bl from-amber-400/25 via-orange-400/18 to-rose-400/10 rounded-full blur-[130px] animate-pulse-glow" style={{ animationDelay: '2.5s' }} />
-      <div className="pointer-events-none absolute bottom-10 left-1/4 w-[44rem] h-[44rem] bg-gradient-to-tr from-orange-600/20 via-amber-500/15 to-transparent rounded-full blur-[160px]" />
-      <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[32rem] h-[32rem] bg-peach-300/10 rounded-full blur-[120px]" />
+      {/* Clean Ambient Space - Background lights are managed globally */}
+
 
       {/* TOP ROW: REALISTIC CHRONOMETER CLOCK, 3D CALENDAR & VELOCITY SNAPSHOT */}
       <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
@@ -1184,7 +1181,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         {/* 3D Operations & Velocity Snapshot (lg:col-span-3) */}
-        <div className="lg:col-span-3 flex flex-col justify-between rounded-3xl glass-ultra glass-sheen card-3d p-4 sm:p-5">
+        <div className="lg:col-span-3 flex flex-col justify-between rounded-3xl glass-ultra glass-sheen card-3d p-4 sm:p-5 border border-white/14">
           <div className="scrawl-beam-wrapper">
             <div className="scrawl-beam"></div>
           </div>
@@ -1241,7 +1238,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* 3D SALES CYCLE & MONTHLY CLOSING STATUS BAR */}
-      <div className="relative z-10 glass-ultra p-3 sm:p-4 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.85)] flex flex-col md:flex-row gap-3 items-center justify-between card-3d no-print border border-orange-500/30">
+      <div className="relative z-10 glass-ultra p-3 sm:p-4 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.8)] flex flex-col md:flex-row gap-3 items-center justify-between card-3d no-print border border-white/14">
         <div className="scrawl-beam-wrapper">
           <div className="scrawl-beam"></div>
         </div>
@@ -1308,7 +1305,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* 3D FILTER & EXPORT BAR */}
-      <div className="relative z-10 glass-ultra p-3 sm:p-4 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] flex flex-col lg:flex-row gap-3 items-center justify-between card-3d no-print">
+      <div className="relative z-10 glass-ultra p-3 sm:p-4 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] flex flex-col lg:flex-row gap-3 items-center justify-between card-3d no-print border border-white/14">
         <div className="scrawl-beam-wrapper">
           <div className="scrawl-beam"></div>
         </div>
