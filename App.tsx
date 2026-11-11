@@ -42,7 +42,9 @@ import {
   Edit,
   Wallet,
   ExternalLink,
-  Navigation
+  Navigation,
+  LayoutDashboard,
+  Receipt
 } from 'lucide-react';
 import { generateId, generateAwbNumber, getCarrierTrackingUrl, prepareInvoiceForSupabase, hydrateInvoiceFromStorage, sortInvoicesByNewestCreated } from './utils';
 
@@ -2428,6 +2430,7 @@ const App: React.FC = () => {
         onClose={() => setIsSidebarOpen(false)}
         currentUser={currentUser}
         isMobileOrShort={isMobileOrShort}
+        onLogout={handleLogout}
       />
 
       <main className={`min-h-screen relative overflow-hidden transition-[padding] duration-300 ease-out ${(!isMobileOrShort && isSidebarOpen) ? 'xl:pl-64' : 'pl-0'} ${activeTab === 'view-invoice' ? 'bg-white text-gray-900' : 'crm-black-orange-bg text-white'}`}>
@@ -2564,10 +2567,90 @@ const App: React.FC = () => {
           onNavigate={setActiveTab}
         />
 
-        <div className="p-3 sm:p-4 lg:p-6 max-w-full relative z-10">
+        <div className="p-3 sm:p-4 lg:p-6 pb-24 md:pb-6 max-w-full relative z-10">
           {renderContent()}
         </div>
       </main>
+
+      {/* Mobile Bottom Navigation Bar (< 768px / md:hidden) */}
+      <nav 
+        aria-label="Mobile Navigation Bar"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-30 glass-ultra border-t border-white/15 shadow-[0_-8px_30px_rgba(0,0,0,0.6)] backdrop-blur-2xl pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 px-3 no-print select-none"
+      >
+        <div className="flex items-center justify-around max-w-md mx-auto">
+          {/* 1. Dashboard */}
+          <button
+            onClick={() => { setActiveTab('dashboard'); setIsSidebarOpen(false); }}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all active:scale-95 touch-manipulation ${
+              activeTab === 'dashboard'
+                ? 'text-orange-400 font-black'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <div className={`p-1 rounded-lg ${activeTab === 'dashboard' ? 'bg-orange-500/20 shadow-sm' : ''}`}>
+              <LayoutDashboard size={19} />
+            </div>
+            <span className="text-[10px] tracking-tight mt-0.5">Dashboard</span>
+          </button>
+
+          {/* 2. Invoices */}
+          <button
+            onClick={() => { setActiveTab('invoices'); setIsSidebarOpen(false); }}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all active:scale-95 touch-manipulation ${
+              activeTab === 'invoices'
+                ? 'text-orange-400 font-black'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <div className={`p-1 rounded-lg ${activeTab === 'invoices' ? 'bg-orange-500/20 shadow-sm' : ''}`}>
+              <Receipt size={19} />
+            </div>
+            <span className="text-[10px] tracking-tight mt-0.5">Invoices</span>
+          </button>
+
+          {/* 3. Create (Raised Floating Action Button) */}
+          <button
+            onClick={() => { setActiveTab('create-invoice'); setIsSidebarOpen(false); }}
+            className="flex flex-col items-center justify-center -mt-5 transition-all active:scale-90 group touch-manipulation"
+            title="Create Invoice"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-orange-600 via-orange-500 to-amber-400 text-black flex items-center justify-center shadow-lg shadow-orange-500/50 border-2 border-black/40 group-hover:scale-105 transition-transform">
+              <PlusCircle size={26} strokeWidth={2.5} />
+            </div>
+            <span className="text-[10px] font-bold text-orange-400 tracking-tight mt-0.5">Create</span>
+          </button>
+
+          {/* 4. Tracking */}
+          <button
+            onClick={() => { setActiveTab('tracking'); setIsSidebarOpen(false); }}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all active:scale-95 touch-manipulation ${
+              activeTab === 'tracking'
+                ? 'text-orange-400 font-black'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <div className={`p-1 rounded-lg ${activeTab === 'tracking' ? 'bg-orange-500/20 shadow-sm' : ''}`}>
+              <Truck size={19} />
+            </div>
+            <span className="text-[10px] tracking-tight mt-0.5">Tracking</span>
+          </button>
+
+          {/* 5. Full Menu Drawer Toggle */}
+          <button
+            onClick={() => setIsSidebarOpen(prev => !prev)}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all active:scale-95 touch-manipulation ${
+              isSidebarOpen
+                ? 'text-orange-400 font-black'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <div className={`p-1 rounded-lg ${isSidebarOpen ? 'bg-orange-500/20 shadow-sm' : ''}`}>
+              <Menu size={19} />
+            </div>
+            <span className="text-[10px] tracking-tight mt-0.5">Menu</span>
+          </button>
+        </div>
+      </nav>
 
       {/* Quick Carrier & AWB Assignment Modal */}
       {carrierModalInvoice && (
