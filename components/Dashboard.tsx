@@ -599,7 +599,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [modalSearch, setModalSearch] = useState<string>('');
   
   // Date Filters
-  const [dateFilter, setDateFilter] = useState<'all' | '7days' | '30days' | '60days' | '90days' | 'custom'>('all');
+  const [dateFilter, setDateFilter] = useState<'thisMonth' | 'all' | '7days' | '30days' | '60days' | '90days' | 'custom'>('thisMonth');
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const [selectedCreatorFilter, setSelectedCreatorFilter] = useState<string>('all');
@@ -648,6 +648,15 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       // 3. Period filter
       if (dateFilter === 'all') return true;
+
+      if (dateFilter === 'thisMonth') {
+        const now = new Date();
+        const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        if (typeof inv.date === 'string' && inv.date.slice(0, 7) === currentMonthPrefix) return true;
+        const itemDate = new Date(inv.date);
+        return !isNaN(itemDate.getTime()) && itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear();
+      }
+
       const itemDate = new Date(inv.date);
       itemDate.setHours(0, 0, 0, 0);
       const now = new Date();
@@ -702,6 +711,15 @@ const Dashboard: React.FC<DashboardProps> = ({
       }
 
       if (dateFilter === 'all') return true;
+
+      if (dateFilter === 'thisMonth') {
+        const now = new Date();
+        const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        if (typeof exp.date === 'string' && exp.date.slice(0, 7) === currentMonthPrefix) return true;
+        const itemDate = new Date(exp.date);
+        return !isNaN(itemDate.getTime()) && itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear();
+      }
+
       const itemDate = new Date(exp.date);
       itemDate.setHours(0, 0, 0, 0);
       const now = new Date();
@@ -750,6 +768,16 @@ const Dashboard: React.FC<DashboardProps> = ({
       }
 
       if (dateFilter === 'all') return true;
+
+      if (dateFilter === 'thisMonth') {
+        const now = new Date();
+        const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const rawDate = adj.date || (adj as any).timestamp;
+        if (typeof rawDate === 'string' && rawDate.slice(0, 7) === currentMonthPrefix) return true;
+        const itemDate = new Date(rawDate);
+        return !isNaN(itemDate.getTime()) && itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear();
+      }
+
       const itemDate = new Date(adj.date);
       itemDate.setHours(0, 0, 0, 0);
       const now = new Date();
@@ -916,7 +944,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       .slice(0, 5);
   }, [filteredInvoices]);
 
-  // Dynamic monthly aggregation for last 6 calendar months
+  // Dynamic monthly aggregation for last 6 calendar months (historical trend)
   const getChartData = () => {
     const months = [];
     const now = new Date();
@@ -933,7 +961,17 @@ const Dashboard: React.FC<DashboardProps> = ({
       });
     }
 
-    filteredInvoices.forEach(inv => {
+    const chartInvoices = selectedCreatorFilter === 'all'
+      ? invoices
+      : invoices.filter(inv => inv.createdBy === selectedCreatorFilter || inv.createdByName?.toLowerCase() === selectedCreatorFilter.toLowerCase());
+
+    const chartAdjustments = adjustmentNotes;
+
+    const chartExpenses = selectedCreatorFilter === 'all'
+      ? expenses
+      : expenses.filter(exp => exp.createdBy === selectedCreatorFilter || exp.createdByName?.toLowerCase() === selectedCreatorFilter.toLowerCase());
+
+    chartInvoices.forEach(inv => {
       const invDate = new Date(inv.date);
       const y = invDate.getFullYear();
       const m = invDate.getMonth();
@@ -944,7 +982,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       }
     });
 
-    filteredAdjustments.forEach(adj => {
+    chartAdjustments.forEach(adj => {
       const adjDate = new Date(adj.date);
       const y = adjDate.getFullYear();
       const m = adjDate.getMonth();
@@ -960,7 +998,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       }
     });
 
-    filteredExpenses.forEach(exp => {
+    chartExpenses.forEach(exp => {
       const expDate = new Date(exp.date);
       const y = expDate.getFullYear();
       const m = expDate.getMonth();
@@ -1044,7 +1082,8 @@ const Dashboard: React.FC<DashboardProps> = ({
     doc.setTextColor(200, 200, 200);
     const filterText = selectedCalendarDate 
       ? `Exact Date: ${selectedCalendarDate}`
-      : dateFilter === 'all' ? 'All Time' :
+      : dateFilter === 'thisMonth' ? 'This Month (Current Month)' :
+      dateFilter === 'all' ? 'All Time' :
       dateFilter === '7days' ? 'Last 7 Days' :
       dateFilter === '30days' ? 'Last 30 Days' :
       dateFilter === '60days' ? 'Last 60 Days' :
@@ -1249,7 +1288,13 @@ const Dashboard: React.FC<DashboardProps> = ({
             <span className="text-[11px] font-black uppercase tracking-wider text-zinc-300">Sales Cycle:</span>
             <select
               value={selectedCycle}
-              onChange={(e) => setSelectedCycle(e.target.value)}
+              onChange={(e) => {
+                const newCycle = e.target.value;
+                setSelectedCycle(newCycle);
+                if (newCycle !== 'active') {
+                  setDateFilter('all');
+                }
+              }}
               className="bg-transparent text-xs font-black text-orange-400 outline-none cursor-pointer"
             >
               <option value="active" className="bg-zinc-950 text-white">
@@ -1315,9 +1360,10 @@ const Dashboard: React.FC<DashboardProps> = ({
           <span className="text-[11px] font-black text-zinc-300 uppercase tracking-wider mr-1 flex items-center gap-1">
             <Filter size={13} className="text-orange-400" /> Range:
           </span>
-          {['all', '7days', '30days', '60days', '90days', 'custom'].map((f) => {
+          {['thisMonth', 'all', '7days', '30days', '60days', '90days', 'custom'].map((f) => {
             const isActive = dateFilter === f && !selectedCalendarDate;
             const labels: Record<string, string> = {
+              thisMonth: 'This Month',
               all: 'All Time',
               '7days': '7 Days',
               '30days': '30 Days',
