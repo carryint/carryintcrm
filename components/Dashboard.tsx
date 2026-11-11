@@ -400,7 +400,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({ invoices, selecte
                 }}
                 className={`h-8 sm:h-9 rounded-xl flex flex-col items-center justify-center relative transition-all duration-200 card-3d active:scale-90 group/cell ${
                   isSelected
-                    ? 'bg-gradient-to-br from-orange-500 via-orange-600 to-amber-200 text-black font-black shadow-[0_6px_25px_rgba(234,88,12,0.6)] ring-2 ring-white scale-105 z-20'
+                    ? 'bg-gradient-to-br from-orange-500 via-orange-600 to-amber-200 text-black font-black shadow-[0_6px_25px_rgba(234,88,12,0.6)] ring-2 ring-white z-20'
                     : isToday
                     ? 'bg-gradient-to-br from-orange-500/30 to-amber-500/10 text-orange-300 font-black border-2 border-orange-500 shadow-[0_0_15px_rgba(234,88,12,0.4)]'
                     : hasActivity
@@ -1139,7 +1139,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   };
 
   return (
-    <div className="relative -m-3 sm:-m-4 lg:-m-6 p-3 sm:p-4 lg:p-6 min-h-[calc(100vh-3.5rem)] bg-transparent text-white overflow-hidden space-y-5 perspective-container">
+    <div className="relative -m-3 sm:-m-4 lg:-m-6 p-3 sm:p-4 lg:p-6 min-h-[calc(100vh-3.5rem)] bg-transparent text-white overflow-hidden space-y-5">
       
       {/* Clean Ambient Space - Background lights are managed globally */}
 

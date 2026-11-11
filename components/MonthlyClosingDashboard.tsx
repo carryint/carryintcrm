@@ -586,7 +586,7 @@ export const MonthlyClosingDashboard: React.FC<MonthlyClosingDashboardProps> = (
                   className={`
                     glass-ultra rounded-2xl border p-4 sm:p-4.5 flex flex-col justify-between relative overflow-hidden transition-all duration-200 cursor-pointer touch-manipulation ${
                       isSelectedInDownBar
-                        ? 'border-orange-400/80 ring-2 ring-orange-400/40 shadow-[0_0_35px_rgba(249,115,22,0.35)] scale-[1.01]'
+                        ? 'border-orange-400/80 ring-2 ring-orange-400/40 shadow-[0_0_35px_rgba(249,115,22,0.35)]'
                         : box.isClosed
                         ? 'border-white/15 hover:border-white/30 hover:shadow-[0_20px_45px_-10px_rgba(0,0,0,0.5),0_0_20px_rgba(255,255,255,0.04)]'
                         : 'border-orange-400/40 hover:border-orange-400 hover:shadow-[0_20px_45px_-10px_rgba(0,0,0,0.5),0_0_25px_rgba(249,115,22,0.25)]'
