@@ -242,6 +242,23 @@
     .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
       background: rgba(249, 115, 22, 0.55);
     }
+
+    /* Short screen height optimizations (e.g. laptops <= 780px height, mobile landscape) */
+    @media screen and (max-height: 780px) {
+      .short-screen-compact {
+        padding-top: 0.35rem !important;
+        padding-bottom: 0.35rem !important;
+        min-height: 36px !important;
+      }
+      .short-screen-header {
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+      }
+      .short-screen-footer {
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+      }
+    }
     
     /* High contrast text readability for forms, inputs, and cards */
     input, select, textarea {
@@ -452,7 +469,7 @@
     }
   </style>
 
-  <script type="module" crossorigin src="./assets/index-0lyN4xUq.js"></script>
+  <script type="module" crossorigin src="./assets/index-DWaDlc7R.js"></script>
 </head>
 
 <body class="crm-black-orange-bg text-white min-h-screen">
