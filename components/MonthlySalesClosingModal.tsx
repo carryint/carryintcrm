@@ -54,6 +54,7 @@ interface MonthlySalesClosingModalProps {
   onClosingsUpdated: (updated: MonthlySalesClosing[]) => void;
   defaultMonth?: string; // e.g. "2026-11"
   companyInfo?: CompanyInfo;
+  initialEditMode?: boolean;
 }
 
 export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> = ({
@@ -66,7 +67,8 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
   currentUser,
   onClosingsUpdated,
   defaultMonth,
-  companyInfo
+  companyInfo,
+  initialEditMode
 }) => {
   // Determine initial month to close
   const initialMonth = useMemo(() => {
@@ -136,14 +138,23 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
   // Edit Mode state
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
 
-  // Sync edit mode: if no closing exists, edit mode is true by default
+  // Sync defaultMonth when prop updates
   useEffect(() => {
-    if (!existingClosing) {
+    if (defaultMonth) {
+      setSelectedMonth(defaultMonth);
+    }
+  }, [defaultMonth]);
+
+  // Sync edit mode: if initialEditMode is provided, respect it; otherwise new months default to edit
+  useEffect(() => {
+    if (initialEditMode !== undefined) {
+      setIsEditMode(initialEditMode);
+    } else if (!existingClosing) {
       setIsEditMode(true);
     } else {
       setIsEditMode(false);
     }
-  }, [existingClosing, selectedMonth]);
+  }, [existingClosing, selectedMonth, initialEditMode]);
 
   // Auto-calculated preview figures
   const preview = useMemo(() => {
@@ -583,12 +594,15 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto no-print">
       {/* Dark Frosted Backdrop */}
       <div
-        className="fixed inset-0 bg-black/85 backdrop-blur-md transition-opacity"
+        className="fixed inset-0 bg-black/85 backdrop-blur-md transition-opacity z-40"
         onClick={onClose}
       />
 
-      {/* Modal Container: Full Screen Height on Mobile, Touch-Friendly */}
-      <div className="relative w-full max-w-4xl glass-ultra rounded-2xl sm:rounded-3xl border border-orange-500/50 shadow-[0_25px_80px_rgba(0,0,0,0.95),0_0_50px_rgba(234,88,12,0.3)] overflow-hidden my-auto card-3d text-white h-[94vh] sm:h-auto max-h-[94vh] flex flex-col">
+      {/* Modal Container: Full Screen Height on Mobile, Touch-Friendly (Removed touch-manipulation to eliminate click jump) */}
+      <div 
+        className="relative z-50 w-full max-w-4xl glass-ultra rounded-2xl sm:rounded-3xl border border-orange-500/50 shadow-[0_25px_80px_rgba(0,0,0,0.95),0_0_50px_rgba(234,88,12,0.3)] overflow-hidden my-auto text-white h-[94vh] sm:h-auto max-h-[94vh] flex flex-col pointer-events-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Scrawling Laser Beam Accent */}
         <div className="scrawl-beam-wrapper">
           <div className="scrawl-beam"></div>
@@ -601,7 +615,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
         {/* Modal Header: Responsive Flex */}
         <div className="p-3.5 sm:p-5 border-b border-white/10 flex items-start sm:items-center justify-between relative z-10 bg-black/40 gap-2">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-400 flex items-center justify-center text-black font-black shadow-lg shadow-orange-500/40 card-3d shrink-0">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-orange-500 via-orange-600 to-amber-400 flex items-center justify-center text-black font-black shadow-lg shadow-orange-500/40 touch-manipulation shrink-0">
               <Lock size={18} className="sm:w-5 sm:h-5" />
             </div>
             <div className="min-w-0">
@@ -639,7 +653,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
             {/* Quick Header Download PDF Button */}
             <button
               onClick={() => handleDownloadPDF()}
-              className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all card-3d active:scale-95 flex items-center gap-1.5 border border-white/15"
+              className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all touch-manipulation cursor-pointer touch-manipulation flex items-center gap-1.5 border border-white/15"
               title="Download Official Closing PDF Report"
             >
               <Download size={14} />
@@ -648,7 +662,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
 
             <button
               onClick={onClose}
-              className="p-1.5 sm:p-2 rounded-xl bg-white/5 hover:bg-white/15 text-zinc-300 hover:text-white transition-all card-3d active:scale-95 border border-white/10"
+              className="p-1.5 sm:p-2 rounded-xl bg-white/5 hover:bg-white/15 text-zinc-300 hover:text-white transition-all touch-manipulation cursor-pointer touch-manipulation border border-white/10"
               title="Close modal"
             >
               <X size={18} />
@@ -743,7 +757,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
               </div>
 
               {/* DEDICATED CUTOFF DATE SELECTION: AUTOMATIC DEFAULT VS CHOOSE DATE (Mobile Optimized) */}
-              <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-white/15 card-3d space-y-3 relative overflow-hidden">
+              <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-white/15 touch-manipulation space-y-3 relative overflow-hidden">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5">
                     <div className="p-2 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/30 shrink-0">
@@ -777,7 +791,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                         cutoffMode === 'auto'
                           ? 'bg-gradient-to-r from-orange-500 to-amber-400 text-black shadow-md shadow-orange-500/40'
                           : 'text-zinc-400 hover:text-white'
-                      } ${existingClosing && !isEditMode ? 'opacity-60 cursor-not-allowed' : 'active:scale-95'}`}
+                      } ${existingClosing && !isEditMode ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer touch-manipulation'}`}
                     >
                       <Sparkles size={12} />
                       <span>Automatic Default</span>
@@ -791,7 +805,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                         cutoffMode === 'custom'
                           ? 'bg-gradient-to-r from-orange-500 to-amber-400 text-black shadow-md shadow-orange-500/40'
                           : 'text-zinc-400 hover:text-white'
-                      } ${existingClosing && !isEditMode ? 'opacity-60 cursor-not-allowed' : 'active:scale-95'}`}
+                      } ${existingClosing && !isEditMode ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer touch-manipulation'}`}
                     >
                       <Calendar size={12} />
                       <span>Choose Date</span>
@@ -922,14 +936,14 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                         {isEditMode ? (
                           <button
                             onClick={() => setIsEditMode(false)}
-                            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-zinc-300 border border-white/10 text-xs font-bold transition-all active:scale-95"
+                            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-zinc-300 border border-white/10 text-xs font-bold transition-all cursor-pointer touch-manipulation"
                           >
                             Cancel Edit
                           </button>
                         ) : (
                           <button
                             onClick={() => setIsEditMode(true)}
-                            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-400 text-black text-xs font-black shadow-md shadow-orange-500/30 flex items-center gap-1.5 card-3d active:scale-95 transition-all hover:scale-105"
+                            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-400 text-black text-xs font-black shadow-md shadow-orange-500/30 flex items-center gap-1.5 touch-manipulation cursor-pointer touch-manipulation transition-all hover:brightness-110"
                           >
                             <Edit3 size={13} />
                             <span>Edit Closing</span>
@@ -938,7 +952,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
 
                         <button
                           onClick={() => handleReopenClosing(selectedMonth)}
-                          className="px-3 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 text-xs font-bold flex items-center gap-1 transition-all active:scale-95"
+                          className="px-3 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer touch-manipulation"
                           title="Re-open month closing to unlock standard period reporting"
                         >
                           <RotateCcw size={12} />
@@ -954,7 +968,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 
                 {/* 1. Monthly Revenue */}
-                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-white/15 card-3d relative overflow-hidden group">
+                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-white/15 touch-manipulation relative overflow-hidden group">
                   <div className="flex items-center justify-between mb-2">
                     <div className="p-2 rounded-xl bg-orange-500/15 text-orange-400 border border-orange-500/30">
                       <DollarSign size={16} />
@@ -980,7 +994,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                 </div>
 
                 {/* 2. Gross Profit Details */}
-                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-white/15 card-3d relative overflow-hidden group">
+                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-white/15 touch-manipulation relative overflow-hidden group">
                   <div className="flex items-center justify-between mb-2">
                     <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                       <TrendingUp size={16} />
@@ -1006,7 +1020,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                 </div>
 
                 {/* 3. Vendor Payments of the Month */}
-                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-white/15 card-3d relative overflow-hidden group">
+                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-white/15 touch-manipulation relative overflow-hidden group">
                   <div className="flex items-center justify-between mb-2">
                     <div className="p-2 rounded-xl bg-blue-500/15 text-blue-400 border border-blue-500/30">
                       <Truck size={16} />
@@ -1032,7 +1046,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                 </div>
 
                 {/* 4. Commission Payments of the Month */}
-                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-white/15 card-3d relative overflow-hidden group">
+                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-white/15 touch-manipulation relative overflow-hidden group">
                   <div className="flex items-center justify-between mb-2">
                     <div className="p-2 rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/30">
                       <Users size={16} />
@@ -1058,7 +1072,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                 </div>
 
                 {/* 5. Company Expenses of the Month */}
-                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-white/15 card-3d relative overflow-hidden group">
+                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-white/15 touch-manipulation relative overflow-hidden group">
                   <div className="flex items-center justify-between mb-2">
                     <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30">
                       <Wallet size={16} />
@@ -1084,7 +1098,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                 </div>
 
                 {/* 6. Dynamic Calculated Net Profit */}
-                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-orange-500/30 bg-gradient-to-br from-orange-950/40 via-black to-zinc-950 card-3d relative overflow-hidden">
+                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl glass-ultra border border-orange-500/30 bg-gradient-to-br from-orange-950/40 via-black to-zinc-950 touch-manipulation relative overflow-hidden">
                   <div className="flex items-center justify-between mb-2">
                     <div className="p-2 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/40">
                       <Sparkles size={16} />
@@ -1103,7 +1117,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
               </div>
 
               {/* 7. Confirmed Month Closing Balance (Highlighted Card, Touch-Friendly on Mobile) */}
-              <div className="p-3.5 sm:p-5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-orange-950/80 via-black to-amber-950/80 border-2 border-orange-500/70 shadow-[0_10px_35px_rgba(234,88,12,0.25)] relative overflow-hidden card-3d">
+              <div className="p-3.5 sm:p-5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-orange-950/80 via-black to-amber-950/80 border-2 border-orange-500/70 shadow-[0_10px_35px_rgba(234,88,12,0.25)] relative overflow-hidden touch-manipulation">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -1182,7 +1196,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                     {(!existingClosing || isEditMode) && (
                       <button
                         onClick={handleRecalculateFromSelectedInvoices}
-                        className="px-2.5 py-1.5 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-500/30 text-[10px] font-black flex items-center gap-1 transition-all active:scale-95 flex-1 sm:flex-initial justify-center"
+                        className="px-2.5 py-1.5 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-500/30 text-[10px] font-black flex items-center gap-1 transition-all cursor-pointer touch-manipulation flex-1 sm:flex-initial justify-center"
                         title="Update Revenue, Profit, and Vendor figures from the selected invoices"
                       >
                         <RefreshCw size={11} />
@@ -1274,7 +1288,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                                 {(!existingClosing || isEditMode) && (
                                   <button
                                     onClick={() => handleRemoveInvoice(inv.id)}
-                                    className="px-2 py-1 rounded-lg bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 text-[10px] font-bold flex items-center gap-1 transition-all active:scale-95"
+                                    className="px-2 py-1 rounded-lg bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer touch-manipulation"
                                     title="Remove this invoice from this month (will roll forward into next month)"
                                   >
                                     <Trash2 size={12} />
@@ -1316,7 +1330,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
 
                                 <button
                                   onClick={() => handleAddInvoice(inv.id)}
-                                  className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-orange-500 to-amber-400 text-black text-[10px] font-black flex items-center gap-1 shadow-md shadow-orange-500/20 transition-all active:scale-95"
+                                  className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-orange-500 to-amber-400 text-black text-[10px] font-black flex items-center gap-1 shadow-md shadow-orange-500/20 transition-all cursor-pointer touch-manipulation"
                                   title="Add this invoice to this monthly closing"
                                 >
                                   <Plus size={12} />
@@ -1362,7 +1376,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                     .map(closing => (
                       <div
                         key={closing.id}
-                        className="p-4 sm:p-5 rounded-2xl glass-ultra border border-white/15 card-3d space-y-3 relative overflow-hidden"
+                        className="p-4 sm:p-5 rounded-2xl glass-ultra border border-white/15 touch-manipulation space-y-3 relative overflow-hidden"
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-white/10 pb-3">
                           <div className="flex items-center gap-2.5">
@@ -1390,7 +1404,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                             {/* Download PDF button on past closing card */}
                             <button
                               onClick={() => handleDownloadPDF(closing)}
-                              className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/15 text-[11px] font-bold flex items-center gap-1 transition-all active:scale-95"
+                              className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/15 text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer touch-manipulation"
                               title="Download Closing Report PDF"
                             >
                               <Download size={12} />
@@ -1405,7 +1419,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                                     setActiveTab('close-month');
                                     setIsEditMode(true);
                                   }}
-                                  className="px-2.5 py-1 rounded-lg bg-orange-500/20 hover:bg-orange-500/40 text-orange-300 border border-orange-500/30 text-[11px] font-bold flex items-center gap-1 transition-all active:scale-95"
+                                  className="px-2.5 py-1 rounded-lg bg-orange-500/20 hover:bg-orange-500/40 text-orange-300 border border-orange-500/30 text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer touch-manipulation"
                                   title="Edit this closing's details and invoice selections"
                                 >
                                   <Edit3 size={12} />
@@ -1466,7 +1480,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               onClick={onClose}
-              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-zinc-300 hover:text-white text-xs font-bold transition-all card-3d active:scale-95 border border-white/10 flex-1 sm:flex-initial text-center"
+              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-zinc-300 hover:text-white text-xs font-bold transition-all touch-manipulation cursor-pointer touch-manipulation border border-white/10 flex-1 sm:flex-initial text-center"
             >
               Cancel / Close
             </button>
@@ -1474,7 +1488,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
             {/* Download PDF button in footer */}
             <button
               onClick={() => handleDownloadPDF()}
-              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-zinc-800 to-zinc-900 hover:from-zinc-700 hover:to-zinc-800 text-white text-xs font-bold transition-all card-3d active:scale-95 border border-white/15 flex items-center justify-center gap-1.5 flex-1 sm:flex-initial shadow-md"
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-zinc-800 to-zinc-900 hover:from-zinc-700 hover:to-zinc-800 text-white text-xs font-bold transition-all touch-manipulation cursor-pointer touch-manipulation border border-white/15 flex items-center justify-center gap-1.5 flex-1 sm:flex-initial shadow-md"
               title="Download PDF Closing Statement"
             >
               <Download size={13} className="text-orange-400" />
@@ -1494,7 +1508,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
                   </button>
                   <button
                     onClick={handleSaveOrUpdateClosing}
-                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-500 text-black font-black text-xs shadow-lg shadow-orange-500/50 card-3d active:scale-95 flex items-center justify-center gap-1.5 flex-1 sm:flex-initial"
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-500 text-black font-black text-xs shadow-lg shadow-orange-500/50 touch-manipulation cursor-pointer touch-manipulation flex items-center justify-center gap-1.5 flex-1 sm:flex-initial"
                   >
                     <Save size={14} />
                     <span>Confirm & Save</span>
@@ -1503,7 +1517,7 @@ export const MonthlySalesClosingModal: React.FC<MonthlySalesClosingModalProps> =
               ) : (
                 <button
                   onClick={() => setConfirmPrompt(true)}
-                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-400 hover:from-orange-400 hover:to-amber-300 text-black font-black text-xs shadow-lg shadow-orange-500/40 card-3d active:scale-95 flex items-center justify-center gap-1.5 transition-all"
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-400 hover:from-orange-400 hover:to-amber-300 text-black font-black text-xs shadow-lg shadow-orange-500/40 touch-manipulation cursor-pointer touch-manipulation flex items-center justify-center gap-1.5 transition-all"
                 >
                   <Save size={15} />
                   <span>

@@ -86,6 +86,7 @@ const App: React.FC = () => {
   const [monthlyClosings, setMonthlyClosings] = useState<MonthlySalesClosing[]>(() => getStoredMonthlyClosings());
   const [isClosingModalOpen, setIsClosingModalOpen] = useState(false);
   const [closingModalTargetMonth, setClosingModalTargetMonth] = useState<string | undefined>(undefined);
+  const [closingModalEditMode, setClosingModalEditMode] = useState<boolean>(false);
 
   // Load initial data from Supabase Cloud with resilient multi-tier offline caching
   const loadData = async (forceCloud = false) => {
@@ -263,20 +264,18 @@ const App: React.FC = () => {
   // Automatic Monthly Sales Closing Popup (Triggered within 3 days of month end or unclosed past month)
   useEffect(() => {
     if (!currentUser) return;
+    // Auto-open monthly sales closing popup ONLY in the last 3 days of current month if NOT closed
+    // Once closed, immediately stops and will only show in next month's last 3 days.
     const windowStatus = checkClosingWindow(new Date(), monthlyClosings);
     const sessionPopupKey = 'carryint_closing_popup_shown_' + windowStatus.currentMonthStr;
     
-    if (windowStatus.isClosingWindowActive || windowStatus.isPrevMonthUnclosed) {
+    if (windowStatus.isClosingWindowActive) {
       try {
         const alreadyShown = sessionStorage.getItem(sessionPopupKey);
         if (!alreadyShown) {
           sessionStorage.setItem(sessionPopupKey, 'true');
           setIsClosingModalOpen(true);
-          setClosingModalTargetMonth(
-            windowStatus.isPrevMonthUnclosed && !windowStatus.isClosingWindowActive
-              ? windowStatus.prevMonthStr
-              : windowStatus.currentMonthStr
-          );
+          setClosingModalTargetMonth(windowStatus.currentMonthStr);
         }
       } catch (e) {
         // ignore
@@ -1010,8 +1009,9 @@ const App: React.FC = () => {
             customers={customers} 
             vendors={vendors} 
             closings={monthlyClosings}
-            onOpenClosingModal={(m) => {
+            onOpenClosingModal={(m, editMode) => {
               setClosingModalTargetMonth(m);
+              setClosingModalEditMode(!!editMode);
               setIsClosingModalOpen(true);
             }}
             onNavigate={setActiveTab}
@@ -1030,8 +1030,9 @@ const App: React.FC = () => {
             closings={monthlyClosings}
             currentUser={currentUser!}
             companyInfo={companyInfo}
-            onOpenClosingModal={(m) => {
+            onOpenClosingModal={(m, editMode) => {
               setClosingModalTargetMonth(m);
+              setClosingModalEditMode(!!editMode);
               setIsClosingModalOpen(true);
             }}
             onClosingsUpdated={(updated) => {
@@ -2455,13 +2456,17 @@ const App: React.FC = () => {
       {currentUser && (
         <MonthlySalesClosingModal
           isOpen={isClosingModalOpen}
-          onClose={() => setIsClosingModalOpen(false)}
+          onClose={() => {
+            setIsClosingModalOpen(false);
+            setClosingModalEditMode(false);
+          }}
           invoices={invoices}
           expenses={expenses}
           adjustmentNotes={adjustmentNotes}
           closings={monthlyClosings}
           currentUser={currentUser}
           defaultMonth={closingModalTargetMonth}
+          initialEditMode={closingModalEditMode}
           companyInfo={companyInfo}
           onClosingsUpdated={(updated) => {
             setMonthlyClosings(updated);

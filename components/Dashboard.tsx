@@ -25,7 +25,7 @@ interface DashboardProps {
   vendors?: Vendor[];
   onInvoiceClick: (invoice: Invoice) => void;
   closings?: MonthlySalesClosing[];
-  onOpenClosingModal?: (month?: string) => void;
+  onOpenClosingModal?: (month?: string, editMode?: boolean) => void;
   onNavigate?: (tab: string) => void;
 }
 
@@ -1283,7 +1283,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           {onNavigate && (
             <button
               onClick={() => onNavigate('monthly-closing')}
-              className="px-3.5 py-1.5 rounded-xl glass-pill hover:bg-white/10 text-zinc-200 hover:text-white text-xs font-bold border border-white/15 card-3d active:scale-95 flex items-center gap-1.5 transition-all shadow-md"
+              className="px-3.5 py-1.5 rounded-xl glass-pill hover:bg-white/10 text-zinc-200 hover:text-white text-xs font-bold border border-white/15 flex items-center gap-1.5 transition-all shadow-md cursor-pointer touch-manipulation hover:brightness-110"
             >
               <BarChart3 size={13} className="text-orange-400" />
               <span>Closing Analytics Dashboard</span>
@@ -1293,7 +1293,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           {onOpenClosingModal && (
             <button
               onClick={() => onOpenClosingModal()}
-              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-400 text-black text-xs font-black shadow-md shadow-orange-500/30 card-3d active:scale-95 flex items-center gap-1.5 transition-all hover:scale-105"
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-400 text-black text-xs font-black shadow-md shadow-orange-500/30 flex items-center gap-1.5 transition-all hover:brightness-110 cursor-pointer touch-manipulation"
             >
               <CalendarCheck size={13} />
               <span>Monthly Sales Closing</span>

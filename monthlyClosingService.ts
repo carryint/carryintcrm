@@ -392,8 +392,9 @@ export const calculateClosingPreview = (
 };
 
 /**
- * Checks whether the current time is within 3 days before month-end
- * (e.g. daysRemaining <= 3), or if a previous month is unclosed.
+ * Checks whether the current time is strictly within the last 3 days of the current month
+ * (e.g. day >= daysInMonth - 2), and current month is NOT yet closed.
+ * Once closed (even on day 1 of the last 3 days), it immediately stops showing.
  */
 export const checkClosingWindow = (
   now: Date = new Date(),
@@ -412,10 +413,13 @@ export const checkClosingWindow = (
   const currentClosing = closings.find(c => c.month === currentMonthStr && c.isClosed) || null;
   const isCurrentMonthClosed = !!currentClosing;
 
-  // Last 3 days of the month: daysRemaining <= 3 (e.g. 28, 29, 30 in a 30-day month)
-  const isClosingWindowActive = !isCurrentMonthClosed && daysRemaining <= 3;
+  // STRICT RULE: Only active in the last 3 days of the month (e.g. days 28, 29, 30 of a 30-day month)
+  // AND if the current month has NOT yet been closed.
+  // Once closed, immediately becomes false and will NOT show again until NEXT month's last 3 days!
+  const isLastThreeDays = day >= (daysInMonth - 2);
+  const isClosingWindowActive = !isCurrentMonthClosed && isLastThreeDays;
 
-  // Previous month check
+  // Previous month metadata
   const prevDate = new Date(year, month - 1, 1);
   const prevMonthStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
   const prevMonthName = prevDate.toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -433,6 +437,7 @@ export const checkClosingWindow = (
     isCurrentMonthClosed,
     currentClosing,
     isClosingWindowActive,
+    isLastThreeDays,
     isPrevMonthUnclosed,
     prevMonthStr,
     prevMonthName

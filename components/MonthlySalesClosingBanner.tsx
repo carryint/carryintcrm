@@ -5,7 +5,7 @@ import { checkClosingWindow, formatMonthDisplay } from '../monthlyClosingService
 
 interface MonthlySalesClosingBannerProps {
   closings: MonthlySalesClosing[];
-  onOpenClosingModal: (targetMonth?: string) => void;
+  onOpenClosingModal: (targetMonth?: string, editMode?: boolean) => void;
   onNavigate?: (tab: string) => void;
   allowForceDisplay?: boolean;
 }
@@ -45,19 +45,15 @@ export const MonthlySalesClosingBanner: React.FC<MonthlySalesClosingBannerProps>
   };
 
   // Determine whether to display the banner:
-  // 1. Current month is within 3 days of ending and NOT yet closed
-  // 2. OR previous month ended and was NOT yet closed
-  // 3. OR allowForceDisplay is enabled for testing
+  // ONLY show in the last 3 days of the current month and if current month is NOT closed.
+  // Once closed, disappears immediately!
   const shouldShow =
     !isDismissed &&
-    (windowStatus.isClosingWindowActive || windowStatus.isPrevMonthUnclosed || allowForceDisplay);
+    (windowStatus.isClosingWindowActive || allowForceDisplay);
 
   if (!shouldShow) return null;
 
-  const targetMonthStr = windowStatus.isPrevMonthUnclosed && !windowStatus.isClosingWindowActive
-    ? windowStatus.prevMonthStr
-    : windowStatus.currentMonthStr;
-
+  const targetMonthStr = windowStatus.currentMonthStr;
   const targetMonthName = formatMonthDisplay(targetMonthStr);
   const daysLeft = windowStatus.daysRemaining;
 
@@ -95,7 +91,7 @@ export const MonthlySalesClosingBanner: React.FC<MonthlySalesClosingBannerProps>
           {onNavigate && (
             <button
               onClick={() => onNavigate('monthly-closing')}
-              className="px-3 py-1.5 rounded-xl glass-pill hover:bg-white/10 text-zinc-200 hover:text-white text-xs font-bold border border-white/15 card-3d active:scale-95 transition-all flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-xl glass-pill hover:bg-white/10 text-zinc-200 hover:text-white text-xs font-bold border border-white/15 transition-all flex items-center gap-1.5 cursor-pointer touch-manipulation"
             >
               <BarChart3 size={13} className="text-orange-400" />
               <span>Closing Dashboard</span>
@@ -104,7 +100,7 @@ export const MonthlySalesClosingBanner: React.FC<MonthlySalesClosingBannerProps>
 
           <button
             onClick={() => onOpenClosingModal(targetMonthStr)}
-            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-400 text-black text-xs font-black shadow-md shadow-orange-500/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 card-3d"
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-400 hover:brightness-110 text-black text-xs font-black shadow-md shadow-orange-500/30 transition-all flex items-center gap-1.5 cursor-pointer touch-manipulation"
           >
             <Lock size={13} />
             <span>Close {targetMonthName} Sales Now</span>
@@ -113,7 +109,7 @@ export const MonthlySalesClosingBanner: React.FC<MonthlySalesClosingBannerProps>
 
           <button
             onClick={handleDismiss}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer touch-manipulation"
             title="Dismiss notice for this session"
           >
             <X size={15} />
