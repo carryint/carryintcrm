@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, AlertTriangle, ArrowRight, X, Lock, CheckCircle2 } from 'lucide-react';
+import { Calendar, AlertTriangle, ArrowRight, X, Lock, CheckCircle2, BarChart3 } from 'lucide-react';
 import { MonthlySalesClosing } from '../types';
 import { checkClosingWindow, formatMonthDisplay } from '../monthlyClosingService';
 
 interface MonthlySalesClosingBannerProps {
   closings: MonthlySalesClosing[];
   onOpenClosingModal: (targetMonth?: string) => void;
+  onNavigate?: (tab: string) => void;
   allowForceDisplay?: boolean;
 }
 
 export const MonthlySalesClosingBanner: React.FC<MonthlySalesClosingBannerProps> = ({
   closings,
   onOpenClosingModal,
+  onNavigate,
   allowForceDisplay = false
 }) => {
   const [isDismissed, setIsDismissed] = useState<boolean>(false);
@@ -90,6 +92,16 @@ export const MonthlySalesClosingBanner: React.FC<MonthlySalesClosingBannerProps>
         </div>
 
         <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('monthly-closing')}
+              className="px-3 py-1.5 rounded-xl glass-pill hover:bg-white/10 text-zinc-200 hover:text-white text-xs font-bold border border-white/15 card-3d active:scale-95 transition-all flex items-center gap-1.5"
+            >
+              <BarChart3 size={13} className="text-orange-400" />
+              <span>Closing Dashboard</span>
+            </button>
+          )}
+
           <button
             onClick={() => onOpenClosingModal(targetMonthStr)}
             className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-400 text-black text-xs font-black shadow-md shadow-orange-500/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 card-3d"

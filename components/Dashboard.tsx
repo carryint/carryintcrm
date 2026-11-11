@@ -26,6 +26,7 @@ interface DashboardProps {
   onInvoiceClick: (invoice: Invoice) => void;
   closings?: MonthlySalesClosing[];
   onOpenClosingModal?: (month?: string) => void;
+  onNavigate?: (tab: string) => void;
 }
 
 // ---------------------------------------------------------
@@ -590,7 +591,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   vendors = [],
   onInvoiceClick,
   closings = [],
-  onOpenClosingModal
+  onOpenClosingModal,
+  onNavigate
 }) => {
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -1277,7 +1279,17 @@ const Dashboard: React.FC<DashboardProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto justify-end relative z-10">
+        <div className="flex items-center gap-2 w-full md:w-auto justify-end relative z-10 flex-wrap">
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('monthly-closing')}
+              className="px-3.5 py-1.5 rounded-xl glass-pill hover:bg-white/10 text-zinc-200 hover:text-white text-xs font-bold border border-white/15 card-3d active:scale-95 flex items-center gap-1.5 transition-all shadow-md"
+            >
+              <BarChart3 size={13} className="text-orange-400" />
+              <span>Closing Analytics Dashboard</span>
+            </button>
+          )}
+
           {onOpenClosingModal && (
             <button
               onClick={() => onOpenClosingModal()}

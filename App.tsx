@@ -23,6 +23,7 @@ import { safeStorage } from './safeStorage';
 import { Customer, Vendor, Invoice, CompanyInfo, User, Expense, AdjustmentNote, Quotation, PaymentStatus, MonthlySalesClosing } from './types';
 import { MonthlySalesClosingModal } from './components/MonthlySalesClosingModal';
 import { MonthlySalesClosingBanner } from './components/MonthlySalesClosingBanner';
+import { MonthlyClosingDashboard } from './components/MonthlyClosingDashboard';
 import { getStoredMonthlyClosings, saveMonthlyClosingToStorage, checkClosingWindow } from './monthlyClosingService';
 import { COMPANY_INFO as DEFAULT_COMPANY_INFO } from './constants';
 import {
@@ -282,14 +283,6 @@ const App: React.FC = () => {
       }
     }
   }, [monthlyClosings, currentUser]);
-
-  // Handle sidebar navigation to monthly sales closing
-  useEffect(() => {
-    if (activeTab === 'monthly-closing') {
-      setIsClosingModalOpen(true);
-      setActiveTab('dashboard');
-    }
-  }, [activeTab]);
 
   const handleLogin = async (emailInput: string, passInput: string) => {
     setAuthError('');
@@ -1021,10 +1014,30 @@ const App: React.FC = () => {
               setClosingModalTargetMonth(m);
               setIsClosingModalOpen(true);
             }}
+            onNavigate={setActiveTab}
             onInvoiceClick={(inv) => {
               setSelectedInvoice(inv);
               setActiveTab('view-invoice');
             }}
+          />
+        );
+      case 'monthly-closing':
+        return (
+          <MonthlyClosingDashboard
+            invoices={invoices}
+            expenses={expenses}
+            adjustmentNotes={adjustmentNotes}
+            closings={monthlyClosings}
+            currentUser={currentUser!}
+            companyInfo={companyInfo}
+            onOpenClosingModal={(m) => {
+              setClosingModalTargetMonth(m);
+              setIsClosingModalOpen(true);
+            }}
+            onClosingsUpdated={(updated) => {
+              setMonthlyClosings(updated);
+            }}
+            onNavigate={setActiveTab}
           />
         );
       case 'staff-dashboard':
@@ -2362,7 +2375,7 @@ const App: React.FC = () => {
         currentUser={currentUser}
       />
 
-      <main className={`lg:pl-64 min-h-screen ${activeTab === 'dashboard' ? 'crm-black-orange-bg text-white' : activeTab === 'view-invoice' ? 'bg-white text-gray-900' : 'crm-black-orange-bg text-gray-900'}`}>
+      <main className={`lg:pl-64 min-h-screen ${activeTab === 'dashboard' || activeTab === 'monthly-closing' ? 'crm-black-orange-bg text-white' : activeTab === 'view-invoice' ? 'bg-white text-gray-900' : 'crm-black-orange-bg text-gray-900'}`}>
         <header className={`h-14 ${activeTab === 'view-invoice' ? 'bg-white border-b border-gray-200 text-gray-900' : 'glass-ultra border-b border-white/15 text-white shadow-xl shadow-black/50'} flex items-center justify-between px-3 sm:px-6 sticky top-0 z-10 no-print transition-colors`}>
           <div className="flex items-center gap-3">
             <button
@@ -2386,7 +2399,7 @@ const App: React.FC = () => {
               <Bell size={18} />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full border-2 border-white"></span>
             </div>
-            <div className={`flex items-center gap-2.5 lg:pl-5 lg:border-l ${activeTab === 'dashboard' ? 'border-white/10' : 'border-gray-200'}`}>
+            <div className={`flex items-center gap-2.5 lg:pl-5 lg:border-l ${activeTab === 'dashboard' || activeTab === 'monthly-closing' ? 'border-white/10' : 'border-gray-200'}`}>
               <div className="text-right hidden sm:block">
                 <div className="flex items-center justify-end gap-1.5">
                   <p className={`text-xs font-bold ${activeTab === 'view-invoice' ? 'text-gray-900' : 'text-white'} leading-none`}>{currentUser.name}</p>
@@ -2420,6 +2433,7 @@ const App: React.FC = () => {
             setClosingModalTargetMonth(m);
             setIsClosingModalOpen(true);
           }}
+          onNavigate={setActiveTab}
         />
 
         <div className="p-3 sm:p-4 lg:p-6 max-w-full">
