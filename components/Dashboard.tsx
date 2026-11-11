@@ -614,20 +614,29 @@ const Dashboard: React.FC<DashboardProps> = ({
   }, [closings]);
 
   const latestClosedMonth = finalizedClosings[0] || null;
-  const [selectedCycle, setSelectedCycle] = useState<string>('active');
+  const [selectedCycle, setSelectedCycle] = useState<string>('all');
 
-  // Filter items by Sales Cycle (enforces roll-forward of sales entered after cutoff date)
+  // Filter items by Sales Cycle (defaults to 'all' so live CRM monthly sales are never hidden)
   const cycleInvoices = useMemo(() => {
+    if (selectedCycle === 'all' || dateFilter === 'thisMonth') {
+      return invoices;
+    }
     return filterInvoicesByCycle(invoices, selectedCycle, closings);
-  }, [invoices, selectedCycle, closings]);
+  }, [invoices, selectedCycle, closings, dateFilter]);
 
   const cycleExpenses = useMemo(() => {
+    if (selectedCycle === 'all' || dateFilter === 'thisMonth') {
+      return expenses;
+    }
     return filterExpensesByCycle(expenses, selectedCycle, closings);
-  }, [expenses, selectedCycle, closings]);
+  }, [expenses, selectedCycle, closings, dateFilter]);
 
   const cycleAdjustments = useMemo(() => {
+    if (selectedCycle === 'all' || dateFilter === 'thisMonth') {
+      return adjustmentNotes;
+    }
     return filterAdjustmentsByCycle(adjustmentNotes, selectedCycle, closings);
-  }, [adjustmentNotes, selectedCycle, closings]);
+  }, [adjustmentNotes, selectedCycle, closings, dateFilter]);
 
   // Filter Invoices (applied on cycle-filtered invoices)
   const filteredInvoices = useMemo(() => {
@@ -652,8 +661,9 @@ const Dashboard: React.FC<DashboardProps> = ({
       if (dateFilter === 'thisMonth') {
         const now = new Date();
         const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        if (typeof inv.date === 'string' && inv.date.slice(0, 7) === currentMonthPrefix) return true;
-        const itemDate = new Date(inv.date);
+        const rawDate = inv.date || (inv as any).createdAt || (inv as any).created_at || '';
+        if (typeof rawDate === 'string' && rawDate.slice(0, 7) === currentMonthPrefix) return true;
+        const itemDate = new Date(rawDate);
         return !isNaN(itemDate.getTime()) && itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear();
       }
 
@@ -715,8 +725,9 @@ const Dashboard: React.FC<DashboardProps> = ({
       if (dateFilter === 'thisMonth') {
         const now = new Date();
         const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        if (typeof exp.date === 'string' && exp.date.slice(0, 7) === currentMonthPrefix) return true;
-        const itemDate = new Date(exp.date);
+        const rawDate = exp.date || (exp as any).createdAt || (exp as any).created_at || '';
+        if (typeof rawDate === 'string' && rawDate.slice(0, 7) === currentMonthPrefix) return true;
+        const itemDate = new Date(rawDate);
         return !isNaN(itemDate.getTime()) && itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear();
       }
 
@@ -772,7 +783,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       if (dateFilter === 'thisMonth') {
         const now = new Date();
         const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        const rawDate = adj.date || (adj as any).timestamp;
+        const rawDate = adj.date || (adj as any).timestamp || (adj as any).createdAt || '';
         if (typeof rawDate === 'string' && rawDate.slice(0, 7) === currentMonthPrefix) return true;
         const itemDate = new Date(rawDate);
         return !isNaN(itemDate.getTime()) && itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear();
@@ -1291,31 +1302,39 @@ const Dashboard: React.FC<DashboardProps> = ({
               onChange={(e) => {
                 const newCycle = e.target.value;
                 setSelectedCycle(newCycle);
-                if (newCycle !== 'active') {
+                if (newCycle !== 'active' && newCycle !== 'all') {
                   setDateFilter('all');
                 }
               }}
               className="bg-transparent text-xs font-black text-orange-400 outline-none cursor-pointer"
             >
+              <option value="all" className="bg-zinc-950 text-white">
+                🌐 Live CRM Sales (All Active & Completed Sales)
+              </option>
               <option value="active" className="bg-zinc-950 text-white">
-                ⚡ Active Cycle ({latestClosedMonth ? `Showing New Sales after ${latestClosedMonth.cutoffDate}` : 'Open Month'})
+                ⚡ Active Cycle ({latestClosedMonth ? `Showing New Sales after ${latestClosedMonth.cutoffDate}` : 'Open Month Only'})
               </option>
               {finalizedClosings.map(c => (
                 <option key={c.id} value={c.month} className="bg-zinc-950 text-white">
                   🔒 {c.monthName} (Finalized: {c.cutoffDate} • AED {c.closingBalance.toLocaleString()})
                 </option>
               ))}
-              <option value="all" className="bg-zinc-950 text-white">
-                🌐 All Invoices (All Time Combined)
-              </option>
             </select>
           </div>
 
+          {selectedCycle === 'all' && (
+            <div className="hidden xl:flex items-center gap-1.5 text-[11px] text-zinc-300 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/25">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>
+                Live CRM Synced: Analyzed <strong>{filteredInvoices.length} {dateFilter === 'thisMonth' ? 'Current Month' : ''} Consignments</strong> with live financial realization.
+              </span>
+            </div>
+          )}
           {selectedCycle === 'active' && latestClosedMonth && (
             <div className="hidden xl:flex items-center gap-1.5 text-[11px] text-zinc-300 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span className="w-2 h-2 rounded-full bg-amber-400"></span>
               <span>
-                <strong>{latestClosedMonth.monthName}</strong> finalized as of {latestClosedMonth.cutoffDate}. Dashboard is displaying <strong>new sales and profit reports only</strong>.
+                <strong>{latestClosedMonth.monthName}</strong> finalized as of {latestClosedMonth.cutoffDate}. Showing post-cutoff sales.
               </span>
             </div>
           )}

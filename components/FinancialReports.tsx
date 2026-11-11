@@ -59,8 +59,9 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
     if (timeRange === 'DAILY') {
       return itemDate.toDateString() === filterDate.toDateString();
     } else if (timeRange === 'MONTHLY') {
-      return itemDate.getMonth() === filterDate.getMonth() && 
-             itemDate.getFullYear() === filterDate.getFullYear();
+      const itemYM = typeof item.date === 'string' && /^\d{4}-\d{2}/.test(item.date) ? item.date.slice(0, 7) : `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}`;
+      const filterYM = typeof selectedDate === 'string' && /^\d{4}-\d{2}/.test(selectedDate) ? selectedDate.slice(0, 7) : `${filterDate.getFullYear()}-${String(filterDate.getMonth() + 1).padStart(2, '0')}`;
+      return itemYM === filterYM;
     } else if (timeRange === 'YEARLY') {
       return itemDate.getFullYear() === filterDate.getFullYear();
     } else if (timeRange === 'CUSTOM') {
@@ -79,7 +80,11 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
     const expDate = new Date(exp.date);
     const filterDate = new Date(selectedDate);
     if (timeRange === 'DAILY') return expDate.toDateString() === filterDate.toDateString();
-    if (timeRange === 'MONTHLY') return expDate.getMonth() === filterDate.getMonth() && expDate.getFullYear() === filterDate.getFullYear();
+    if (timeRange === 'MONTHLY') {
+      const expYM = typeof exp.date === 'string' && /^\d{4}-\d{2}/.test(exp.date) ? exp.date.slice(0, 7) : `${expDate.getFullYear()}-${String(expDate.getMonth() + 1).padStart(2, '0')}`;
+      const filterYM = typeof selectedDate === 'string' && /^\d{4}-\d{2}/.test(selectedDate) ? selectedDate.slice(0, 7) : `${filterDate.getFullYear()}-${String(filterDate.getMonth() + 1).padStart(2, '0')}`;
+      return expYM === filterYM;
+    }
     if (timeRange === 'YEARLY') return expDate.getFullYear() === filterDate.getFullYear();
     if (timeRange === 'CUSTOM') {
       const start = new Date(selectedDate);
@@ -97,7 +102,11 @@ const FinancialReports: React.FC<FinancialReportsProps> = ({ invoices, customers
     const adjDate = new Date(adj.date);
     const filterDate = new Date(selectedDate);
     if (timeRange === 'DAILY') return adjDate.toDateString() === filterDate.toDateString();
-    if (timeRange === 'MONTHLY') return adjDate.getMonth() === filterDate.getMonth() && adjDate.getFullYear() === filterDate.getFullYear();
+    if (timeRange === 'MONTHLY') {
+      const adjYM = typeof adj.date === 'string' && /^\d{4}-\d{2}/.test(adj.date) ? adj.date.slice(0, 7) : `${adjDate.getFullYear()}-${String(adjDate.getMonth() + 1).padStart(2, '0')}`;
+      const filterYM = typeof selectedDate === 'string' && /^\d{4}-\d{2}/.test(selectedDate) ? selectedDate.slice(0, 7) : `${filterDate.getFullYear()}-${String(filterDate.getMonth() + 1).padStart(2, '0')}`;
+      return adjYM === filterYM;
+    }
     if (timeRange === 'YEARLY') return adjDate.getFullYear() === filterDate.getFullYear();
     if (timeRange === 'CUSTOM') {
       const start = new Date(selectedDate);
