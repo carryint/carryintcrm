@@ -147,19 +147,19 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
 
   return (
     <>
-      {/* Mobile Backdrop with Blur */}
+      {/* Mobile & Tablet Backdrop with Blur */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/80 z-40 lg:hidden no-print backdrop-blur-md transition-opacity duration-300"
+          className="fixed inset-0 bg-black/80 z-40 xl:hidden no-print backdrop-blur-md transition-opacity duration-300"
           onClick={onClose}
           aria-hidden="true"
         />
       )}
 
-      {/* Glassy Sidebar with 3D Depth, Mobile & Short Screen Responsive Layout */}
+      {/* Glassy Sidebar with 3D Depth, Mobile & Tab View Responsive Layout */}
       <aside className={`
         w-[280px] sm:w-64 max-w-[85vw] glass-ultra h-screen h-[100dvh] max-h-[100dvh] fixed left-0 top-0 text-white flex flex-col z-50 no-print transition-transform duration-300 ease-out shadow-[15px_0_50px_rgba(0,0,0,0.6)] border-r border-white/10 select-none
-        ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        ${isOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0'}
       `}>
         {/* Scrawling edge beam */}
         <div className="scrawl-beam-wrapper">
@@ -184,9 +184,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
           <button 
             onClick={onClose} 
             aria-label="Close menu"
-            className="lg:hidden text-zinc-400 hover:text-white p-1.5 hover:bg-white/10 rounded-xl transition-colors active:scale-90 shrink-0"
+            className="xl:hidden text-zinc-400 hover:text-white p-2 hover:bg-white/10 rounded-xl transition-colors active:scale-90 shrink-0"
           >
-            <X size={19} />
+            <X size={20} />
           </button>
         </div>
 

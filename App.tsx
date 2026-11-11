@@ -2377,9 +2377,9 @@ const App: React.FC = () => {
         currentUser={currentUser}
       />
 
-      <main className={`lg:pl-64 min-h-screen relative overflow-hidden ${activeTab === 'view-invoice' ? 'bg-white text-gray-900' : 'crm-black-orange-bg text-white'}`}>
+      <main className={`xl:pl-64 min-h-screen relative overflow-hidden ${activeTab === 'view-invoice' ? 'bg-white text-gray-900' : 'crm-black-orange-bg text-white'}`}>
         {/* Oversized Blurred Orange Gradient Circles & Soft Glowing Ambient Light Effects Behind Glass Panels */}
-        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden lg:pl-64 select-none">
+        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden xl:pl-64 select-none">
           {/* Orb 1: Warm Orange & Amber Ambient Halo (Top Left) */}
           <div className="absolute -top-32 -left-20 w-[620px] h-[620px] sm:w-[780px] sm:h-[780px] rounded-full bg-gradient-to-br from-orange-500/22 via-amber-500/14 to-transparent blur-[140px] transform -translate-x-1/4" />
 
@@ -2404,9 +2404,11 @@ const App: React.FC = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className={`lg:hidden p-1.5 ${activeTab === 'view-invoice' ? 'text-gray-500 hover:bg-gray-100' : 'text-zinc-300 hover:bg-white/10'} rounded-lg card-3d active:scale-95`}
+              className={`xl:hidden p-2 ${activeTab === 'view-invoice' ? 'text-gray-700 hover:bg-gray-100' : 'text-zinc-200 hover:text-white hover:bg-white/10'} rounded-xl card-3d active:scale-95 flex items-center justify-center`}
+              aria-label="Open Navigation Menu"
+              title="Open menu"
             >
-              <Menu size={20} />
+              <Menu size={22} className="text-orange-400" />
             </button>
             <div className="relative w-44 sm:w-72 lg:w-80">
               <Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${activeTab === 'view-invoice' ? 'text-gray-400' : 'text-zinc-400'}`} size={16} />
@@ -2423,7 +2425,7 @@ const App: React.FC = () => {
               <Bell size={18} />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full border-2 border-white"></span>
             </div>
-            <div className={`flex items-center gap-2.5 lg:pl-5 lg:border-l ${activeTab === 'dashboard' || activeTab === 'monthly-closing' ? 'border-white/10' : 'border-gray-200'}`}>
+            <div className={`flex items-center gap-2.5 xl:pl-5 xl:border-l ${activeTab === 'dashboard' || activeTab === 'monthly-closing' ? 'border-white/10' : 'border-gray-200'}`}>
               <div className="text-right hidden sm:block">
                 <div className="flex items-center justify-end gap-1.5">
                   <p className={`text-xs font-bold ${activeTab === 'view-invoice' ? 'text-gray-900' : 'text-white'} leading-none`}>{currentUser.name}</p>
