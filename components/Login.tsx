@@ -20,7 +20,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, error, companyName, logoUrl }) =
     };
 
     return (
-        <div className="min-h-screen crm-black-orange-bg flex items-center justify-center p-4 relative overflow-hidden select-none">
+        <div className="min-h-screen min-h-[100dvh] w-full crm-black-orange-bg flex items-center justify-center p-4 py-8 relative overflow-x-hidden overflow-y-auto select-none">
             {/* Oversized Blurred Orange Gradient Circles & Soft Glowing Ambient Light Effects */}
             <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
                 {/* Large Orange & Amber Glow (Top Left) */}

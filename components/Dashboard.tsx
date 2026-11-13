@@ -1189,7 +1189,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   };
 
   return (
-    <div className="relative -m-3 sm:-m-4 lg:-m-6 p-3 sm:p-4 lg:p-6 min-h-[calc(100vh-3.5rem)] bg-transparent text-white overflow-hidden space-y-5">
+    <div className="relative -m-3 sm:-m-4 lg:-m-6 p-3 sm:p-4 lg:p-6 min-h-[calc(100vh-3.5rem)] min-h-[calc(100dvh-3.5rem)] bg-transparent text-white overflow-x-hidden overflow-y-visible space-y-5 w-full flex-1">
       
       {/* Clean Ambient Space - Background lights are managed globally */}
 

@@ -320,8 +320,8 @@ const AdjustmentsManagement: React.FC<AdjustmentsManagementProps> = ({
           </div>
 
           {/* Details Table */}
-          <div className="mb-8">
-            <table className="w-full text-left border-collapse">
+          <div className="mb-8 table-responsive-wrapper rounded-xl border border-gray-100">
+            <table className="w-full text-left border-collapse min-w-[500px]">
               <thead>
                 <tr className="bg-slate-900 text-white">
                   <th className="py-3 px-6 text-xs font-black uppercase tracking-wider">Adjustment Details & Reason</th>
@@ -775,9 +775,9 @@ const AdjustmentsManagement: React.FC<AdjustmentsManagementProps> = ({
         </div>
       </div>
 
-      {/* Main Table Container */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 border-b border-gray-50 flex flex-col md:flex-row justify-between items-center gap-4 bg-gray-50/50">
+      {/* Main Container */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div className="p-4 sm:p-6 border-b border-gray-50 flex flex-col md:flex-row justify-between items-center gap-4 bg-gray-50/50">
           <div className="relative w-full md:w-90">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input
@@ -811,7 +811,85 @@ const AdjustmentsManagement: React.FC<AdjustmentsManagementProps> = ({
           </div>
         </div>
 
-        <table className="w-full text-left">
+        {/* 1. Mobile Adaptive Card List View (< 768px / md:hidden) - 100% visible, zero horizontal cutoff */}
+        <div className="md:hidden space-y-3 p-4">
+          {filteredNotes.length === 0 ? (
+            <div className="text-center py-12 text-gray-400 font-medium">
+              No adjustments found matching selection.
+            </div>
+          ) : (
+            filteredNotes.slice().reverse().map(note => (
+              <div key={note.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3 hover:border-orange-200 transition-all">
+                {/* Top Row: Note Number + Type Pill + Date */}
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <span className="font-black text-gray-900 text-sm block">{note.noteNumber}</span>
+                    <span className="text-[11px] text-gray-400 font-medium">{new Date(note.date).toLocaleDateString()}</span>
+                  </div>
+                  <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase shrink-0 ${
+                    note.type === 'CREDIT' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                  }`}>
+                    {note.type}
+                  </span>
+                </div>
+
+                {/* Customer & Ref Invoice */}
+                <div className="pt-2 border-t border-gray-100 text-xs space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400 font-medium">Customer:</span>
+                    <span className="font-bold text-gray-800 text-right">{note.customerName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400 font-medium">Ref Invoice:</span>
+                    <span className="font-bold text-orange-600">{note.originalInvoiceNumber}</span>
+                  </div>
+                </div>
+
+                {/* Reason / Treatment */}
+                <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100 text-xs space-y-1">
+                  {note.type === 'CREDIT' ? (
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full inline-block ${getCreditActionColor(note.creditAction)}`}>
+                      {getCreditActionLabel(note.creditAction)}
+                    </span>
+                  ) : (
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 inline-block">
+                      Charges Increase
+                    </span>
+                  )}
+                  <p className="text-[11px] text-gray-500 italic break-words">{note.reason}</p>
+                </div>
+
+                {/* Amount */}
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs">
+                  <span className="font-bold text-gray-400 uppercase text-[10px] tracking-wider">Adjustment Amount</span>
+                  <span className={`font-black text-sm sm:text-base ${note.type === 'CREDIT' ? 'text-blue-700' : 'text-purple-700'}`}>
+                    {note.type === 'CREDIT' ? '-' : '+'} {formatCurrency(note.amount)}
+                  </span>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                  <button
+                    onClick={() => { setSelectedNote(note); setActiveView('VIEW'); }}
+                    className="flex-1 flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white py-2 px-3 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
+                  >
+                    Print/View
+                  </button>
+                  <button
+                    onClick={() => handleDelete(note.id, note.noteNumber)}
+                    className="flex items-center justify-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 py-2 px-3 rounded-xl text-xs font-bold transition-all active:scale-95 border border-red-200"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* 2. Tablet & Desktop Table View (hidden on mobile, visible on md and up) */}
+        <div className="hidden md:block table-responsive-wrapper rounded-xl">
+          <table className="w-full text-left min-w-[760px]">
           <thead className="bg-gray-50 text-xs font-black text-gray-500 uppercase tracking-widest border-b">
             <tr>
               <th className="px-6 py-4">Voucher No</th>
@@ -885,6 +963,7 @@ const AdjustmentsManagement: React.FC<AdjustmentsManagementProps> = ({
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

@@ -44,7 +44,9 @@ import {
   ExternalLink,
   Navigation,
   LayoutDashboard,
-  Receipt
+  Receipt,
+  Phone,
+  MapPin
 } from 'lucide-react';
 import { generateId, generateAwbNumber, getCarrierTrackingUrl, prepareInvoiceForSupabase, hydrateInvoiceFromStorage, sortInvoicesByNewestCreated } from './utils';
 
@@ -310,6 +312,7 @@ const App: React.FC = () => {
     let prevIsMobileOrShort = typeof window !== 'undefined' ? (window.innerWidth < 1280 || window.innerHeight <= 800) : false;
 
     const handleResize = () => {
+      if (typeof window === 'undefined') return;
       const current = window.innerWidth < 1280 || window.innerHeight <= 800;
       setIsMobileOrShort(current);
       // When viewport becomes mobile or short-screen, automatically minimize sidebar
@@ -319,11 +322,32 @@ const App: React.FC = () => {
       prevIsMobileOrShort = current;
     };
 
+    const handleOrientationChange = () => {
+      // Mobile browsers (iOS Safari & Chrome) recalculate viewport dimensions over multiple frames
+      handleResize();
+      setTimeout(handleResize, 50);
+      setTimeout(handleResize, 150);
+      setTimeout(() => {
+        handleResize();
+        // Dispatch window resize event so Recharts and canvas elements recompute widths/heights
+        window.dispatchEvent(new Event('resize'));
+      }, 300);
+    };
+
     window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', handleResize);
+    window.addEventListener('orientationchange', handleOrientationChange);
+
+    // Also listen to modern screen.orientation if available
+    if (typeof window !== 'undefined' && window.screen && window.screen.orientation) {
+      window.screen.orientation.addEventListener('change', handleOrientationChange);
+    }
+
     return () => {
       window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
+      window.removeEventListener('orientationchange', handleOrientationChange);
+      if (typeof window !== 'undefined' && window.screen && window.screen.orientation) {
+        window.screen.orientation.removeEventListener('change', handleOrientationChange);
+      }
     };
   }, []);
 
@@ -1733,12 +1757,12 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="mb-6 flex justify-between items-center no-print">
+                <div className="mb-6 flex flex-wrap justify-between items-center gap-3 no-print">
                   <h3 className="font-black text-gray-900 flex items-center gap-2 uppercase tracking-widest text-sm">
                     <Truck size={18} className="text-orange-500" />
                     Transaction History
                   </h3>
-                  <div className="flex items-center gap-6">
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-6">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
@@ -1807,7 +1831,8 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                <table className="w-full text-left">
+                <div className="table-responsive-wrapper rounded-xl border border-gray-100">
+                  <table className="w-full text-left min-w-[750px]">
                   <thead>
                     <tr className="bg-slate-900 text-white">
                       <th className="px-4 py-4 no-print w-10">
@@ -1973,6 +1998,7 @@ const App: React.FC = () => {
                     )}
                   </tfoot>
                 </table>
+              </div>
 
                 {(includeVendorCreditNotes || includeVendorDebitNotes) && availableVendorNotes.length > 0 && (
                   <div className="mt-8 pt-8 border-t border-gray-100">
@@ -1990,7 +2016,8 @@ const App: React.FC = () => {
                         {selectedVendorNoteIds.filter(id => availableVendorNotes.some(n => n.id === id)).length} of {availableVendorNotes.length} notes selected
                       </span>
                     </div>
-                    <table className="w-full text-left">
+                    <div className="table-responsive-wrapper rounded-xl border border-gray-100">
+                      <table className="w-full text-left min-w-[650px]">
                       <thead>
                         <tr className="bg-slate-900 text-white text-[10px] font-black uppercase">
                           <th className="px-4 py-3 no-print w-10">
@@ -2053,6 +2080,7 @@ const App: React.FC = () => {
                         })}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 )}
               </div>
@@ -2215,14 +2243,14 @@ const App: React.FC = () => {
 
         return (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <h2 className="text-2xl font-black text-gray-900 flex items-center gap-2">
                 <Truck className="text-orange-500" />
                 Vendor Management
               </h2>
               <button
                 onClick={() => { setIsAddingVendor(true); setEditingVendor(null); setNewVendor({}); }}
-                className="bg-orange-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-orange-700 transition-all shadow-md flex items-center gap-2"
+                className="bg-orange-600 text-white px-5 sm:px-6 py-2.5 rounded-xl font-bold hover:bg-orange-700 transition-all shadow-md flex items-center gap-2 active:scale-95"
               >
                 <PlusCircle size={20} /> Add New Vendor
               </button>
@@ -2287,29 +2315,119 @@ const App: React.FC = () => {
               </div>
             )}
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-              <table className="w-full text-left">
+            {/* 1. Mobile Adaptive Card List View (< 768px / md:hidden) - 100% visible, zero horizontal cutoff */}
+            <div className="md:hidden space-y-3">
+              {filteredVendors.length === 0 ? (
+                <div className="bg-white rounded-2xl p-10 text-center text-gray-400 border border-gray-100 shadow-sm">
+                  <Truck size={36} className="mx-auto text-gray-300 mb-2" />
+                  <p className="font-bold text-sm text-gray-700">No vendors found</p>
+                  <p className="text-xs text-gray-400 mt-1">Try a different search or add a new vendor</p>
+                </div>
+              ) : (
+                filteredVendors.map(v => {
+                  const payable = invoices
+                    .filter(inv => inv.vendorId === v.id)
+                    .reduce((s, i) => s + (i.vendorStatus === 'PAID' ? 0 : (i.vendorStatus === 'PARTIAL' ? Math.max(0, i.vendorCost - (i.vendorPaidAmount || 0)) : i.vendorCost)), 0);
+
+                  return (
+                    <div key={v.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3 hover:border-orange-200 transition-all">
+                      {/* Top Row: Avatar + Name + TRN badge */}
+                      <div className="flex items-start justify-between gap-2.5">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 bg-orange-100 text-orange-700 shadow-sm">
+                            {v.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-gray-900 text-sm leading-snug break-words">{v.name}</p>
+                            {v.vatNumber ? (
+                              <span className="inline-block text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 mt-0.5">
+                                TRN: {v.vatNumber}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-gray-400">No TRN registered</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Contact & Address */}
+                      <div className="pt-2 border-t border-gray-100 space-y-1.5 text-xs">
+                        <div className="flex items-center gap-2 text-gray-700">
+                          <Phone size={13} className="text-orange-500 shrink-0" />
+                          <span className="font-medium truncate">{v.contact}</span>
+                        </div>
+                        <div className="flex items-start gap-2 text-gray-500">
+                          <MapPin size={13} className="text-gray-400 shrink-0 mt-0.5" />
+                          <span className="text-[11px] leading-relaxed break-words">{v.address}</span>
+                        </div>
+                      </div>
+
+                      {/* Total Payable Balance */}
+                      <div className="flex items-center justify-between pt-2.5 border-t border-gray-100 text-xs">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Payable</span>
+                        <span className={`font-black text-sm sm:text-base ${payable > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                          {payable.toFixed(2)} AED
+                        </span>
+                      </div>
+
+                      {/* Action Buttons: Full-width, Touch-friendly */}
+                      <div className="flex items-center gap-2 pt-2.5 border-t border-gray-100">
+                        <button
+                          onClick={() => openVendorStatement(v)}
+                          className="flex-1 flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white py-2 px-3 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
+                          title="View Statement"
+                        >
+                          <FileText size={15} className="text-orange-400" />
+                          <span>Statement</span>
+                        </button>
+                        <button
+                          onClick={(e) => handleEditVendor(v, e)}
+                          className="flex items-center justify-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 px-3.5 rounded-xl text-xs font-bold transition-all active:scale-95 border border-blue-200"
+                          title="Edit Vendor"
+                        >
+                          <Edit size={14} />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          onClick={(e) => handleDeleteVendor(v.id, e)}
+                          className="flex items-center justify-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 py-2 px-3 rounded-xl text-xs font-bold transition-all active:scale-95 border border-red-200"
+                          title="Delete Vendor"
+                        >
+                          <X size={14} />
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* 2. Tablet & Desktop Table View (hidden on mobile, visible on md and up) */}
+            <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-100">
+              <div className="table-responsive-wrapper rounded-xl">
+                <table className="w-full text-left min-w-[700px]">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
-                    <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Vendor Name</th>
-                    <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Contact</th>
-                    <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Address</th>
-                    <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">VAT/TRN</th>
-                    <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest text-right">Total Payable</th>
-                    <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest text-right">Actions</th>
+                    <th className="px-5 lg:px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Vendor Name</th>
+                    <th className="px-5 lg:px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Contact</th>
+                    <th className="px-5 lg:px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Address</th>
+                    <th className="px-5 lg:px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">VAT/TRN</th>
+                    <th className="px-5 lg:px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest text-right">Total Payable</th>
+                    <th className="px-5 lg:px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredVendors.map(v => {
                     const payable = invoices.filter(inv => inv.vendorId === v.id).reduce((s, i) => s + (i.vendorStatus === 'PAID' ? 0 : (i.vendorStatus === 'PARTIAL' ? Math.max(0, i.vendorCost - (i.vendorPaidAmount || 0)) : i.vendorCost)), 0);
                     return (
-                      <tr key={v.id} className="group">
-                        <td className="px-6 py-4 font-bold">{v.name}</td>
-                        <td className="px-6 py-4 text-gray-600">{v.contact}</td>
-                        <td className="px-6 py-4 text-xs text-gray-500">{v.address}</td>
-                        <td className="px-6 py-4 text-xs font-bold text-gray-700">{v.vatNumber || '-'}</td>
-                        <td className="px-6 py-4 text-right font-black text-red-600">{payable.toFixed(2)} AED</td>
-                        <td className="px-6 py-4 text-right">
+                      <tr key={v.id} className="group hover:bg-amber-50/30 transition-colors">
+                        <td className="px-5 lg:px-6 py-4 font-bold">{v.name}</td>
+                        <td className="px-5 lg:px-6 py-4 text-gray-600">{v.contact}</td>
+                        <td className="px-5 lg:px-6 py-4 text-xs text-gray-500">{v.address}</td>
+                        <td className="px-5 lg:px-6 py-4 text-xs font-bold text-gray-700">{v.vatNumber || '-'}</td>
+                        <td className="px-5 lg:px-6 py-4 text-right font-black text-red-600">{payable.toFixed(2)} AED</td>
+                        <td className="px-5 lg:px-6 py-4 text-right">
                           <div className="flex justify-end gap-2">
                             <button
                               onClick={() => openVendorStatement(v)}
@@ -2339,6 +2457,7 @@ const App: React.FC = () => {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         );
@@ -2422,7 +2541,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen min-h-[100dvh] w-full flex flex-col flex-1">
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -2433,7 +2552,7 @@ const App: React.FC = () => {
         onLogout={handleLogout}
       />
 
-      <main className={`min-h-screen relative overflow-hidden transition-[padding] duration-300 ease-out ${(!isMobileOrShort && isSidebarOpen) ? 'xl:pl-72' : 'pl-0'} ${activeTab === 'view-invoice' ? 'bg-white text-gray-900' : 'crm-black-orange-bg text-white'}`}>
+      <main className={`min-h-screen min-h-[100dvh] w-full flex flex-col flex-1 relative overflow-x-hidden transition-[padding] duration-300 ease-out ${(!isMobileOrShort && isSidebarOpen) ? 'xl:pl-72' : 'pl-0'} ${activeTab === 'view-invoice' ? 'bg-white text-gray-900' : 'crm-black-orange-bg text-white'}`}>
         {/* Oversized Blurred Orange Gradient Circles & Soft Glowing Ambient Light Effects Behind Glass Panels */}
         <div className={`fixed inset-0 pointer-events-none z-0 overflow-hidden select-none transition-[padding] duration-300 ease-out ${(!isMobileOrShort && isSidebarOpen) ? 'xl:pl-72' : 'pl-0'}`}>
           {/* Orb 1: Warm Orange & Amber Ambient Halo (Top Left) */}
@@ -2572,7 +2691,7 @@ const App: React.FC = () => {
           onNavigate={setActiveTab}
         />
 
-        <div className="p-3 sm:p-4 lg:p-6 pb-24 md:pb-6 max-w-full relative z-10">
+        <div className="p-3 sm:p-4 lg:p-6 pb-24 md:pb-6 max-w-full relative z-10 min-w-0 flex-1 w-full">
           {renderContent()}
         </div>
       </main>

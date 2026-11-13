@@ -279,12 +279,12 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
             </div>
           </div>
 
-          <div className="mb-6 flex justify-between items-center no-print">
+          <div className="mb-6 flex flex-wrap justify-between items-center gap-3 no-print">
             <h3 className="font-black text-gray-900 flex items-center gap-2 uppercase tracking-widest text-sm">
               <FileText size={18} className="text-orange-500" />
               Invoice History
             </h3>
-            <div className="flex items-center gap-6">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-6">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -359,7 +359,8 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
             </div>
           </div>
 
-          <table className="w-full text-left">
+          <div className="table-responsive-wrapper rounded-xl border border-gray-100">
+            <table className="w-full text-left min-w-[650px]">
             <thead>
               <tr className="bg-slate-900 text-white">
                 <th className="px-6 py-4 no-print w-10">
@@ -505,6 +506,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
               </tr>
             </tfoot>
           </table>
+        </div>
 
           {(includeCreditNotes || includeDebitNotes) && availableNotes.length > 0 && (
             <div className="mt-8 pt-8 border-t border-gray-100">
@@ -522,7 +524,8 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
                   {selectedNoteIds.filter(id => availableNotes.some(n => n.id === id)).length} of {availableNotes.length} notes selected
                 </span>
               </div>
-              <table className="w-full text-left">
+              <div className="table-responsive-wrapper rounded-xl border border-gray-100">
+                <table className="w-full text-left min-w-[650px]">
                 <thead>
                   <tr className="bg-slate-900 text-white text-[10px] font-black uppercase">
                     <th className="px-6 py-3 no-print w-10">
@@ -586,6 +589,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
                 </tbody>
               </table>
             </div>
+          </div>
           )}
         </div>
       </div>
@@ -600,6 +604,74 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
   const countForFilter =
     activeFilter === 'COMMERCIAL' ? commercialCount :
     activeFilter === 'ONE_TIME'   ? oneTimeCount    : customers.length;
+
+  const renderAddForm = () => (
+    <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-xl border-2 border-orange-500 animate-in fade-in slide-in-from-top-4">
+      <div className="flex items-center gap-2 mb-4">
+        {newCustomer.type === 'CREDIT'
+          ? <Building2 size={20} className="text-purple-600" />
+          : <UserCheck size={20} className="text-blue-600" />
+        }
+        <h3 className="text-base sm:text-lg font-black">
+          {editingCustomer
+            ? 'Edit Customer'
+            : newCustomer.type === 'CREDIT'
+              ? 'Add Commercial Client'
+              : 'Add One-Time Customer'
+          }
+        </h3>
+      </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <input
+          placeholder="Full Legal Name"
+          required
+          className={inputClass}
+          value={newCustomer.name || ''}
+          onChange={e => setNewCustomer({ ...newCustomer, name: e.target.value })}
+        />
+        <select
+          className={inputClass}
+          value={newCustomer.type || 'ONE_TIME'}
+          onChange={e => setNewCustomer({ ...newCustomer, type: e.target.value as any })}
+        >
+          <option value="ONE_TIME" className="bg-white">One-Time Customer</option>
+          <option value="CREDIT" className="bg-white">Commercial / Credit Client</option>
+        </select>
+        <textarea
+          placeholder="Complete Address"
+          required
+          className={`${inputClass} h-24`}
+          value={newCustomer.address || ''}
+          onChange={e => setNewCustomer({ ...newCustomer, address: e.target.value })}
+        />
+        <input
+          placeholder="Contact Number"
+          required
+          className={inputClass}
+          value={newCustomer.contact || ''}
+          onChange={e => setNewCustomer({ ...newCustomer, contact: e.target.value })}
+        />
+        <input
+          placeholder="VAT/TRN Number (Optional)"
+          className={inputClass}
+          value={newCustomer.vatNumber || ''}
+          onChange={e => setNewCustomer({ ...newCustomer, vatNumber: e.target.value })}
+        />
+        <div className="flex gap-2 pt-2">
+          <button type="submit" className="flex-1 bg-orange-600 text-white font-black py-3 rounded-xl hover:bg-orange-700 transition-colors shadow-md">
+            {editingCustomer ? 'Update Profile' : 'Save Profile'}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setIsAdding(false); setEditingCustomer(null); setNewCustomer({ type: 'ONE_TIME' }); }}
+            className="flex-1 bg-amber-100 text-amber-800 font-bold py-3 rounded-xl hover:bg-amber-200 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -716,11 +788,18 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
       </div>
 
       {/* ── Main Grid ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Customer Table */}
-        <div className="md:col-span-2 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Customer Table & Mobile List View */}
+        <div className="lg:col-span-2 min-w-0 space-y-4">
+          {/* Mobile Add/Edit Form (Appears at top on mobile/tablet screens when active) */}
+          {isAdding && (
+            <div className="lg:hidden">
+              {renderAddForm()}
+            </div>
+          )}
+
           {/* Filter label */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2.5">
             <div className="flex items-center gap-2">
               <span className="text-sm font-black text-gray-700">
                 {activeFilter === 'ALL' ? 'All Clients' : activeFilter === 'COMMERCIAL' ? 'Commercial Clients' : 'One-Time Customers'}
@@ -729,30 +808,119 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
                 {filteredCustomers.length}
               </span>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-1.5 sm:gap-2">
               <button
                 onClick={() => setActiveFilter('ALL')}
-                className={`text-[11px] font-black px-3 py-1.5 rounded-full transition-all ${activeFilter === 'ALL' ? 'bg-slate-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                className={`text-[11px] font-black px-3 py-1.5 rounded-full transition-all ${activeFilter === 'ALL' ? 'bg-slate-900 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
               >All</button>
               <button
                 onClick={() => setActiveFilter('COMMERCIAL')}
-                className={`text-[11px] font-black px-3 py-1.5 rounded-full transition-all ${activeFilter === 'COMMERCIAL' ? 'bg-purple-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-700'}`}
+                className={`text-[11px] font-black px-3 py-1.5 rounded-full transition-all ${activeFilter === 'COMMERCIAL' ? 'bg-purple-700 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-700'}`}
               >Commercial</button>
               <button
                 onClick={() => setActiveFilter('ONE_TIME')}
-                className={`text-[11px] font-black px-3 py-1.5 rounded-full transition-all ${activeFilter === 'ONE_TIME' ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-700'}`}
+                className={`text-[11px] font-black px-3 py-1.5 rounded-full transition-all ${activeFilter === 'ONE_TIME' ? 'bg-blue-700 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-700'}`}
               >One-Time</button>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <table className="w-full text-left">
+          {/* 1. Mobile Adaptive Card List View (< 768px / md:hidden) - 100% visible, zero horizontal cutoff */}
+          <div className="md:hidden space-y-3">
+            {filteredCustomers.length === 0 ? (
+              <div className="bg-white rounded-2xl p-10 text-center text-gray-400 border border-gray-100 shadow-sm">
+                <Users size={36} className="mx-auto text-gray-300 mb-2" />
+                <p className="font-bold text-sm text-gray-700">No clients found</p>
+                <p className="text-xs text-gray-400 mt-1">Try a different filter or add a new client</p>
+              </div>
+            ) : (
+              filteredCustomers.map(c => {
+                const stats = getCustomerStats(c.id);
+                return (
+                  <div key={c.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3 hover:border-orange-200 transition-all">
+                    {/* Top Row: Avatar + Name + Contact + Type Badge */}
+                    <div className="flex items-start justify-between gap-2.5">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 shadow-sm ${
+                          c.type === 'CREDIT' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {c.name.charAt(0)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-gray-900 text-sm leading-snug break-words">{c.name}</p>
+                          <p className="text-xs text-gray-500 font-medium mt-0.5">{c.contact}</p>
+                        </div>
+                      </div>
+                      <span className={`text-[9px] font-black px-2.5 py-1 rounded-full uppercase shrink-0 border ${
+                        c.type === 'CREDIT' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-blue-50 text-blue-700 border-blue-200'
+                      }`}>
+                        {c.type === 'CREDIT' ? 'Commercial' : 'One-Time'}
+                      </span>
+                    </div>
+
+                    {/* Middle Row: Invoices Count & Outstanding Balance */}
+                    <div className="flex items-center justify-between pt-2.5 border-t border-gray-100 text-xs">
+                      <div className="flex items-center gap-1.5 text-gray-600">
+                        <span className="font-bold text-gray-400 uppercase text-[10px] tracking-wider">Invoices:</span>
+                        <span className="font-black px-2 py-0.5 rounded-md bg-gray-100 text-gray-800">{stats.count}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Outstanding</span>
+                        <span className="font-black text-sm sm:text-base text-orange-600">{formatCurrency(stats.outstanding)}</span>
+                        {stats.hasAdjustments && (
+                          <div className="text-[9.5px] font-bold mt-0.5 space-x-1">
+                            {stats.totalCredits > 0 && <span className="text-green-600">-{formatCurrency(stats.totalCredits)} Cr</span>}
+                            {stats.totalDebits > 0 && <span className="text-red-600">+{formatCurrency(stats.totalDebits)} Dr</span>}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Bottom Row: Actions (Full width, responsive touch targets) */}
+                    <div className="flex items-center gap-2 pt-2.5 border-t border-gray-100">
+                      <button
+                        onClick={() => openCustomerStatement(c)}
+                        className="flex-1 flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white py-2 px-3 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
+                        title="View Statement"
+                      >
+                        <FileText size={15} className="text-orange-400" />
+                        <span>Statement</span>
+                      </button>
+                      <button
+                        onClick={(e) => handleEditClick(c, e)}
+                        className="flex items-center justify-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 px-3.5 rounded-xl text-xs font-bold transition-all active:scale-95 border border-blue-200"
+                        title="Edit Client"
+                      >
+                        <Edit size={14} />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(c.id);
+                        }}
+                        className="flex items-center justify-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 py-2 px-3 rounded-xl text-xs font-bold transition-all active:scale-95 border border-red-200"
+                        title="Delete Client"
+                      >
+                        <Trash2 size={14} />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* 2. Desktop & Tablet Table View (hidden on mobile, visible on md and up) */}
+          <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-100">
+            <div className="table-responsive-wrapper rounded-xl">
+              <table className="w-full text-left min-w-[640px]">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Client Name</th>
-                  <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Type</th>
-                  <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest text-right">Invoices</th>
-                  <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest text-right">Outstanding</th>
+                  <th className="px-5 lg:px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Client Name</th>
+                  <th className="px-5 lg:px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest">Type</th>
+                  <th className="px-5 lg:px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest text-right">Invoices</th>
+                  <th className="px-5 lg:px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-widest text-right">Outstanding</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -771,7 +939,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
                     const stats = getCustomerStats(c.id);
                     return (
                       <tr key={c.id} className="hover:bg-amber-50/30 transition-colors group">
-                        <td className="px-6 py-5">
+                        <td className="px-5 lg:px-6 py-5">
                           <div className="flex items-center gap-3">
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${c.type === 'CREDIT' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
                               {c.name.charAt(0)}
@@ -782,14 +950,14 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-5">
+                        <td className="px-5 lg:px-6 py-5">
                           <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase ${c.type === 'CREDIT' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                             {c.type === 'CREDIT' ? 'Commercial' : 'One-Time'}
                           </span>
                         </td>
-                        <td className="px-6 py-5 text-right font-bold text-gray-600">{stats.count}</td>
-                        <td className="px-6 py-5 text-right font-black text-orange-600">
-                          <div className="flex items-center justify-end gap-3 text-right">
+                        <td className="px-5 lg:px-6 py-5 text-right font-bold text-gray-600">{stats.count}</td>
+                        <td className="px-5 lg:px-6 py-5 text-right font-black text-orange-600">
+                          <div className="flex items-center justify-end gap-2.5 lg:gap-3 text-right">
                             <div>
                               <span className="block font-black">{formatCurrency(stats.outstanding)}</span>
                               {stats.hasAdjustments && (
@@ -831,77 +999,16 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ customers, invo
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
 
         {/* Sidebar */}
         <div className="space-y-5">
-          {/* Add Form */}
+          {/* Add Form (Desktop Sidebar) */}
           {isAdding && (
-            <div className="bg-white p-6 rounded-xl shadow-xl border-2 border-orange-500 animate-in fade-in slide-in-from-right-4">
-              <div className="flex items-center gap-2 mb-4">
-                {newCustomer.type === 'CREDIT'
-                  ? <Building2 size={20} className="text-purple-600" />
-                  : <UserCheck size={20} className="text-blue-600" />
-                }
-                <h3 className="text-lg font-black">
-                  {editingCustomer
-                    ? 'Edit Customer'
-                    : newCustomer.type === 'CREDIT'
-                      ? 'Add Commercial Client'
-                      : 'Add One-Time Customer'
-                  }
-                </h3>
-              </div>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <input
-                  placeholder="Full Legal Name"
-                  required
-                  className={inputClass}
-                  value={newCustomer.name || ''}
-                  onChange={e => setNewCustomer({ ...newCustomer, name: e.target.value })}
-                />
-                <select
-                  className={inputClass}
-                  value={newCustomer.type || 'ONE_TIME'}
-                  onChange={e => setNewCustomer({ ...newCustomer, type: e.target.value as any })}
-                >
-                  <option value="ONE_TIME" className="bg-white">One-Time Customer</option>
-                  <option value="CREDIT" className="bg-white">Commercial / Credit Client</option>
-                </select>
-                <textarea
-                  placeholder="Complete Address"
-                  required
-                  className={`${inputClass} h-24`}
-                  value={newCustomer.address || ''}
-                  onChange={e => setNewCustomer({ ...newCustomer, address: e.target.value })}
-                />
-                <input
-                  placeholder="Contact Number"
-                  required
-                  className={inputClass}
-                  value={newCustomer.contact || ''}
-                  onChange={e => setNewCustomer({ ...newCustomer, contact: e.target.value })}
-                />
-                <input
-                  placeholder="VAT/TRN Number (Optional)"
-                  className={inputClass}
-                  value={newCustomer.vatNumber || ''}
-                  onChange={e => setNewCustomer({ ...newCustomer, vatNumber: e.target.value })}
-                />
-                <div className="flex gap-2 pt-2">
-                  <button type="submit" className="flex-1 bg-orange-600 text-white font-black py-3 rounded-lg hover:bg-orange-700 transition-colors">
-                    {editingCustomer ? 'Update Profile' : 'Save Profile'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setIsAdding(false); setEditingCustomer(null); setNewCustomer({ type: 'ONE_TIME' }); }}
-                    className="flex-1 bg-amber-100 text-amber-800 font-bold py-3 rounded-lg hover:bg-amber-200 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
+            <div className="hidden lg:block">
+              {renderAddForm()}
             </div>
           )}
 
