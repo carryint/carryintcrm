@@ -11,6 +11,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     html {
+      width: 100%;
+      min-width: 100%;
+      min-height: 100%;
+      min-height: 100vh;
+      min-height: 100dvh;
+      min-height: -webkit-fill-available;
       font-size: 14.5px;
       -webkit-text-size-adjust: 100%;
       text-size-adjust: 100%;
@@ -18,9 +24,26 @@
       -moz-osx-font-smoothing: grayscale;
     }
     body {
+      width: 100%;
+      min-width: 100%;
+      min-height: 100%;
+      min-height: 100vh;
+      min-height: 100dvh;
+      min-height: -webkit-fill-available;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       overflow-x: hidden;
-      touch-action: manipulation;
+      overflow-y: auto;
+      touch-action: pan-y pinch-zoom;
+    }
+    #root {
+      width: 100%;
+      min-width: 100%;
+      min-height: 100%;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
     }
 
     /* Prevent mobile browser & iOS Safari auto-zoom on input focus / typing */
@@ -259,8 +282,50 @@
       background: rgba(249, 115, 22, 0.55);
     }
 
-    /* Short screen height optimizations (e.g. laptops <= 780px height, mobile landscape) */
-    @media screen and (max-height: 780px) {
+    /* ─────────────────────────────────────────────────────────────
+       SMOOTH RESPONSIVE TOUCH & SWIPE DATA TABLE WRAPPERS
+       Ensures tables scroll/swipe horizontally across all mobile devices
+       ───────────────────────────────────────────────────────────── */
+    .table-responsive-wrapper {
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      -webkit-overflow-scrolling: touch !important;
+      touch-action: pan-x pan-y !important;
+      position: relative;
+      overscroll-behavior-x: contain;
+      display: block;
+    }
+    .table-responsive-wrapper::-webkit-scrollbar {
+      height: 6px;
+      display: block !important;
+    }
+    .table-responsive-wrapper::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 4px;
+    }
+    .table-responsive-wrapper::-webkit-scrollbar-thumb {
+      background: rgba(249, 115, 22, 0.55);
+      border-radius: 4px;
+    }
+    .table-responsive-wrapper::-webkit-scrollbar-thumb:hover {
+      background: rgba(234, 88, 12, 0.85);
+    }
+
+    /* Mobile touch devices: background attachment scroll to prevent Safari iOS blank screen */
+    @media (hover: none) and (pointer: coarse) {
+      .crm-black-orange-bg {
+        background-attachment: scroll !important;
+      }
+    }
+
+    /* ─────────────────────────────────────────────────────────────
+       MOBILE HORIZONTAL / LANDSCAPE VIEWPORT & SHORT-SCREEN RULES
+       Prevents blank / collapsed screens on mobile rotation, recalculates
+       layout dimensions dynamically, and maintains vertical scrollability
+       ───────────────────────────────────────────────────────────── */
+    @media screen and (orientation: landscape), screen and (max-height: 800px) {
       .short-screen-compact {
         padding-top: 0.35rem !important;
         padding-bottom: 0.35rem !important;
@@ -273,6 +338,92 @@
       .short-screen-footer {
         padding-top: 0.5rem !important;
         padding-bottom: 0.5rem !important;
+      }
+
+      /* Force background to scroll instead of fixed on mobile landscape to prevent WebKit blank screen */
+      .crm-black-orange-bg {
+        background-attachment: scroll !important;
+        background-size: cover !important;
+        min-height: 100% !important;
+        min-height: 100vh !important;
+        min-height: 100dvh !important;
+      }
+
+      /* Root container layout elasticity in landscape */
+      html, body {
+        height: auto !important;
+        min-height: 100% !important;
+        min-height: 100vh !important;
+        min-height: 100dvh !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+      }
+
+      #root {
+        height: auto !important;
+        min-height: 100vh !important;
+        min-height: 100dvh !important;
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        overflow-x: hidden !important;
+        overflow-y: visible !important;
+      }
+
+      /* Main container must not be restricted or overflow-hidden in landscape */
+      main, main.min-h-screen {
+        height: auto !important;
+        min-height: 100vh !important;
+        min-height: 100dvh !important;
+        display: flex !important;
+        flex-direction: column !important;
+        flex: 1 1 auto !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        overflow-y: visible !important;
+      }
+
+      /* Compact header in landscape to maximize vertical content visibility */
+      header, header.h-14, header.sm\:h-16 {
+        height: 48px !important;
+        min-height: 48px !important;
+        padding-top: max(0.25rem, env(safe-area-inset-top)) !important;
+        padding-bottom: 0.25rem !important;
+        padding-left: max(0.75rem, env(safe-area-inset-left)) !important;
+        padding-right: max(0.75rem, env(safe-area-inset-right)) !important;
+      }
+
+      /* Dashboard and module containers must allow vertical growth without clipping */
+      [class*="min-h-[calc(100vh"],
+      [class*="min-h-[calc(100dvh"] {
+        min-height: auto !important;
+        height: auto !important;
+        overflow-y: visible !important;
+      }
+
+      /* Ensure grid containers adapt without squishing or zero-dimension collapse */
+      .grid {
+        min-width: 0 !important;
+        min-height: 0 !important;
+      }
+
+      /* Flex items prevent zero-dimension collapse */
+      .flex-1 {
+        min-height: 0 !important;
+        min-width: 0 !important;
+      }
+
+      /* Content container safe padding */
+      main > div.relative.z-10 {
+        padding-bottom: max(5rem, env(safe-area-inset-bottom)) !important;
+      }
+
+      /* Mobile bottom nav in landscape */
+      nav[aria-label="Mobile Navigation Bar"] {
+        padding-bottom: max(0.35rem, env(safe-area-inset-bottom)) !important;
+        padding-top: 0.25rem !important;
       }
     }
     
@@ -485,7 +636,7 @@
     }
   </style>
 
-  <script type="module" crossorigin src="./assets/index-DlAc2ePk.js"></script>
+  <script type="module" crossorigin src="./assets/index-XeItEGxx.js"></script>
 </head>
 
 <body class="crm-black-orange-bg text-white min-h-screen">
